@@ -1,0 +1,147 @@
+---
+// Typefaces. Pretendard is a variable font with a dynamic subset, so a page
+// only downloads the Hangul blocks that actually appear on it.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+import '@fontsource-variable/jetbrains-mono';
+
+import '../styles/base.css';
+import '../styles/lab.css';
+import 'katex/dist/katex.min.css';
+
+import { t } from '../lib/i18n/ui';
+import { docHref, OTHER_LOCALE, type Locale } from '../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** Document id, so the language switch lands on the same document */
+  docId?: string;
+  wide?: boolean;
+}
+
+const { locale, title, description, docId = '' } = Astro.props;
+const ui = t(locale);
+const other = OTHER_LOCALE[locale];
+const fullTitle = title === ui.siteTitle ? title : `${title} — ${ui.siteTitle}`;
+---
+
+<html lang={locale === 'ko' ? 'ko-KR' : 'en'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="alternate" hreflang={other} href={docHref(other, docId)} />
+    <link rel="alternate" hreflang={locale} href={docHref(locale, docId)} />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%E2%88%91%3C/text%3E%3C/svg%3E"
+    />
+    {/* The theme has to be settled before paint, or the page flashes once. */}
+    <script is:inline>
+      try {
+        const saved = localStorage.getItem('llmvl-theme');
+        if (saved === 'dark' || saved === 'light') {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (e) {
+        /* If storage cannot be read, the system setting still applies */
+      }
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">{ui.skipToContent}</a>
+
+    <div class="site">
+      <header class="masthead">
+        <div class="masthead__bar">
+          <a class="masthead__brand" href={docHref(locale, '')}>{ui.siteTitle}</a>
+          <span class="masthead__spacer"></span>
+          <div class="masthead__tools">
+            <a class="masthead__contents" href="#doc-nav">{ui.nav.contents}</a>
+            <a class="lang-switch" href={docHref(other, docId)} lang={other} hreflang={other}>
+              <span class="visually-hidden">{ui.language.label}: </span>
+              {other === 'ko' ? ui.language.ko : ui.language.en}
+            </a>
+            <div class="segmented theme-toggle" role="group" aria-label={ui.theme.label}>
+              <button type="button" data-theme-set="light" aria-pressed="false">
+                <span aria-hidden="true">☀</span>
+                <span class="visually-hidden">{ui.theme.light}</span>
+              </button>
+              <button type="button" data-theme-set="system" aria-pressed="false">
+                <span aria-hidden="true">◐</span>
+                <span class="visually-hidden">{ui.theme.system}</span>
+              </button>
+              <button type="button" data-theme-set="dark" aria-pressed="false">
+                <span aria-hidden="true">☾</span>
+                <span class="visually-hidden">{ui.theme.dark}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <slot />
+
+      <footer class="site-footer">
+        <div class="site-footer__inner">
+          <span>{ui.footer.scopeNote}</span>
+          <span>
+            {ui.footer.sourceNote}{' '}
+            <a href="https://arxiv.org/abs/1706.03762" rel="noopener">{ui.footer.paperLink}</a>
+          </span>
+        </div>
+      </footer>
+    </div>
+
+    <script is:inline>
+      (() => {
+        const KEY = 'llmvl-theme';
+        const root = document.documentElement;
+        const buttons = document.querySelectorAll('[data-theme-set]');
+
+        const current = () => {
+          try {
+            return localStorage.getItem(KEY) || 'system';
+          } catch (e) {
+            return root.dataset.theme || 'system';
+          }
+        };
+
+        const paint = () => {
+          const now = current();
+          buttons.forEach((b) => {
+            b.setAttribute('aria-pressed', String(b.dataset.themeSet === now));
+          });
+        };
+
+        buttons.forEach((b) => {
+          b.addEventListener('click', () => {
+            const choice = b.dataset.themeSet;
+            if (choice === 'system') {
+              delete root.dataset.theme;
+              try {
+                localStorage.removeItem(KEY);
+              } catch (e) {
+                /* Even if it cannot be stored, it still applies to this visit */
+              }
+            } else {
+              root.dataset.theme = choice;
+              try {
+                localStorage.setItem(KEY, choice);
+              } catch (e) {
+                /* as above */
+              }
+            }
+            paint();
+          });
+        });
+
+        paint();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,113 @@
+---
+/**
+ * The learning-rate schedule of equation (3), plotted.
+ *
+ * Both axes are logarithmic, which is what turns the formula into two straight
+ * lines meeting at the warm-up step — the shape the prose describes.
+ * Every point is computed by `learningRate`.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { learningRate } from '../../lib/math/training';
+import { SCHEDULE } from '../../lib/math/examples';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const { dModel, warmupSteps } = SCHEDULE;
+const MIN_STEP = 100;
+const MAX_STEP = 200000;
+
+const PAD_L = 74;
+const PAD_R = 28;
+const PAD_T = 40;
+const H = 250;
+const W = 680;
+const plotW = W - PAD_L - PAD_R;
+const plotH = H - PAD_T - 58;
+
+const rateAt = (step: number) => learningRate(step, dModel, warmupSteps).rate;
+const peak = rateAt(warmupSteps);
+const minRate = Math.min(rateAt(MIN_STEP), rateAt(MAX_STEP));
+
+const lx = (step: number) =>
+  PAD_L + ((Math.log10(step) - Math.log10(MIN_STEP)) / (Math.log10(MAX_STEP) - Math.log10(MIN_STEP))) * plotW;
+const ly = (rate: number) =>
+  PAD_T + plotH - ((Math.log10(rate) - Math.log10(minRate)) / (Math.log10(peak) - Math.log10(minRate))) * plotH;
+
+const samples: string[] = [];
+for (let s = 0; s <= 200; s++) {
+  const step = Math.pow(10, Math.log10(MIN_STEP) + (s / 200) * (Math.log10(MAX_STEP) - Math.log10(MIN_STEP)));
+  samples.push(`${s === 0 ? 'M' : 'L'} ${lx(step).toFixed(1)} ${ly(rateAt(step)).toFixed(1)}`);
+}
+
+const ticks = [100, 1000, 10000, 100000];
+const tickLabel = (s: number) => (s >= 1000 ? `${s / 1000}K` : `${s}`);
+const marks = [1000, warmupSteps, 100000];
+
+const L = ko
+  ? {
+      y: '학습률',
+      x: '학습 단계 (로그)',
+      warmup: `${warmupSteps / 1000}K 에서 꺾입니다`,
+      up: '올라가는 구간',
+      down: '내려가는 구간',
+      note: `양쪽 축이 로그라서 직선 두 개로 보입니다. 최고점은 ${peak.toExponential(2)} 입니다.`,
+      title: '학습률이 올라갔다 내려오는 모양',
+      desc: `가로축이 학습 단계, 세로축이 학습률이고 둘 다 로그 눈금입니다. 곡선은 왼쪽에서 올라가다가 ${warmupSteps} 단계에서 최고점 ${peak.toExponential(2)} 을 찍고, 그 뒤로는 단계의 제곱근에 반비례해 내려옵니다. 로그 눈금에서는 이 두 구간이 각각 직선으로 보이고, 둘이 만나는 자리가 정확히 warmup 단계입니다.`,
+    }
+  : {
+      y: 'learning rate',
+      x: 'training step (log)',
+      warmup: `it turns over at ${warmupSteps / 1000}K`,
+      up: 'climbing',
+      down: 'falling',
+      note: `both axes are logarithmic, which is why it reads as two straight lines. The peak is ${peak.toExponential(2)}.`,
+      title: 'The learning rate climbing and then falling',
+      desc: `Training step runs along the bottom and learning rate up the side, both on logarithmic scales. The curve climbs from the left, reaches its highest value of ${peak.toExponential(2)} at step ${warmupSteps}, and then falls away as one over the square root of the step. On logarithmic axes each of those two stretches is a straight line, and they meet exactly at the warm-up step.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="lrc-t lrc-d">
+  <title id="lrc-t">{L.title}</title>
+  <desc id="lrc-d">{L.desc}</desc>
+
+  {/* axes */}
+  <path class="tmap__line tmap__line--faint" d={`M ${PAD_L} ${PAD_T} V ${PAD_T + plotH} H ${W - PAD_R}`}></path>
+  <text class="tmap__note" x="12" y={PAD_T - 12}>{L.y}</text>
+  <text class="tmap__note" x={W - PAD_R} y={PAD_T + plotH + 40} text-anchor="end">{L.x}</text>
+
+  {
+    ticks.map((s) => (
+      <g>
+        <path class="tmap__line tmap__line--faint" d={`M ${lx(s)} ${PAD_T} V ${PAD_T + plotH}`} />
+        <text class="tmap__note" x={lx(s)} y={PAD_T + plotH + 18} text-anchor="middle">
+          {tickLabel(s)}
+        </text>
+      </g>
+    ))
+  }
+
+  {/* the warm-up step, where the min() changes hands */}
+  <path class="lrc__mark" d={`M ${lx(warmupSteps)} ${PAD_T - 6} V ${PAD_T + plotH}`}></path>
+  <text class="tmap__label--sm" x={lx(warmupSteps) + 10} y={PAD_T + 34}>{L.warmup}</text>
+
+  <path class="lrc__curve" d={samples.join(' ')}></path>
+
+  {
+    marks.map((s) => (
+      <g>
+        <circle class="lrc__dot" cx={lx(s)} cy={ly(rateAt(s))} r="4" />
+        <text class="tmap__note" x={lx(s)} y={ly(rateAt(s)) - 10} text-anchor="middle">
+          {rateAt(s).toExponential(1)}
+        </text>
+      </g>
+    ))
+  }
+
+  <text class="tmap__note" x={lx(400)} y={ly(rateAt(400)) + 26}>{L.up}</text>
+  <text class="tmap__note" x={lx(40000)} y={ly(rateAt(40000)) + 26}>{L.down}</text>
+  <text class="tmap__note" x={PAD_L} y={H - 8}>{L.note}</text>
+</svg>

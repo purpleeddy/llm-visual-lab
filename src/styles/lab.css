@@ -1,0 +1,719 @@
+/* ================================================================
+   The working surface — an instrument.
+   It has to feel like a different material from the prose: no shadows, no
+   large radii, just hairline grids, monospaced figures and a change of surface
+   colour. Colour is spent on data, never on decoration.
+   ================================================================ */
+
+.lab {
+  margin: var(--sp-6) 0;
+  padding: var(--sp-5);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--surface-panel);
+  font-size: var(--fs-300);
+  line-height: 1.7;
+  /* No shadow. The shadow was what made the lab read as a "card". */
+}
+
+@media (max-width: 34rem) {
+  .lab { padding: var(--sp-4) var(--sp-3); }
+}
+
+/* ---------------------------------------------------------------- Head */
+
+.lab__header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: var(--sp-4);
+  border-bottom: 1px solid var(--line-1);
+  margin-bottom: var(--sp-4);
+}
+.lab__title {
+  font-size: var(--fs-500);
+  font-weight: var(--fw-bold);
+  color: var(--ink-strong);
+  margin: 0 0 var(--sp-2);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+}
+.lab__kind { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); }
+.lab__dims {
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.lab__toggles { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-end; }
+.lab__toggle { display: flex; flex-direction: column; gap: var(--sp-1); }
+.lab__toggle-label {
+  font-size: var(--fs-50);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+}
+.lab__note {
+  margin: 0 0 var(--sp-4);
+  color: var(--ink-3);
+  font-size: var(--fs-100);
+  line-height: 1.65;
+}
+.lab__hint { color: var(--ink-3); font-size: var(--fs-100); margin: var(--sp-2) 0 0; }
+.lab__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line-1);
+}
+.lab__footer .lab__hint { margin: 0; flex: 1 1 12rem; }
+
+.lab__error {
+  margin: var(--sp-4) 0;
+  padding: var(--sp-4);
+  border: 1px solid color-mix(in srgb, var(--status-danger) 40%, transparent);
+  border-left-width: 2px;
+  border-radius: var(--r-sm);
+  background: var(--status-danger-wash);
+}
+.lab__error strong { color: var(--status-danger); display: block; margin-bottom: var(--sp-2); }
+.lab__error p { margin: 0 0 var(--sp-3); }
+
+/* --------------------------------------------------------- Step rail */
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-5);
+}
+.stepper__arrow { white-space: nowrap; flex: none; font-size: var(--fs-100); }
+
+/*
+ * A rail that shows the pipeline, rather than seven pills in a row.
+ * One line runs behind the list and each numbered circle punches through it
+ * with its own background, so the line stays unbroken however wide the chips are.
+ */
+.stepper__list {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1 1 20rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  position: relative;
+}
+.stepper__list::before {
+  content: '';
+  position: absolute;
+  top: 0.85rem;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--line-2);
+  z-index: 0;
+}
+.stepper__list li { margin: 0; flex: 1 0 auto; min-width: 4.2rem; }
+.stepper__chip {
+  font: inherit;
+  font-size: var(--fs-50);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0 var(--sp-1);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+  z-index: 1;
+  transition: color var(--motion-fast) var(--ease);
+}
+.stepper__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: var(--r-full);
+  /* Punches through the rail with the panel background */
+  background: var(--surface-panel);
+  border: 1px solid var(--line-3);
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  font-weight: var(--fw-medium);
+  flex: none;
+  transition: background var(--motion) var(--ease), border-color var(--motion) var(--ease),
+    color var(--motion) var(--ease);
+}
+.stepper__name { font-weight: var(--fw-medium); }
+.stepper__chip:hover { color: var(--ink-1); }
+.stepper__chip:hover .stepper__num { border-color: var(--ink-3); }
+.stepper__chip.is-done { color: var(--ink-2); }
+.stepper__chip.is-done .stepper__num {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.stepper__chip.is-current { color: var(--ink-strong); font-weight: var(--fw-bold); }
+.stepper__chip.is-current .stepper__num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink-inverse);
+  font-weight: var(--fw-bold);
+}
+
+/* ------------------------------------------------------- Formula line */
+
+.formula {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-500);
+  margin: 0 0 var(--sp-5);
+  padding: var(--sp-4);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  color: var(--ink-3);
+  line-height: 1.6;
+}
+.formula__part {
+  padding: 0.1em 0.32em;
+  border-radius: var(--r-xs);
+  color: var(--ink-2);
+  transition: background var(--motion) var(--ease), color var(--motion) var(--ease);
+}
+/* Only the term for the current step comes forward; the rest step back. */
+.formula__part.is-lit {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+}
+/* Q, K and V are never painted onto text — in light mode their contrast is
+   below 3:1. A 2px underline carries the identity instead. */
+.formula__part--q { box-shadow: inset 0 -2px 0 var(--data-q); }
+.formula__part--k { box-shadow: inset 0 -2px 0 var(--data-k); }
+.formula__part--v { box-shadow: inset 0 -2px 0 var(--data-v); }
+.formula__part--out { color: var(--ink-strong); font-weight: var(--fw-bold); }
+.formula__op, .formula__paren { color: var(--ink-3); }
+/* Fixes the d in `d_k` not dropping to a subscript */
+.formula__sub { font-style: italic; }
+
+/* --------------------------------------------------------------- Stage */
+
+.lab__stage { margin-bottom: var(--sp-5); position: relative; }
+.lab__row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-4); }
+.lab__row--inputs { align-items: flex-start; }
+.lab__stack { display: flex; flex-direction: column; gap: var(--sp-3); }
+.lab__op {
+  font-family: var(--font-mono);
+  font-size: var(--fs-400);
+  color: var(--ink-3);
+  flex: none;
+  padding-top: 1.9em;
+  white-space: nowrap;
+}
+.lab__chain { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-4); }
+
+@media (max-width: 44rem) {
+  .lab__op { padding-top: 0; align-self: center; }
+  .lab__row, .lab__chain { flex-direction: column; align-items: stretch; }
+}
+
+/* ------------------------------------------------------------ Matrices */
+
+.mgrid, .emat { flex: 0 1 auto; min-width: 0; position: relative; z-index: 1; }
+/* Panel background behind the name/size row so no rule shows through */
+.mgrid__head, .emat__head { background: var(--surface-panel); }
+.mgrid__head, .emat__head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+  flex-wrap: wrap;
+}
+.mgrid__name, .emat__name {
+  font-family: var(--font-mono);
+  font-weight: var(--fw-bold);
+  font-size: var(--fs-200);
+  color: var(--ink-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+/*
+ * Identity for Q, K and V is carried by a colour chip before the name, not by
+ * the text colour. Measured in light mode, K came out at 2.99:1 and V at
+ * 2.63:1 — not enough contrast for text.
+ */
+.mgrid--q .mgrid__name::before,
+.mgrid--k .mgrid__name::before,
+.mgrid--v .mgrid__name::before,
+.emat--q .emat__name::before,
+.emat--k .emat__name::before,
+.emat--v .emat__name::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: var(--r-xs);
+  flex: none;
+}
+.mgrid--q .mgrid__name::before, .emat--q .emat__name::before { background: var(--data-q); }
+.mgrid--k .mgrid__name::before, .emat--k .emat__name::before { background: var(--data-k); }
+.mgrid--v .mgrid__name::before, .emat--v .emat__name::before { background: var(--data-v); }
+
+.mgrid__shape, .emat__shape {
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.mgrid__scroll, .emat__scroll { overflow-x: auto; max-width: 100%; }
+
+/*
+ * The grid. It has to look like one joined table, not a set of separate
+ * boxes, or it stops reading as an instrument.
+ * border-collapse lets neighbouring cells share a single rule.
+ */
+.mgrid__table, .emat__table {
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+  font-size: var(--fs-200);
+  background: var(--surface-panel-inset);
+}
+.mgrid__corner, .emat__corner { padding: 0; border: 0; background: none; }
+.mgrid__collabel, .mgrid__rowlabel, .emat__collabel, .emat__rowlabel {
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  font-weight: var(--fw-medium);
+  color: var(--ink-3);
+  padding: 0.2rem 0.4rem;
+  text-align: center;
+  white-space: nowrap;
+  border: 0;
+}
+.mgrid__rowlabel, .emat__rowlabel { text-align: right; padding-right: var(--sp-2); }
+.mgrid__collabel.is-hl, .mgrid__rowlabel.is-hl,
+.emat__collabel.is-hl, .emat__rowlabel.is-hl {
+  color: var(--ink-strong);
+  font-weight: var(--fw-bold);
+}
+
+.mgrid__td, .mgrid__cell--static, .emat__td {
+  border: 1px solid var(--grid-line);
+  padding: 0;
+  background: var(--surface-panel-inset);
+  transition: background var(--motion-fast) var(--ease);
+}
+
+.mgrid__cell {
+  font: inherit;
+  display: block;
+  width: 100%;
+  min-width: var(--cell-w);
+  padding: var(--cell-pad);
+  text-align: right;
+  border: 0;
+  background: transparent;
+  color: var(--heat-ink, var(--ink-1));
+  position: relative;
+}
+button.mgrid__cell { cursor: pointer; }
+.mgrid__cell--static {
+  /* This element is a td and also carries .mgrid__cell. Without undoing the
+     display:block above, the table layout collapses. */
+  display: table-cell;
+  width: auto;
+  min-width: var(--cell-w);
+  padding: var(--cell-pad);
+  text-align: right;
+  color: var(--heat-ink, var(--ink-1));
+}
+button.mgrid__cell:hover { background: var(--surface-inset); }
+
+/* Row and column highlight — where the selected result cell came from */
+.mgrid__td.is-in-row, .mgrid__cell--static.is-in-row { background: var(--data-q-wash); }
+.mgrid__td.is-in-col, .mgrid__cell--static.is-in-col { background: var(--data-k-wash); }
+
+/* The term currently being looked at */
+.mgrid__cell.is-term, .mgrid__cell--static.is-term {
+  font-weight: var(--fw-bold);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* The selected cell — a clear ring inside the grid */
+.mgrid__td:has(> .is-selected), .mgrid__cell--static.is-selected { background: var(--accent-wash); }
+.mgrid__cell.is-selected {
+  color: var(--accent);
+  font-weight: var(--fw-bold);
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* A cell the mask has blocked */
+.mgrid__td:has(> .is-blocked), .mgrid__cell--static.is-blocked { background: var(--blocked-surface); }
+.mgrid__cell.is-blocked, .mgrid__cell--static.is-blocked { color: var(--blocked-ink); }
+.mgrid__blocked-tag { margin-left: 0.35em; opacity: 0.75; }
+
+/*
+ * The heatmap — probability as colour strength.
+ * --heat and --heat-ink are set inline per cell by MatrixGrid.
+ * The text-colour rule used to apply only on the selectable path, which left
+ * the dark cells of the output step with poor contrast. Both paths now get it.
+ */
+.mgrid__td.is-heat, .mgrid__cell--static.is-heat { background: var(--heat); }
+.mgrid__td.is-heat .mgrid__cell, .mgrid__cell--static.is-heat { color: var(--heat-ink); }
+/* Inside a heatmap cell the row/column highlight becomes a ring rather than a
+   background, so the two backgrounds cannot overwrite each other. */
+.mgrid__td.is-heat.is-in-row .mgrid__cell, .mgrid__cell--static.is-heat.is-in-row {
+  box-shadow: inset 0 0 0 2px var(--data-q);
+}
+.mgrid__td.is-heat.is-in-col .mgrid__cell, .mgrid__cell--static.is-heat.is-in-col {
+  box-shadow: inset 0 0 0 2px var(--data-k);
+}
+
+/* ------------------------------------------------------ Editable input */
+
+.emat__input {
+  font: inherit;
+  font-family: var(--font-mono);
+  font-size: var(--fs-200);
+  font-variant-numeric: tabular-nums;
+  width: var(--cell-w);
+  padding: var(--cell-pad);
+  text-align: right;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-1);
+  -moz-appearance: textfield;
+}
+.emat__input::-webkit-outer-spin-button,
+.emat__input::-webkit-inner-spin-button { opacity: 0; transition: opacity var(--motion-fast) var(--ease); }
+.emat__td:hover .emat__input::-webkit-inner-spin-button { opacity: 0.5; }
+.emat__td:focus-within { background: var(--accent-wash); }
+.emat__input:focus { outline: 2px solid var(--focus); outline-offset: -2px; }
+.emat__input.is-in-row { background: var(--data-q-wash); }
+.emat__input.is-in-col { background: var(--data-k-wash); }
+.emat__input.is-term { box-shadow: inset 0 0 0 2px var(--accent); font-weight: var(--fw-bold); }
+
+/* ----------------------------------------------- Term-by-term working */
+
+.lab__readout {
+  margin-top: var(--sp-5);
+  padding: var(--sp-4);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+}
+.terms__sentence {
+  margin: 0 0 var(--sp-3);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-300);
+  color: var(--ink-2);
+}
+.terms__result { font-weight: var(--fw-bold); color: var(--ink-strong); }
+.terms__eq, .terms__dot { color: var(--ink-3); }
+.terms__source { color: var(--ink-2); }
+/* Provenance is shown by an underline, again not by text colour */
+.terms__source--left { box-shadow: inset 0 -2px 0 var(--data-q); font-weight: var(--fw-medium); }
+.terms__source--right { box-shadow: inset 0 -2px 0 var(--data-k); font-weight: var(--fw-medium); }
+
+.terms__inline {
+  margin: 0 0 var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-300);
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35em;
+  line-height: 2.1;
+}
+.terms__chunk {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.15em 0.35em;
+  border-radius: var(--r-xs);
+  border: 1px solid transparent;
+  transition: background var(--motion-fast) var(--ease);
+}
+.terms__chunk.is-active {
+  background: var(--accent-wash);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.terms__a { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--data-q); }
+.terms__b { color: var(--ink-1); box-shadow: inset 0 -2px 0 var(--data-k); }
+.terms__times, .terms__plus { color: var(--ink-3); }
+.terms__total { font-weight: var(--fw-bold); color: var(--ink-strong); font-size: 1.05em; }
+
+.terms__tablewrap { overflow-x: auto; }
+.terms__table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 22rem;
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  font-variant-numeric: tabular-nums;
+}
+.terms__table th, .terms__table td {
+  padding: 0.4rem 0.6rem;
+  text-align: right;
+  border-bottom: 1px solid var(--line-1);
+}
+.terms__table thead th {
+  font-family: var(--font-sans);
+  font-size: var(--fs-50);
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  font-weight: var(--fw-semi);
+  white-space: nowrap;
+  border-bottom-color: var(--line-2);
+}
+.terms__table tbody th { text-align: left; color: var(--ink-3); font-weight: var(--fw-medium); }
+.terms__table tbody tr.is-active { background: var(--accent-wash); }
+.terms__table tbody tr.is-active td, .terms__table tbody tr.is-active th { color: var(--ink-strong); }
+.terms__running { font-weight: var(--fw-bold); color: var(--ink-strong); }
+.terms__sumrow { border-top: 1px solid var(--line-3); }
+.terms__sumrow td, .terms__sumrow th { border-bottom: 0; }
+.terms__pct { color: var(--ink-3); font-size: 0.9em; }
+
+/* -------------------------------------------------------------- Hints */
+
+.lab__guide { margin-top: var(--sp-5); }
+.lab__what { margin: 0 0 var(--sp-4); line-height: 1.8; }
+.lab__guide .note { margin: var(--sp-3) 0 0; }
+.lab__guide .note p { margin: 0; }
+.lab__inputs { margin-top: var(--sp-5); }
+
+/* ---------------------------------------------------------------- softmax */
+
+.softmax__rows {
+  display: flex;
+  flex-direction: column;
+  /* A 2px surface gap between adjacent bars — the dataviz mark spec */
+  gap: 2px;
+}
+.softmax__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding: var(--sp-1) 0;
+}
+.softmax__label { font-weight: var(--fw-medium); min-width: 4.5rem; color: var(--ink-2); font-size: var(--fs-100); }
+.softmax__stepper { display: inline-flex; align-items: center; gap: 0.15rem; }
+.softmax__bump { padding: 0.1em 0.45em; font-size: var(--fs-400); line-height: 1.2; font-family: var(--font-mono); }
+.softmax__score {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-200);
+  width: 3.5rem;
+  padding: 0.3rem 0.4rem;
+  text-align: right;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-panel-inset);
+  color: var(--ink-1);
+}
+.softmax__arrow { color: var(--ink-3); flex: none; font-family: var(--font-mono); }
+.softmax__exp {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-100);
+  color: var(--ink-2);
+  min-width: 3.5rem;
+  text-align: right;
+}
+.softmax__barwrap {
+  flex: 1 1 9rem;
+  min-width: 7rem;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* Bars: 24px maximum thickness, a 4px round on the data end only, square at the baseline */
+.softmax__bar {
+  height: 1.1rem;
+  max-height: 24px;
+  background: var(--seq-5);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  transition: width var(--motion) var(--ease);
+  flex: none;
+  min-width: 2px;
+}
+.softmax__pct {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-100);
+  color: var(--ink-1);
+  font-weight: var(--fw-semi);
+  white-space: nowrap;
+}
+.softmax__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line-1);
+}
+.softmax__shift { display: flex; align-items: center; gap: var(--sp-3); flex: 1 1 16rem; }
+.softmax__shift label { font-size: var(--fs-100); color: var(--ink-2); font-weight: var(--fw-medium); white-space: nowrap; }
+.softmax__shift input[type='range'] { flex: 1 1 6rem; min-width: 5rem; accent-color: var(--accent); }
+.softmax__shiftval {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-bold);
+  min-width: 2.5rem;
+  text-align: right;
+  color: var(--ink-strong);
+}
+
+/* -------------------------------------------------------- Dot product */
+
+.lab__dotrow { display: flex; flex-wrap: wrap; gap: var(--sp-6); align-items: flex-start; }
+.lab__figure {
+  margin: 0;
+  flex: none;
+  padding: var(--sp-3);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+}
+.lab__figure svg { max-width: 100%; height: auto; display: block; }
+.lab__dotinputs { display: flex; flex-direction: column; gap: var(--sp-4); flex: 1 1 14rem; min-width: 0; }
+.vecinput { display: flex; align-items: center; gap: 0.3em; font-family: var(--font-mono); font-size: var(--fs-300); }
+.vecinput__name {
+  font-weight: var(--fw-bold);
+  color: var(--ink-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+.vecinput__name::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: var(--r-xs);
+  flex: none;
+}
+.vecinput--q .vecinput__name::before { background: var(--data-q); }
+.vecinput--k .vecinput__name::before { background: var(--data-k); }
+.vecinput__paren { color: var(--ink-3); }
+.vecinput__field {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-200);
+  width: 3.4rem;
+  padding: 0.3rem 0.4rem;
+  text-align: right;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--surface-panel-inset);
+  color: var(--ink-1);
+}
+.vecinput__field.is-active { border-color: var(--accent); background: var(--accent-wash); }
+
+.lab__stats {
+  display: flex;
+  gap: var(--sp-5);
+  margin: 0;
+  flex-wrap: wrap;
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-1);
+}
+.lab__stats > div { display: flex; flex-direction: column; gap: 0.15rem; }
+.lab__stats dt {
+  font-size: var(--fs-50);
+  color: var(--ink-3);
+  font-weight: var(--fw-semi);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-wide);
+}
+.lab__stats dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-300);
+  color: var(--ink-strong);
+  font-weight: var(--fw-semi);
+}
+
+/* ------------------------------------------------------ Narrow screens */
+
+@media (max-width: 34rem) {
+  .lab__readout { padding: var(--sp-3) var(--sp-2); }
+  .terms__table { min-width: 0; width: 100%; font-size: var(--fs-50); }
+  .terms__table th, .terms__table td { padding: 0.3rem 0.25rem; }
+  .terms__pct { display: none; }
+  .stepper__arrow { flex: 1 1 auto; }
+  .stepper__list { order: -1; flex: 1 1 100%; }
+}
+
+/* ---------------------------------------------------------- Connectors */
+
+/*
+ * Lines joining a result cell to the row and column it came from.
+ * The coordinates come from ConnectorOverlay, which measures the DOM.
+ * Nothing is drawn once the matrices stack vertically on a narrow screen.
+ */
+.lab__chain,
+.lab__row {
+  position: relative;
+}
+/*
+ * The lines pass **behind** the matrices.
+ * In front they would cut straight across the middle matrix and look like a
+ * drawing error; behind, they disappear under it and reappear in the gap,
+ * which reads the way a reader expects.
+ */
+.connectors {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 0;
+}
+.connectors__line {
+  fill: none;
+  stroke-width: var(--stroke-regular);
+  stroke-linecap: round;
+  opacity: 0.85;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .connectors__line {
+    animation: connector-draw var(--motion-slow) var(--ease);
+  }
+}
+@keyframes connector-draw {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

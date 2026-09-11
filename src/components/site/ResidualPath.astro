@@ -1,0 +1,92 @@
+---
+/**
+ * LayerNorm(x + Sublayer(x)) — the wrapper the paper puts around every sub-layer.
+ *
+ * The bypass is the whole point of the picture: the input reaches the addition
+ * without passing through the sub-layer at all.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+  /** What sits in the sub-layer box */
+  sublayer?: string;
+}
+const { locale, sublayer } = Astro.props;
+const ko = locale === 'ko';
+
+const xIn = 24;
+const xSub = 170;
+const xAdd = 356;
+const xNorm = 430;
+const xOut = 600;
+const yMain = 140;
+const yBypass = 54;
+const BOX_H = 44;
+const W = 728;
+
+const L = ko
+  ? {
+      input: 'x',
+      sub: sublayer ?? '무언가 하는 부분',
+      add: '+',
+      norm: '정규화',
+      out: 'LayerNorm(x + Sublayer(x))',
+      bypass: '아무것도 거치지 않는 길',
+      note: '더한 다음에 정규화합니다. 순서가 반대이면 다른 구조가 됩니다.',
+      title: '건너뛰는 길과 정규화',
+      desc: '왼쪽에 입력 x 가 있습니다. 거기서 길이 둘로 갈라집니다. 아래쪽 길은 무언가 하는 부분을 지나고, 위쪽 길은 아무것도 거치지 않고 그대로 갑니다. 두 길은 동그란 덧셈 기호에서 다시 만나고, 그 결과가 정규화를 거쳐 밖으로 나갑니다. 논문은 더한 뒤에 정규화하는 순서를 씁니다.',
+    }
+  : {
+      input: 'x',
+      sub: sublayer ?? 'the part that does something',
+      add: '+',
+      norm: 'normalize',
+      out: 'LayerNorm(x + Sublayer(x))',
+      bypass: 'the path that touches nothing',
+      note: 'add first, then normalize. The other order is a different architecture.',
+      title: 'The bypass and the normalization',
+      desc: 'On the left is the input x. The path splits in two. The lower path goes through the part that does something; the upper path goes straight across, untouched. The two meet again at a circled plus, and the result passes through normalization on its way out. The paper adds first and normalizes second.',
+    };
+---
+
+<svg viewBox={`0 0 ${W} 216`} width={W} height="216" role="img" aria-labelledby="rp-t rp-d">
+  <title id="rp-t">{L.title}</title>
+  <desc id="rp-d">{L.desc}</desc>
+
+  <defs>
+    <marker id="rp-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* input */}
+  <rect class="tmap__box tmap__box--embed" x={xIn} y={yMain - BOX_H / 2} width={72} height={BOX_H} rx="4"></rect>
+  <text class="tmap__head" x={xIn + 36} y={yMain + 5} text-anchor="middle">{L.input}</text>
+
+  {/* the bypass, drawn first so the boxes sit over it */}
+  <path
+    class="rp__bypass"
+    d={`M ${xIn + 36} ${yMain - BOX_H / 2 - 2} V ${yBypass} H ${xAdd} V ${yMain - 16}`}
+    marker-end="url(#rp-arrow)"></path>
+  <text class="tmap__note" x={xIn + 46} y={yBypass - 8}>{L.bypass}</text>
+
+  {/* through the sub-layer */}
+  <path class="tmap__line" d={`M ${xIn + 74} ${yMain} H ${xSub - 5}`} marker-end="url(#rp-arrow)"></path>
+  <rect class="tmap__box tmap__box--attn" x={xSub} y={yMain - BOX_H / 2} width={150} height={BOX_H} rx="4"></rect>
+  <text class="tmap__label--sm" x={xSub + 75} y={yMain + 5} text-anchor="middle">{L.sub}</text>
+  <path class="tmap__line" d={`M ${xSub + 152} ${yMain} H ${xAdd - 16}`} marker-end="url(#rp-arrow)"></path>
+
+  {/* the meeting point */}
+  <circle class="tmap__box tmap__box--head" cx={xAdd} cy={yMain} r="14"></circle>
+  <text class="tmap__head" x={xAdd} y={yMain + 5} text-anchor="middle">{L.add}</text>
+
+  <path class="tmap__line" d={`M ${xAdd + 16} ${yMain} H ${xNorm - 5}`} marker-end="url(#rp-arrow)"></path>
+  <rect class="tmap__box tmap__box--norm" x={xNorm} y={yMain - BOX_H / 2} width={110} height={BOX_H} rx="4"></rect>
+  <text class="tmap__label--sm" x={xNorm + 55} y={yMain + 5} text-anchor="middle">{L.norm}</text>
+
+  <path class="tmap__line" d={`M ${xNorm + 112} ${yMain} H ${xOut - 5}`} marker-end="url(#rp-arrow)"></path>
+  <text class="tmap__head" x={xOut} y={yMain + 5}>{L.out}</text>
+
+  <text class="tmap__note" x={xIn} y="204">{L.note}</text>
+</svg>

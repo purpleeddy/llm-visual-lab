@@ -1,0 +1,222 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Sidebar from '../components/site/Sidebar.astro';
+import PageToc from '../components/site/PageToc.astro';
+import { type Locale } from '../lib/i18n/routing';
+import { t } from '../lib/i18n/ui';
+
+interface Props {
+  locale: Locale;
+  docId: string;
+  title: string;
+  lead: string;
+  eyebrow?: string;
+  status: 'complete' | 'partial' | 'planned';
+  paperRefs: string[];
+  notYet: string[];
+  updated: string;
+}
+
+const { locale, docId, title, lead, eyebrow, status, paperRefs, notYet, updated } = Astro.props;
+
+const ui = t(locale);
+const statusLabel = ui.status[status];
+const statusNote =
+  status === 'complete'
+    ? ui.status.completeNote
+    : status === 'partial'
+      ? ui.status.partialNote
+      : ui.status.plannedNote;
+---
+
+<BaseLayout locale={locale} title={title} description={lead} docId={docId}>
+  {/*
+    Left is the whole path this wiki means to cover; right is the contents of
+    the article being read. On a narrow screen they stack as article, then
+    contents, then path.
+  */}
+  <div class="shell shell--with-toc">
+    <Sidebar locale={locale} current={docId} />
+
+    <main class="main" id="main">
+      <article class="prose">
+        <header class="doc-header">
+          {eyebrow ? <p class="doc-header__eyebrow">{eyebrow}</p> : null}
+          <h1>{title}</h1>
+          <p class="doc-header__lead">{lead}</p>
+          <div class="doc-header__meta">
+            <span class={`badge badge--${status}`} title={statusNote}>
+              <span class="badge__dot"></span>
+              {statusLabel}
+            </span>
+            {
+              paperRefs.length > 0 ? (
+                <span class="paper-ref">
+                  <span class="visually-hidden">{ui.paperRef.label}: </span>
+                  {paperRefs.join(' · ')}
+                </span>
+              ) : null
+            }
+            <span class="doc-header__updated">{updated}</span>
+          </div>
+        </header>
+
+        <slot />
+
+        {
+          notYet.length > 0 ? (
+            <aside class="note note--scope">
+              <p class="note__title">
+                {locale === 'ko' ? '이 문서가 아직 다루지 않는 것' : 'Not covered here yet'}
+              </p>
+              <ul>
+                {notYet.map((item) => (
+                  <li>{item}</li>
+                ))}
+              </ul>
+            </aside>
+          ) : null
+        }
+
+      </article>
+    </main>
+
+    <PageToc locale={locale} />
+  </div>
+
+  {/*
+    Scroll position.
+    Marks the section being read in the contents on the right and opens that
+    section's sub-headings underneath it.
+    Without JavaScript the twelve-line contents list stays exactly as it is.
+  */}
+  <script is:inline>
+    (() => {
+      const nav = document.querySelector('[data-section-nav]');
+      if (!nav || !('IntersectionObserver' in window)) return;
+
+      const links = new Map();
+      const items = new Map();
+      nav.querySelectorAll('[data-section-link]').forEach((a) => {
+        links.set(a.dataset.sectionLink, a);
+      });
+      nav.querySelectorAll('[data-section-item]').forEach((li) => {
+        items.set(li.dataset.sectionItem, li);
+      });
+      const sections = [...document.querySelectorAll('[data-section]')].filter((el) =>
+        links.has(el.dataset.section),
+      );
+      if (sections.length === 0) return;
+
+      /* --------------- Fold each section's sub-headings into the contents */
+
+      // Collect the sub-headings of each section. One pass is enough.
+      const subs = new Map();
+      for (const el of sections) {
+        subs.set(
+          el.dataset.section,
+          [...el.querySelectorAll('h3[id]')].map((h) => ({ id: h.id, el: h, text: h.textContent.trim() })),
+        );
+      }
+
+      let openFor = null;
+      let openList = null;
+      let subLinks = [];
+      let currentSub = null;
+
+      const openSubs = (sectionId) => {
+        if (openFor === sectionId) return;
+        openList?.remove();
+        openList = null;
+        subLinks = [];
+        currentSub = null;
+        openFor = sectionId;
+
+        const list = subs.get(sectionId) ?? [];
+        const li = items.get(sectionId);
+        if (list.length === 0 || !li) return;
+
+        const ul = document.createElement('ul');
+        ul.className = 'toc__sublist';
+        ul.dataset.tocSublist = sectionId;
+        for (const item of list) {
+          const row = document.createElement('li');
+          const a = document.createElement('a');
+          a.className = 'toc__link toc__link--sub';
+          a.href = '#' + encodeURIComponent(item.id);
+          a.textContent = item.text;
+          a.dataset.tocLink = item.id;
+          row.append(a);
+          ul.append(row);
+        }
+        li.append(ul);
+        openList = ul;
+        subLinks = list.map((item, i) => ({ ...item, a: ul.children[i].firstElementChild }));
+      };
+
+      // The last sub-heading to cross the 96px line from the top is where we are.
+      const markSub = () => {
+        if (subLinks.length === 0) return;
+        let found = null;
+        for (const s of subLinks) {
+          if (s.el.getBoundingClientRect().top <= 96) found = s;
+          else break;
+        }
+        const id = found ? found.id : null;
+        if (id === currentSub) return;
+        for (const s of subLinks) {
+          if (s.id === id) s.a.setAttribute('aria-current', 'true');
+          else s.a.removeAttribute('aria-current');
+        }
+        currentSub = id;
+      };
+
+      let ticking = false;
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(() => {
+            ticking = false;
+            markSub();
+          });
+        },
+        { passive: true },
+      );
+
+      /* ------------------------------------- The section being read */
+
+      let current = null;
+      const mark = (id) => {
+        if (id === current) return;
+        if (current) links.get(current)?.removeAttribute('aria-current');
+        current = id;
+        if (id) links.get(id)?.setAttribute('aria-current', 'true');
+        openSubs(id);
+        markSub();
+      };
+
+      // The section closest to the top of the viewport counts as the current one.
+      const visible = new Set();
+      const io = new IntersectionObserver(
+        (entries) => {
+          for (const e of entries) {
+            if (e.isIntersecting) visible.add(e.target);
+            else visible.delete(e.target);
+          }
+          if (visible.size === 0) return;
+          const top = [...visible].sort(
+            (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
+          )[0];
+          mark(top.dataset.section);
+        },
+        { rootMargin: '-72px 0px -55% 0px', threshold: 0 },
+      );
+      sections.forEach((el) => io.observe(el));
+
+      // At the very top no section is in view yet, so open the first one.
+      openSubs(sections[0].dataset.section);
+    })();
+  </script>
+</BaseLayout>

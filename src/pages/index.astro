@@ -1,0 +1,7 @@
+---
+// Anyone arriving at the root is sent to the default language.
+// Astro's i18n config has redirectToDefaultLocale off, so this page does it.
+import { withBase } from '../lib/i18n/routing';
+const target = withBase('ko');
+return Astro.redirect(target);
+---

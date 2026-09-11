@@ -1,0 +1,113 @@
+---
+/**
+ * Which word **it** has to look at in the opening sentence, drawn as arcs
+ * whose thickness stands for how much.
+ *
+ * The thicknesses here are **not computed.** Nothing has been calculated yet;
+ * this only shows what we would like to be able to do. The real numbers come
+ * from the labs further down, which is why no number appears in this figure.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+/** The same tokens as the sentence quoted in the prose. */
+const TOKENS = [
+  'The',
+  'animal',
+  "didn't",
+  'cross',
+  'the',
+  'street',
+  'because',
+  'it',
+  'was',
+  'too',
+  'tired',
+];
+const FROM = TOKENS.indexOf('it');
+
+/** The weights are illustrative: strong, middling and weak, nothing finer. */
+const ARCS: { to: number; weight: 'strong' | 'mid' | 'weak' }[] = [
+  { to: TOKENS.indexOf('animal'), weight: 'strong' },
+  { to: TOKENS.indexOf('tired'), weight: 'mid' },
+  { to: TOKENS.indexOf('street'), weight: 'weak' },
+];
+
+const SLOT = 56;
+const PAD = 14;
+const H = 24;
+const yRow = 100;
+const x = (i: number) => PAD + i * SLOT;
+const mid = (i: number) => x(i) + SLOT / 2;
+const width = PAD * 2 + TOKENS.length * SLOT;
+
+/**
+ * The further an arc reaches, the higher it rises, so arcs do not overlap.
+ * The apex of a quadratic Bézier is (endpoint + control) / 2, so the control
+ * point is derived backwards from the apex we want. Doing it the other way
+ * around leaves a band of empty space across the top of the figure.
+ */
+const peak = (a: number, b: number) => yRow - 20 - Math.min(Math.abs(a - b), 7) * 10;
+const ctrl = (a: number, b: number) => 2 * peak(a, b) - yRow;
+
+const L = ko
+  ? {
+      title: 'it 이 문장의 어느 단어를 봐야 하는지',
+      legend: '굵을수록 많이 본다는 뜻입니다 (어림)',
+      desc: '문장 The animal didn’t cross the street because it was too tired 의 토큰이 한 줄로 놓여 있습니다. it 에서 세 개의 호가 뻗어 나가는데, animal 로 가는 호가 가장 굵고, tired 로 가는 호가 그다음, street 로 가는 호가 가장 가늡니다. 굵기는 어느 단어를 더 많이 보는지를 어림으로 나타낸 것이고, 계산한 값이 아닙니다.',
+    }
+  : {
+      title: 'Which word it has to look at',
+      legend: 'Thicker means looked at more (illustrative)',
+      desc: 'The tokens of the sentence The animal didn’t cross the street because it was too tired are laid out in a row. Three arcs leave the token it: the thickest goes to animal, a thinner one to tired, and the thinnest to street. The thicknesses stand for how much each word is looked at and are illustrative, not computed.',
+    };
+---
+
+<svg
+  viewBox={`0 0 ${width} 158`}
+  width={width}
+  height="158"
+  role="img"
+  aria-labelledby="aa-t aa-d">
+  <title id="aa-t">{L.title}</title>
+  <desc id="aa-d">{L.desc}</desc>
+
+  {
+    ARCS.map((a) => (
+      <path
+        class={`aa__arc aa__arc--${a.weight}`}
+        d={`M ${mid(FROM)} ${yRow} Q ${(mid(FROM) + mid(a.to)) / 2} ${ctrl(FROM, a.to)} ${mid(a.to)} ${yRow}`}
+      />
+    ))
+  }
+
+  {
+    TOKENS.map((tk, i) => (
+      <g>
+        <rect
+          class={i === FROM ? 'tmap__box tmap__box--attn' : 'tmap__box'}
+          x={x(i) + 3}
+          y={yRow}
+          width={SLOT - 6}
+          height={H}
+          rx="4"
+        />
+        <text
+          class={i === FROM ? 'tmap__label' : 'tmap__label--sm'}
+          x={mid(i)}
+          y={yRow + 16}
+          text-anchor="middle">
+          {tk}
+        </text>
+      </g>
+    ))
+  }
+
+  <path class="aa__arc aa__arc--mid" d={`M ${PAD} 146 h 22`}></path>
+  <text class="tmap__note" x={PAD + 30} y="150">{L.legend}</text>
+</svg>

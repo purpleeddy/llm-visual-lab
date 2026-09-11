@@ -1,0 +1,16 @@
+---
+interface Props {
+  caption: string;
+  /** A description for readers who cannot see the figure */
+  describe?: string;
+  wide?: boolean;
+}
+const { caption, describe, wide = false } = Astro.props;
+---
+<figure class={`figure${wide ? ' wide' : ''}`}>
+  <div class="figure__frame"><slot /></div>
+  <figcaption class="figure__caption">
+    {caption}
+    {describe ? <span class="visually-hidden"> {describe}</span> : null}
+  </figcaption>
+</figure>

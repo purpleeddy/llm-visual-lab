@@ -1,0 +1,43 @@
+---
+/**
+ * One section of the article.
+ *
+ * The heading goes through this component rather than a markdown `##` so that
+ * the anchor id is fixed. With an automatic slug, every reworded heading would
+ * quietly break the contents links and the cross-references in the prose.
+ * `data-section` is what the scroll-position script reads.
+ */
+import { sectionById } from '../../lib/nav';
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  id: string;
+  locale: Locale;
+  /** One line of summary under the heading */
+  lead?: string;
+}
+
+const { id, locale, lead } = Astro.props;
+const meta = sectionById(id);
+if (!meta) throw new Error(`no such section id in nav.ts: ${id}`);
+
+const title = meta.title[locale];
+const planned = meta.status === 'planned';
+const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not written yet';
+---
+
+<section class={`doc-section${planned ? ' doc-section--planned' : ''}`} id={id} data-section={id}>
+  <h2 class="doc-section__title">
+    <span>{title}</span>
+    {
+      planned ? (
+        <span class="doc-section__pending">
+          {plannedLabel}
+          {meta.stage ? <span class="doc-section__stage">{meta.stage}</span> : null}
+        </span>
+      ) : null
+    }
+  </h2>
+  {lead ? <p class="doc-section__lead">{lead}</p> : null}
+  <slot />
+</section>

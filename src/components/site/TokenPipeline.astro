@@ -1,0 +1,142 @@
+---
+/**
+ * How a sentence becomes a block of numbers — steps 1 and 2 of the prose,
+ * drawn out.
+ *
+ * The point of the figure is that one token becomes **one row**, so the tokens
+ * are stacked vertically rather than laid out across. That way the rows at the
+ * right-hand end visibly are the block.
+ *
+ * The ids (8123 and the rest) are **examples**, the same ones the prose uses.
+ * They are not computed.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const TOKENS = ['The', 'animal', 'did', "n't", 'cross'];
+/** The same example ids as "animal → 8123" in the prose. */
+const IDS = ['1996', '8123', '751', '83', '4417'];
+
+const ROW_H = 24;
+const ROW_GAP = 32;
+const yRow0 = 104;
+const yOf = (i: number) => yRow0 + i * ROW_GAP;
+const yBottom = yOf(TOKENS.length - 1) + ROW_H;
+
+const xTok = 110;
+const wTok = 80;
+const xId = 210;
+const wId = 64;
+const xEmb = 294;
+const CELL = 11;
+const COLS = 7; // 실제로는 512 개. 그릴 수 없으니 잘라서 보여 준다.
+const xBracket = 392;
+
+const L = ko
+  ? {
+      stage: '문장',
+      sentence: 'The animal didn’t cross',
+      cols: ['토큰', '번호', '숫자 한 줄'],
+      cut: '실제로는 512 개',
+      block: ['이 다섯 줄이', '한 덩어리입니다'],
+      plus: '⊕ 위치 정보를 더합니다',
+      title: '문장이 숫자 덩어리가 되기까지',
+      desc: '맨 위에 문장 The animal didn’t cross 가 있고, 그 아래로 다섯 줄이 세로로 쌓여 있습니다. 각 줄은 왼쪽에서 오른쪽으로 토큰, 번호, 숫자 한 줄 순서입니다. 첫 줄은 The, 1996번, 숫자 한 줄이고, 둘째 줄은 animal, 8123번, 숫자 한 줄이며, 나머지도 같은 식입니다. 오른쪽 끝에서 다섯 줄을 묶는 표시가 있고, 이 덩어리에 위치 정보를 더한다고 적혀 있습니다. 한 줄에 일곱 칸만 그렸지만 실제 모델에서는 512 개입니다.',
+    }
+  : {
+      stage: 'Sentence',
+      sentence: 'The animal didn’t cross',
+      cols: ['Token', 'Id', 'A row of numbers'],
+      cut: 'really 512',
+      block: ['these five rows', 'are one block'],
+      plus: '⊕ position is added',
+      title: 'From a sentence to a block of numbers',
+      desc: 'The sentence The animal didn’t cross sits at the top, and below it five rows are stacked vertically. Each row runs left to right: a token, an id, then a row of numbers. The first row is The, id 1996, a row of numbers; the second is animal, id 8123, a row of numbers; the rest follow the same pattern. A bracket on the right groups the five rows together and says that position information is added to this block. Only seven cells per row are drawn; a real model uses 512.',
+    };
+---
+
+<svg viewBox="0 0 540 276" width="540" height="276" role="img" aria-labelledby="tp-t tp-d">
+  <title id="tp-t">{L.title}</title>
+  <desc id="tp-d">{L.desc}</desc>
+
+  <defs>
+    <marker
+      id="tp-arrow"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="5"
+      markerHeight="5"
+      orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* The sentence */}
+  <text class="tmap__title" x="12" y="46">{L.stage}</text>
+  <rect class="tmap__box" x={xTok} y="26" width="180" height="28" rx="4"></rect>
+  <text class="tmap__label" x={xTok + 12} y="45">{L.sentence}</text>
+  <path class="tmap__line" d={`M ${xTok + 40} 54 V ${yRow0 - 24}`} marker-end="url(#tp-arrow)"></path>
+
+  {/* Column headings */}
+  <text class="tmap__title" x={xTok + wTok / 2} y="88" text-anchor="middle">{L.cols[0]}</text>
+  <text class="tmap__title" x={xId + wId / 2} y="88" text-anchor="middle">{L.cols[1]}</text>
+  <text class="tmap__title" x={xEmb} y="88">{L.cols[2]}</text>
+
+  {/* One token becomes one row */}
+  {
+    TOKENS.map((tk, i) => (
+      <g>
+        <rect class="tmap__box tmap__box--embed" x={xTok} y={yOf(i)} width={wTok} height={ROW_H} rx="4" />
+        <text class="tmap__label--sm" x={xTok + wTok / 2} y={yOf(i) + 16} text-anchor="middle">
+          {tk}
+        </text>
+
+        <path
+          class="tmap__line"
+          d={`M ${xTok + wTok + 2} ${yOf(i) + ROW_H / 2} H ${xId - 5}`}
+          marker-end="url(#tp-arrow)"
+        />
+        <rect class="tmap__box tmap__box--norm" x={xId} y={yOf(i)} width={wId} height={ROW_H} rx="4" />
+        <text class="tp__num" x={xId + wId / 2} y={yOf(i) + 16} text-anchor="middle">
+          {IDS[i]}
+        </text>
+
+        <path
+          class="tmap__line"
+          d={`M ${xId + wId + 2} ${yOf(i) + ROW_H / 2} H ${xEmb - 5}`}
+          marker-end="url(#tp-arrow)"
+        />
+        {Array.from({ length: COLS }, (_, c) => (
+          <rect
+            class="tmap__box"
+            x={xEmb + c * CELL}
+            y={yOf(i) + (ROW_H - CELL) / 2}
+            width={CELL}
+            height={CELL}
+          />
+        ))}
+        <text class="tmap__note" x={xEmb + COLS * CELL + 4} y={yOf(i) + 16}>
+          ⋯
+        </text>
+      </g>
+    ))
+  }
+
+  {/* The five rows are the block */}
+  <path
+    class="tmap__stack"
+    d={`M ${xBracket} ${yRow0 - 4} V ${yBottom + 4}`}
+   ></path>
+  <path class="tmap__stack" d={`M ${xBracket} ${yRow0 - 4} h -6`}></path>
+  <path class="tmap__stack" d={`M ${xBracket} ${yBottom + 4} h -6`}></path>
+  <text class="tmap__note" x={xBracket + 10} y={yOf(1) + 10}>{L.cut}</text>
+  <text class="tmap__label" x={xBracket + 10} y={yOf(2) + 8}>{L.block[0]}</text>
+  <text class="tmap__label" x={xBracket + 10} y={yOf(2) + 24}>{L.block[1]}</text>
+  <text class="tmap__note" x={xBracket + 10} y={yOf(3) + 20}>{L.plus}</text>
+</svg>

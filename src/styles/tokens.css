@@ -1,0 +1,239 @@
+/*
+ * Design tokens, in three layers.
+ *
+ *   1. primitive  ramps, palettes, scales. No component reads these directly.
+ *   2. semantic   the layer components do read. Assigns primitives to roles.
+ *   3. component  measurements used only by the lab.
+ *
+ * The dark theme is one `light-dark()` line per token. It used to be 39
+ * declarations copied by hand into a second block, which drifted easily.
+ * All three states (OS setting / forced dark / forced light) were checked in Chromium.
+ */
+
+/* ================================================================
+   1. Primitives
+   ================================================================ */
+
+:root {
+  /* --- Neutral ramp ------------------------------------------------
+     A trace of blue in it. Reads like ink on paper and does not fight the
+     data colours (blue, orange, teal). No warm cream: that was what made the
+     old palette read as an inoffensive default. */
+  --n-0: #ffffff;
+  --n-1: #fbfbfc;
+  --n-2: #f4f5f7;
+  --n-3: #eaebee;
+  --n-4: #dcdee3;
+  --n-5: #c2c5cd;
+  --n-6: #9a9ea9;
+  --n-7: #6d7280;
+  --n-8: #4d525f;
+  --n-9: #383d48;
+  --n-10: #262a33;
+  --n-11: #171a21;
+  --n-12: #0d0f14;
+
+  /* --- Data colours (categorical) -----------------------------------
+     Measured with the dataviz validator, not chosen by eye.
+     All-pairs passes in both light and dark.
+     Careful: in light, K (2.99:1) and V (2.63:1) fall below 3:1 against the
+     surface, so they **must never be used as text colour.** Chips, bands and
+     underlines only. */
+  --hue-q: light-dark(#2a78d6, #3987e5); /* Query  — blue */
+  --hue-k: light-dark(#eb6834, #d95926); /* Key    — orange */
+  --hue-v: light-dark(#1baf7a, #199e70); /* Value  — teal */
+
+  /* A pale wash behind a mark. Light enough not to hurt text contrast. */
+  --hue-q-wash: light-dark(#e8f0fc, #16263a);
+  --hue-k-wash: light-dark(#fdece4, #37200f);
+  --hue-v-wash: light-dark(#e2f5ee, #0f2b22);
+
+  /* --- Sequential ramp (magnitude) ---------------------------------
+     Used by the attention-probability heatmap. One hue, light to dark.
+     Light runs 100→700; dark uses the same ramp, restepped for a dark surface. */
+  --seq-0: light-dark(#ffffff, #14171d);
+  --seq-1: light-dark(#e8f1fd, #16202e);
+  --seq-2: light-dark(#cde2fb, #1a2c42);
+  --seq-3: light-dark(#9ec5f4, #1f3d5e);
+  --seq-4: light-dark(#6da7ec, #27527f);
+  --seq-5: light-dark(#3987e5, #2f6ba6);
+  --seq-6: light-dark(#256abf, #3987e5);
+  --seq-7: light-dark(#184f95, #6da7ec);
+
+  /* Text laid over the sequential ramp; swaps over as the steps darken. */
+  --seq-ink-low: light-dark(#123a63, #c3d8f2);
+  --seq-ink-high: light-dark(#ffffff, #0d1520);
+
+  /* --- Status ------------------------------------------------------
+     The reserved status colours from the dataviz reference palette.
+     Deliberately distinct from the data colours. */
+  --status-ok: light-dark(#0f7a35, #4ec06f);
+  --status-warn: light-dark(#8a5a06, #e0b45f);
+  --status-danger: light-dark(#c0322f, #f08b8b);
+  --status-ok-wash: light-dark(#e4f4e8, #122a18);
+  --status-warn-wash: light-dark(#faf0dc, #2e2410);
+  --status-danger-wash: light-dark(#fceaea, #33191a);
+
+  /* --- Type --------------------------------------------------------
+     Pretendard variable (dynamic subset): one file covers weights 400–700.
+     Numbers and matrices use JetBrains Mono so the digits line up. */
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    monospace;
+
+  /* A 1.2 ratio scale. Body text is --fs-500. */
+  --fs-50: 0.6875rem; /* 11px — matrix labels */
+  --fs-100: 0.75rem; /* 12 */
+  --fs-200: 0.8125rem; /* 13 */
+  --fs-300: 0.875rem; /* 14 */
+  --fs-400: 1rem; /* 16 */
+  --fs-500: 1.0625rem; /* 17 — body */
+  --fs-600: 1.1875rem; /* 19 */
+  --fs-700: 1.375rem; /* 22 */
+  --fs-800: 1.75rem; /* 28 */
+  --fs-900: 2.25rem; /* 36 */
+  --fs-1000: 2.75rem; /* 44 */
+
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.25;
+  --lh-snug: 1.45;
+  --lh-body: 1.75; /* body text, set for Korean */
+
+  --tracking-tight: -0.015em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.04em;
+
+  /* --- Spacing (4px steps) ----------------------------------------- */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+  --sp-8: 4rem;
+  --sp-9: 6rem;
+
+  /* --- Corners -----------------------------------------------------
+     Much smaller than before. A large radius plus a soft shadow was what made
+     the lab read as a "card" rather than as an instrument. */
+  --r-xs: 2px;
+  --r-sm: 3px;
+  --r-md: 5px;
+  --r-lg: 8px;
+  --r-full: 999px;
+
+  /* --- Stroke widths -----------------------------------------------
+     Collects the 1.25 / 1.4 / 1.6 / 2.25 values that were scattered across
+     the SVGs into one place. */
+  --stroke-hairline: 1;
+  --stroke-regular: 1.5;
+  --stroke-bold: 2.5;
+
+  /* --- Widths ------------------------------------------------------ */
+  /* One content width for the whole article. Prose, figures and labs all sit
+     at exactly this, so the page has a single right edge.
+     52.5rem is what the middle column already works out to in the three-column
+     layout; the cap only bites on narrower windows, where the rails drop away
+     and the column would otherwise grow past it. */
+  --main-max: 52.5rem;
+  --gutter: 1.25rem;
+
+  /* --- Motion ------------------------------------------------------- */
+  --motion-fast: 90ms;
+  --motion: 180ms;
+  --motion-slow: 320ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ================================================================
+   2. Semantic — the only layer components should touch
+   ================================================================ */
+
+:root {
+  color-scheme: light dark;
+
+  /* --- Surfaces ----------------------------------------------------
+     This is what makes the reading surface and the working surface feel like
+     different materials. In light, panel reads as pressed in; in dark, as
+     lifted slightly. */
+  --surface-page: light-dark(#fcfcfd, #101319);
+  --surface-raised: light-dark(#ffffff, #171a21);
+  --surface-inset: light-dark(#f4f5f7, #0b0d12);
+  --surface-panel: light-dark(#f7f8fa, #171a21); /* labs and figures */
+  --surface-panel-inset: light-dark(#ffffff, #0d1015); /* a grid inside a panel */
+
+  /* --- Ink ---------------------------------------------------------- */
+  --ink-1: light-dark(#12151c, #e8eaef); /* body */
+  --ink-2: light-dark(#4d525f, #a8adb9); /* secondary */
+  --ink-3: light-dark(#6d7280, #7b8291); /* labels and captions */
+  --ink-strong: light-dark(#05070b, #ffffff); /* headings */
+  --ink-inverse: light-dark(#ffffff, #0d0f14);
+
+  /* --- Lines --------------------------------------------------------- */
+  --line-1: light-dark(#eaebee, #23272f); /* hairline */
+  --line-2: light-dark(#dcdee3, #303540); /* a divider meant to be seen */
+  --line-3: light-dark(#c2c5cd, #414652); /* table and grid borders */
+
+  /* --- Interaction ---------------------------------------------------
+     Colour belongs to the data; the interface signals with ink and a single
+     blue. Refusing decorative colour is what keeps this from looking like a
+     page some machine dressed up. */
+  --accent: light-dark(#1d64c4, #6ba6f0);
+  --accent-hover: light-dark(#164e9c, #97c1f5);
+  --accent-wash: light-dark(#e8f1fd, #15243a);
+  --focus: light-dark(#1d64c4, #6ba6f0);
+
+  /* --- Data (primitives passed straight through) ---------------------- */
+  --data-q: var(--hue-q);
+  --data-k: var(--hue-k);
+  --data-v: var(--hue-v);
+  --data-q-wash: var(--hue-q-wash);
+  --data-k-wash: var(--hue-k-wash);
+  --data-v-wash: var(--hue-v-wash);
+
+  /* a cell the mask has blocked */
+  --blocked-surface: light-dark(#eef0f3, #14171d);
+  --blocked-ink: light-dark(#9a9ea9, #5b616e);
+}
+
+/* The theme toggle changes nothing but color-scheme. light-dark() does the rest. */
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+/* ================================================================
+   3. Component values — the lab
+   ================================================================ */
+
+:root {
+  --cell-w: 3.5rem; /* minimum width of a matrix cell */
+  --cell-h: 2rem;
+  --cell-pad: 0.35rem 0.5rem;
+  --grid-line: light-dark(#dcdee3, #2b303a); /* the rules between matrix cells */
+}
+
+@media (max-width: 34rem) {
+  :root {
+    --cell-w: 3rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion: 0ms;
+    --motion-slow: 0ms;
+  }
+}

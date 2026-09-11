@@ -1,0 +1,141 @@
+---
+/**
+ * The same model, used two different ways.
+ *
+ * Training knows the answer, so every position is computed at once and the mask
+ * is what stops it from cheating. Generation has no answer, so it goes round a
+ * loop, one word at a time, feeding its own output back in.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const CELL = 44;
+const TOKENS = 4;
+const xTrain = 40;
+const yTrain = 74;
+const xGen = 400;
+const yGen = 74;
+const W = 720;
+
+const L = ko
+  ? {
+      trainHead: '배울 때 — 한꺼번에',
+      genHead: '쓸 때 — 한 번에 하나씩',
+      trainNote: [
+        '정답 문장을 통째로 넣습니다.',
+        '네 자리를 동시에 계산하고,',
+        '가리기가 뒤를 못 보게 막습니다.',
+      ],
+      genNote: [
+        '정답이 없습니다.',
+        '한 단어를 만들어 다시 입력에 붙이고,',
+        '그걸 문장이 끝날 때까지 되풀이합니다.',
+      ],
+      pass: '한 번 계산',
+      loop: '되풀이',
+      out: '다음 단어',
+      title: '배울 때와 쓸 때가 다릅니다',
+      desc: '왼쪽은 배울 때입니다. 정답 문장의 네 자리가 한 줄로 놓여 있고 네 개를 동시에 계산합니다. 각 자리에서 뒤쪽으로 가는 화살표는 가리기에 막혀 끊겨 있습니다. 오른쪽은 쓸 때입니다. 상자 하나에서 다음 단어가 나오고, 그 단어가 화살표를 따라 입력으로 되돌아가 다시 같은 상자로 들어갑니다. 이 고리를 문장이 끝날 때까지 돕니다.',
+    }
+  : {
+      trainHead: 'while learning — all at once',
+      genHead: 'while using it — one at a time',
+      trainNote: [
+        'the answer goes in whole.',
+        'All four positions are computed together,',
+        'and the mask is what stops it looking ahead.',
+      ],
+      genNote: [
+        'there is no answer to hand.',
+        'One word is produced, appended to the input,',
+        'and round it goes until the sentence ends.',
+      ],
+      pass: 'one pass',
+      loop: 'again',
+      out: 'next word',
+      title: 'Learning and using are not the same shape',
+      desc: 'On the left is training. The four positions of the known answer sit in a row and are all computed together; the arrows that would reach forwards are cut off by the mask. On the right is generation. A single box produces the next word, and that word travels back along an arrow into the input and through the same box again. The loop repeats until the sentence ends.',
+    };
+---
+
+<svg viewBox={`0 0 ${W} 268`} width={W} height="268" role="img" aria-labelledby="gl-t gl-d">
+  <title id="gl-t">{L.title}</title>
+  <desc id="gl-d">{L.desc}</desc>
+
+  <defs>
+    <marker id="gl-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* ---- learning ---- */}
+  <text class="tmap__title" x={xTrain} y="34">{L.trainHead}</text>
+
+  {
+    Array.from({ length: TOKENS }, (_, i) => (
+      <g>
+        <rect class="tmap__box tmap__box--embed" x={xTrain + i * CELL} y={yTrain} width={CELL - 6} height={32} rx="4" />
+        <text class="tmap__note" x={xTrain + i * CELL + (CELL - 6) / 2} y={yTrain + 21} text-anchor="middle">
+          {i + 1}
+        </text>
+        {/* every position looks back, never forward */}
+        {Array.from({ length: i }, (_, j) => (
+          <path
+            class="tmap__line tmap__line--faint"
+            d={`M ${xTrain + i * CELL + 6} ${yTrain} Q ${xTrain + ((i + j) * CELL) / 2 + 14} ${yTrain - 26} ${xTrain + j * CELL + (CELL - 6) / 2} ${yTrain}`}
+          />
+        ))}
+      </g>
+    ))
+  }
+
+  <rect class="tmap__box tmap__box--attn" x={xTrain} y={yTrain + 62} width={TOKENS * CELL - 6} height={38} rx="4"></rect>
+  <text class="tmap__label--sm" x={xTrain + (TOKENS * CELL - 6) / 2} y={yTrain + 86} text-anchor="middle">{L.pass}</text>
+  {
+    Array.from({ length: TOKENS }, (_, i) => (
+      <path
+        class="tmap__line"
+        d={`M ${xTrain + i * CELL + (CELL - 6) / 2} ${yTrain + 34} V ${yTrain + 58}`}
+        marker-end="url(#gl-arrow)"
+      />
+    ))
+  }
+
+  {L.trainNote.map((line, i) => (
+    <text class="tmap__note" x={xTrain} y={yTrain + 126 + i * 17}>
+      {line}
+    </text>
+  ))}
+
+  {/* ---- generating ---- */}
+  <text class="tmap__title" x={xGen} y="34">{L.genHead}</text>
+
+  <rect class="tmap__box tmap__box--embed" x={xGen} y={yGen} width={120} height={32} rx="4"></rect>
+  <text class="tmap__note" x={xGen + 60} y={yGen + 21} text-anchor="middle">1 … k</text>
+
+  <path class="tmap__line" d={`M ${xGen + 60} ${yGen + 34} V ${yGen + 58}`} marker-end="url(#gl-arrow)"></path>
+  <rect class="tmap__box tmap__box--attn" x={xGen} y={yGen + 62} width={120} height={38} rx="4"></rect>
+  <text class="tmap__label--sm" x={xGen + 60} y={yGen + 86} text-anchor="middle">{L.pass}</text>
+
+  <path class="tmap__line" d={`M ${xGen + 122} ${yGen + 81} H ${xGen + 176}`} marker-end="url(#gl-arrow)"></path>
+  <rect class="tmap__box tmap__box--ffn" x={xGen + 178} y={yGen + 62} width={96} height={38} rx="4"></rect>
+  <text class="tmap__label--sm" x={xGen + 226} y={yGen + 86} text-anchor="middle">{L.out}</text>
+
+  {/* the word goes back into the input */}
+  <path
+    class="gl__loop"
+    d={`M ${xGen + 226} ${yGen + 60} V ${yGen - 22} H ${xGen + 60} V ${yGen - 4}`}
+    marker-end="url(#gl-arrow)"></path>
+  <text class="tmap__note" x={xGen + 140} y={yGen - 28} text-anchor="middle">{L.loop}</text>
+
+  {L.genNote.map((line, i) => (
+    <text class="tmap__note" x={xGen} y={yGen + 126 + i * 17}>
+      {line}
+    </text>
+  ))}
+</svg>

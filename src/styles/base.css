@@ -1,0 +1,1191 @@
+@import './tokens.css';
+
+/* ================================================================
+   The reading surface — a journal page.
+   Quiet ground, generous margins, hierarchy made out of weight.
+   No serifs. A Latin serif heading above Korean sans-serif body text reads as
+   an accident rather than as a pairing anyone chose.
+   ================================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* This has to be `clip`, not `hidden`.
+     With `hidden` on one axis the other computes to `auto`, which turns this
+     element into a scroll container; `position: sticky` inside then anchors to
+     that container and never sticks to the viewport.
+     `clip` trims the horizontal overflow without creating a scroll container. */
+  overflow-x: clip;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--surface-page);
+  color: var(--ink-1);
+  font-family: var(--font-sans);
+  font-size: var(--fs-500);
+  font-weight: var(--fw-normal);
+  line-height: var(--lh-body);
+  overflow-x: clip; /* same reason as on html — it keeps sticky working */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'ss01' 1;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--r-xs);
+}
+
+::selection {
+  background: var(--accent-wash);
+  color: var(--ink-strong);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: var(--sp-2);
+  z-index: 100;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--surface-raised);
+  color: var(--accent);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-md);
+  font-weight: var(--fw-semi);
+  font-size: var(--fs-300);
+}
+.skip-link:focus {
+  left: var(--sp-4);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------- Frame */
+
+.site {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100vh;
+}
+
+.masthead {
+  border-bottom: 1px solid var(--line-1);
+  background: color-mix(in srgb, var(--surface-page) 85%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.masthead__bar {
+  max-width: 88rem;
+  margin: 0 auto;
+  padding: var(--sp-3) var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.masthead__brand {
+  font-size: var(--fs-300);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--ink-strong);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.masthead__brand:hover {
+  color: var(--accent);
+}
+.masthead__spacer {
+  flex: 1;
+  min-width: 0;
+}
+.masthead__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.masthead__contents,
+.lang-switch {
+  font-size: var(--fs-100);
+  font-weight: var(--fw-medium);
+  padding: 0.35em 0.7em;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+  text-decoration: none;
+  background: var(--surface-raised);
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+.masthead__contents:hover,
+.lang-switch:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+@media (min-width: 60rem) {
+  .masthead__contents {
+    display: none;
+  }
+}
+
+.theme-toggle button {
+  min-width: 2.1rem;
+}
+
+
+@media (max-width: 26rem) {
+  .masthead__bar {
+    padding-inline: var(--sp-3);
+    gap: var(--sp-2);
+  }
+  .masthead__contents,
+  .lang-switch {
+    padding: 0.3em 0.5em;
+  }
+  .theme-toggle button {
+    min-width: 1.9rem;
+    padding: 0.3em 0.35em;
+  }
+}
+
+.shell {
+  max-width: 88rem;
+  margin: 0 auto;
+  width: 100%;
+  padding: 0 var(--gutter);
+  display: grid;
+  gap: var(--sp-6);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* On a narrow screen the article comes first, then the contents of this
+   article, then the wiki-wide learning path. Moving around inside the piece
+   you are reading is the more urgent of the two. */
+.shell > .main {
+  order: 1;
+}
+.shell > .toc {
+  order: 2;
+}
+.shell > .sidebar {
+  order: 3;
+}
+
+@media (min-width: 60rem) {
+  .shell {
+    grid-template-columns: 13rem minmax(0, 1fr);
+    gap: var(--sp-7);
+    align-items: start;
+  }
+  .shell > .sidebar {
+    order: 1;
+  }
+  .shell > .main {
+    order: 2;
+  }
+  /* Not yet wide enough for three columns: contents sits below the article. */
+  .shell > .toc {
+    order: 3;
+    grid-column: 2;
+  }
+}
+
+/* Left = the whole learning path, right = the contents of this article.
+   Switched on only once both rails fit without squeezing the article. */
+@media (min-width: 75rem) {
+  .shell--with-toc {
+    grid-template-columns: 13rem minmax(0, 1fr) 14rem;
+  }
+  .shell--with-toc > .toc {
+    order: 3;
+    grid-column: 3;
+  }
+}
+
+.main {
+  padding-block: var(--sp-7) var(--sp-9);
+  min-width: 0;
+  /* Without this the column grows past --main-max once the rails drop away,
+     so the narrowest desktop window would get the longest lines. */
+  max-width: var(--main-max);
+  margin-inline: auto;
+}
+
+/* ------------------------------------------------------- Learning path */
+
+.sidebar {
+  padding-block: var(--sp-5);
+  font-size: var(--fs-200);
+  border-top: 1px solid var(--line-1);
+  margin-top: var(--sp-7);
+}
+@media (min-width: 60rem) {
+  .sidebar {
+    position: sticky;
+    top: 4.5rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    padding-right: var(--sp-2);
+    border-top: 0;
+    margin-top: 0;
+  }
+}
+
+.sidebar__group + .sidebar__group {
+  margin-top: var(--sp-5);
+}
+.sidebar__title {
+  font-size: var(--fs-50);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  font-weight: var(--fw-bold);
+  margin: 0 0 var(--sp-2);
+}
+.sidebar__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sidebar__list li {
+  margin: 0;
+}
+
+/* The current document is marked with a rule down the left, not a filled
+   block. A background pill reads as decoration rather than as information. */
+.sidebar__link {
+  display: block;
+  padding: 0.3rem 0 0.3rem var(--sp-3);
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
+  text-decoration: none;
+  line-height: var(--lh-snug);
+  transition: color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+.sidebar__link:hover {
+  color: var(--ink-strong);
+  border-left-color: var(--line-3);
+}
+.sidebar__link[aria-current='page'] {
+  color: var(--ink-strong);
+  font-weight: var(--fw-semi);
+  border-left-color: var(--accent);
+}
+.sidebar__pending {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 0.3rem 0 0.3rem var(--sp-3);
+  border-left: 2px solid transparent;
+  color: var(--ink-3);
+  line-height: var(--lh-snug);
+  cursor: default;
+}
+/* Once, beside the group heading. Per item it would repeat nine times. */
+.sidebar__flag {
+  margin-left: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  font-weight: var(--fw-normal);
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  color: var(--ink-3);
+}
+
+/* ------------------------------------------------- Contents of the page */
+
+.toc {
+  padding-block: var(--sp-5);
+  scroll-margin-top: 4.5rem;
+  font-size: var(--fs-200);
+  border-top: 1px solid var(--line-1);
+  margin-top: var(--sp-7);
+}
+@media (min-width: 75rem) {
+  .shell--with-toc > .toc {
+    position: sticky;
+    top: 4.5rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    font-size: var(--fs-100);
+    border-top: 0;
+    margin-top: 0;
+    /* Unlike the left menu, the rule sits on the left — this belongs to the article. */
+    border-left: 1px solid var(--line-1);
+    padding-left: var(--sp-4);
+    padding-right: var(--sp-2);
+  }
+}
+
+.toc__title {
+  font-size: var(--fs-50);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  font-weight: var(--fw-bold);
+  margin: 0 0 var(--sp-2);
+}
+.toc__list,
+.toc__sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.toc__list > li {
+  margin: 0;
+  display: block;
+}
+.toc__link {
+  display: flex;
+  gap: var(--sp-2);
+  padding: 0.25rem 0 0.25rem var(--sp-3);
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  color: var(--ink-2);
+  text-decoration: none;
+  line-height: var(--lh-snug);
+  transition: color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
+}
+.toc__link:hover {
+  color: var(--ink-strong);
+  border-left-color: var(--line-3);
+}
+.toc__link[aria-current='true'] {
+  color: var(--ink-strong);
+  font-weight: var(--fw-semi);
+  border-left-color: var(--accent);
+}
+.toc__num {
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-3);
+  flex: none;
+  min-width: 1.1em;
+  text-align: right;
+  padding-top: 0.15em;
+}
+.toc__link[aria-current='true'] .toc__num {
+  color: var(--accent);
+}
+.toc__pending {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  padding: 0.25rem 0 0.25rem var(--sp-3);
+  border-left: 2px solid transparent;
+  color: var(--ink-3);
+  line-height: var(--lh-snug);
+  cursor: default;
+}
+.toc__pending::after {
+  content: attr(data-note);
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+  color: var(--ink-3);
+}
+
+/* Sub-headings open under the section being read, one section at a time. */
+.toc__sublist {
+  margin: 0.1rem 0 0.35rem;
+  border-left: 1px solid var(--line-1);
+  margin-left: var(--sp-3);
+}
+.toc__link--sub {
+  padding-left: var(--sp-3);
+  font-size: var(--fs-50);
+  color: var(--ink-3);
+}
+.toc__link--sub[aria-current='true'] {
+  color: var(--ink-strong);
+  border-left-color: var(--accent);
+}
+
+/* -------------------------------------------------- The reading surface */
+
+/*
+ * The article is one column, and everything in it is that column wide: prose,
+ * figures and labs share a single right edge.
+ *
+ * It stays a grid rather than becoming a block because margins do not collapse
+ * in a grid, and the vertical rhythm below is tuned on that basis.
+ * `min-width: 0` keeps a wide table or `pre` from blowing the column out.
+ */
+.prose {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  align-content: start;
+}
+.prose > * {
+  min-width: 0;
+}
+
+.prose p {
+  margin: 0 0 var(--sp-4);
+  text-wrap: pretty;
+}
+.prose ul,
+.prose ol {
+  margin: 0 0 var(--sp-4);
+  padding-left: 1.35em;
+}
+.prose li {
+  margin: 0 0 var(--sp-2);
+}
+.prose li::marker {
+  color: var(--ink-3);
+}
+.prose strong {
+  font-weight: var(--fw-semi);
+  color: var(--ink-strong);
+}
+.prose a {
+  color: var(--accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+.prose a:hover {
+  color: var(--accent-hover);
+}
+
+.prose h3 {
+  font-size: var(--fs-600);
+  font-weight: var(--fw-bold);
+  color: var(--ink-strong);
+  line-height: var(--lh-snug);
+  letter-spacing: var(--tracking-tight);
+  margin: var(--sp-6) 0 var(--sp-3);
+  scroll-margin-top: 5rem;
+  text-wrap: balance;
+}
+.prose h4 {
+  font-size: var(--fs-500);
+  font-weight: var(--fw-semi);
+  color: var(--ink-strong);
+  margin: var(--sp-5) 0 var(--sp-2);
+  scroll-margin-top: 5rem;
+}
+
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--line-1);
+  margin: var(--sp-6) 0;
+}
+
+/* A quotation steps back from the body. No italics — they damage Hangul. */
+.prose blockquote {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-2) 0 var(--sp-2) var(--sp-4);
+  border-left: 2px solid var(--line-3);
+  color: var(--ink-2);
+}
+.prose blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--surface-inset);
+  border-radius: var(--r-xs);
+  padding: 0.1em 0.35em;
+}
+.prose pre {
+  margin: 0 0 var(--sp-4);
+  padding: var(--sp-4);
+  background: var(--surface-panel);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+  line-height: 1.65;
+}
+.prose pre code {
+  background: none;
+  padding: 0;
+  font-size: var(--fs-200);
+}
+
+/*
+ * Only prose tables. Scoped to a **direct child** of a section because the
+ * matrices inside a lab are tables too, and catching them here would turn an
+ * instrument into a reading table.
+ * A markdown table is always a direct child of its section; a lab sits one
+ * component deeper.
+ */
+.prose > table,
+.doc-section > table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-200);
+}
+.prose > table th,
+.doc-section > table th {
+  text-align: left;
+  font-size: var(--fs-50);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--line-2);
+}
+.prose > table td,
+.doc-section > table td {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  border-bottom: 1px solid var(--line-1);
+  vertical-align: top;
+}
+
+/* On a narrow screen a display equation scrolls sideways rather than clipping */
+.prose .katex-display {
+  margin: var(--sp-5) 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.2em;
+}
+
+/* ------------------------------------------------------- Document head */
+
+.doc-header {
+  margin-bottom: var(--sp-6);
+}
+.doc-header__eyebrow {
+  font-size: var(--fs-50);
+  font-weight: var(--fw-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  color: var(--ink-3);
+  margin: 0 0 var(--sp-2);
+}
+.doc-header h1 {
+  /* Fixed at 44px, one title takes three lines on a 390px screen */
+  font-size: clamp(var(--fs-800), 7.5vw, var(--fs-1000));
+  font-weight: var(--fw-bold);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--ink-strong);
+  margin: 0 0 var(--sp-4);
+  text-wrap: balance;
+}
+.doc-header__lead {
+  font-size: var(--fs-600);
+  line-height: 1.65;
+  color: var(--ink-2);
+  margin: 0 0 var(--sp-5);
+  text-wrap: pretty;
+}
+.doc-header__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-1);
+  font-size: var(--fs-100);
+}
+.doc-header__updated {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.paper-ref {
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  color: var(--ink-3);
+}
+
+/* Status. The dot always carries a word beside it — never colour alone. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-100);
+  font-weight: var(--fw-medium);
+  color: var(--ink-2);
+}
+.badge__dot {
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: var(--r-full);
+  background: var(--ink-3);
+  flex: none;
+}
+.badge--complete .badge__dot {
+  background: var(--status-ok);
+}
+.badge--partial .badge__dot {
+  background: var(--status-warn);
+}
+.badge--planned .badge__dot {
+  background: var(--ink-3);
+}
+
+/* ------------------------------------------------------- Asides & notes */
+
+/*
+ * Short pieces set beside the body. The kind is carried by a coloured edge
+ * on the left; the text itself always stays ink, so meaning never rests on
+ * colour alone.
+ */
+.note {
+  background: var(--surface-raised);
+  border: 1px solid var(--line-1);
+  border-left: 3px solid var(--line-3);
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-5);
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-400);
+}
+.note > :last-child {
+  margin-bottom: 0;
+}
+.note__title {
+  font-size: var(--fs-400);
+  font-weight: var(--fw-bold);
+  color: var(--ink-strong);
+  margin: 0 0 var(--sp-2);
+}
+.note--try {
+  border-left-color: var(--data-k);
+}
+.note--why {
+  border-left-color: var(--data-v);
+}
+.note--limit {
+  border-left-color: var(--accent);
+}
+.note--scope {
+  border-left-color: var(--line-3);
+  background: var(--surface-panel);
+}
+
+/* Opened only by readers who need it. Closed by default. */
+.expand {
+  margin: 0 0 var(--sp-4);
+  border-left: 1px solid var(--line-2);
+  padding-left: var(--sp-4);
+}
+.expand > summary {
+  cursor: pointer;
+  color: var(--ink-2);
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-400);
+  list-style: none;
+  padding: var(--sp-1) 0;
+}
+.expand > summary::-webkit-details-marker {
+  display: none;
+}
+.expand > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 1em;
+  color: var(--ink-3);
+  transition: transform var(--motion-fast) var(--ease);
+}
+.expand[open] > summary::before {
+  transform: rotate(90deg);
+}
+.expand > summary:hover {
+  color: var(--ink-strong);
+}
+.expand__body {
+  padding-top: var(--sp-3);
+}
+.expand__body > :last-child {
+  margin-bottom: 0;
+}
+
+/* ------------------------------------------------------------ Controls */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font: inherit;
+  font-size: var(--fs-200);
+  font-weight: var(--fw-medium);
+  color: var(--ink-1);
+  background: var(--surface-raised);
+  border: 1px solid var(--line-3);
+  border-radius: var(--r-sm);
+  padding: 0.4em 0.75em;
+  cursor: pointer;
+  transition: border-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--ink-3);
+  color: var(--ink-strong);
+}
+.btn:disabled {
+  color: var(--ink-3);
+  border-color: var(--line-2);
+  cursor: default;
+}
+.btn--ghost {
+  background: none;
+  border-color: transparent;
+  color: var(--ink-2);
+  padding-inline: 0.35em;
+}
+.btn--ghost:hover:not(:disabled) {
+  border-color: var(--line-2);
+}
+
+/* A choice between two. Only the chosen side looks lifted. */
+.segmented {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+}
+.segmented button {
+  font: inherit;
+  font-size: var(--fs-200);
+  color: var(--ink-3);
+  background: none;
+  border: 1px solid transparent;
+  border-radius: calc(var(--r-sm) - 1px);
+  padding: 0.3em 0.6em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--motion-fast) var(--ease), background var(--motion-fast) var(--ease);
+}
+.segmented button:hover {
+  color: var(--ink-1);
+}
+.segmented button[aria-pressed='true'] {
+  background: var(--surface-raised);
+  border-color: var(--line-3);
+  color: var(--ink-strong);
+  font-weight: var(--fw-semi);
+}
+
+/* -------------------------------------------------------------- Footer */
+
+.site-footer {
+  border-top: 1px solid var(--line-1);
+  margin-top: var(--sp-9);
+}
+.site-footer__inner {
+  max-width: 88rem;
+  margin: 0 auto;
+  padding: var(--sp-5) var(--gutter);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
+  font-size: var(--fs-100);
+  color: var(--ink-3);
+}
+.site-footer__inner a {
+  color: var(--ink-2);
+  text-underline-offset: 0.2em;
+}
+.site-footer__inner a:hover {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------- Figures */
+
+.figure {
+  margin: var(--sp-6) 0;
+}
+.figure__frame {
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-md);
+  background: var(--surface-panel);
+  padding: var(--sp-5) var(--sp-4);
+  overflow-x: auto;
+}
+.figure__frame svg {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+.figure__caption {
+  margin-top: var(--sp-3);
+  font-size: var(--fs-200);
+  color: var(--ink-3);
+  line-height: 1.65;
+}
+
+/* -------------------------------------------------------- Diagram SVGs */
+
+.tmap__box {
+  fill: var(--surface-raised);
+  stroke: var(--line-3);
+  stroke-width: var(--stroke-hairline);
+}
+.tmap__box--attn {
+  fill: var(--data-q-wash);
+  stroke: var(--data-q);
+}
+.tmap__box--norm {
+  fill: var(--surface-inset);
+  stroke: var(--line-2);
+}
+.tmap__box--ffn {
+  fill: var(--data-v-wash);
+  stroke: var(--data-v);
+}
+.tmap__box--head {
+  fill: var(--surface-inset);
+  stroke: var(--line-3);
+}
+.tmap__box--embed {
+  fill: var(--surface-raised);
+  stroke: var(--line-3);
+}
+.tmap__stack {
+  fill: none;
+  stroke: var(--line-2);
+  stroke-width: var(--stroke-hairline);
+  stroke-dasharray: 4 4;
+}
+.tmap__label {
+  fill: var(--ink-1);
+  font-size: 12px;
+  font-weight: var(--fw-medium);
+}
+.tmap__label--sm {
+  font-size: 10.5px;
+  font-weight: var(--fw-normal);
+  fill: var(--ink-3);
+}
+.tmap__note {
+  fill: var(--ink-3);
+  font-size: 10.5px;
+}
+.tmap__line {
+  stroke: var(--line-3);
+  stroke-width: var(--stroke-regular);
+  fill: none;
+}
+.tmap__line--emph {
+  stroke: var(--data-k);
+  stroke-width: var(--stroke-bold);
+}
+.tmap__line--faint {
+  stroke: var(--line-2);
+  stroke-width: var(--stroke-hairline);
+  opacity: 0.6;
+}
+.tmap__line--cross {
+  stroke: var(--data-v);
+  stroke-width: var(--stroke-regular);
+  stroke-dasharray: 4 3;
+}
+.tmap__title {
+  fill: var(--ink-strong);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.tmap__later {
+  opacity: 0.45;
+}
+.tmap__now {
+  stroke-width: var(--stroke-bold);
+}
+.tmap__badge {
+  fill: var(--accent);
+  font-size: 10px;
+  font-weight: var(--fw-bold);
+}
+
+/* A heading that contains a formula or a symbol. .tmap__title cannot be used
+   for these: it uppercases, so dₖ becomes Dₖ and W_Q stops being W_Q. */
+.tmap__head {
+  fill: var(--ink-strong);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+}
+.tmap__op {
+  fill: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 18px;
+}
+
+/* The thickness of an arc is how much is being looked at. Three steps only. */
+.aa__arc {
+  fill: none;
+  stroke: var(--data-k);
+  stroke-linecap: round;
+}
+.aa__arc--strong {
+  stroke-width: 3.5;
+}
+.aa__arc--mid {
+  stroke-width: 2;
+  opacity: 0.8;
+}
+.aa__arc--weak {
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
+/* Example ids, set in the same face as the code blocks in the prose. */
+.tp__num {
+  fill: var(--ink-1);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Q, K and V are told apart by cell fill only — never by text colour. */
+.qkv__cell--q {
+  fill: var(--data-q-wash);
+  stroke: var(--data-q);
+}
+.qkv__cell--k {
+  fill: var(--data-k-wash);
+  stroke: var(--data-k);
+}
+.qkv__cell--v {
+  fill: var(--data-v-wash);
+  stroke: var(--data-v);
+}
+
+/* Heat grids inside a figure. The fill is set per cell from the sequential ramp;
+   the text colour switches once the fill gets dark enough to need it. */
+.hp__cell {
+  stroke: var(--surface-panel);
+  stroke-width: 2;
+}
+.hp__value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The sin and cos curves of the positional encoding. */
+.pw__curve {
+  fill: none;
+  stroke-width: var(--stroke-regular);
+  stroke-linecap: round;
+}
+.pw__curve--sin {
+  stroke: var(--data-q);
+}
+.pw__curve--cos {
+  stroke: var(--data-k);
+}
+.pw__dot--sin {
+  fill: var(--data-q);
+}
+.pw__dot--cos {
+  fill: var(--data-k);
+}
+
+/* The bypass in the residual figure: dashed, because nothing happens along it. */
+.rp__bypass {
+  fill: none;
+  stroke: var(--data-v);
+  stroke-width: var(--stroke-bold);
+  stroke-dasharray: 5 4;
+}
+
+/* A hidden entry the ReLU has flattened to zero. */
+.ffs__zeroed {
+  fill: var(--surface-inset);
+  stroke: var(--line-2);
+  stroke-dasharray: 3 3;
+}
+
+/* Bars in the layer-norm and loss figures. */
+.lns__bar {
+  fill: var(--data-q-wash);
+  stroke: var(--data-q);
+  stroke-width: var(--stroke-hairline);
+}
+.lns__bar--neg {
+  fill: var(--data-k-wash);
+  stroke: var(--data-k);
+}
+.lp__bar {
+  stroke-width: var(--stroke-hairline);
+}
+.lp__bar--guess {
+  fill: var(--data-q-wash);
+  stroke: var(--data-q);
+}
+.lp__bar--target {
+  fill: var(--surface-inset);
+  stroke: var(--line-3);
+}
+.lp__bar--right {
+  stroke: var(--data-v);
+  stroke-width: var(--stroke-bold);
+}
+
+/* The learning-rate curve and the step the schedule turns over at. */
+.lrc__curve {
+  fill: none;
+  stroke: var(--data-q);
+  stroke-width: var(--stroke-bold);
+  stroke-linecap: round;
+}
+.lrc__dot {
+  fill: var(--data-q);
+}
+.lrc__mark {
+  fill: none;
+  stroke: var(--data-k);
+  stroke-width: var(--stroke-regular);
+  stroke-dasharray: 4 4;
+}
+
+/* Edges of the search tree. The two chosen paths are drawn over the rest. */
+.bt__edge {
+  fill: none;
+  stroke: var(--line-2);
+  stroke-width: var(--stroke-hairline);
+}
+.bt__edge--beam {
+  stroke: var(--data-v);
+  stroke-width: var(--stroke-bold);
+}
+.bt__edge--greedy {
+  stroke: var(--data-k);
+  stroke-width: var(--stroke-regular);
+  stroke-dasharray: 5 3;
+}
+
+/* The word travelling back into the input during generation. */
+.gl__loop {
+  fill: none;
+  stroke: var(--data-k);
+  stroke-width: var(--stroke-regular);
+  stroke-dasharray: 5 4;
+}
+
+/* Table 2 as a scatter. The Transformer points are the ones being argued about. */
+.bc__dot {
+  fill: var(--surface-raised);
+  stroke: var(--line-3);
+  stroke-width: var(--stroke-regular);
+}
+.bc__dot--transformer {
+  fill: var(--data-q);
+  stroke: var(--data-q);
+}
+
+/* Edge highlights in the shape diagram. Same colour means same dimension. */
+.sf__edge {
+  fill: none;
+  stroke-linecap: round;
+}
+.sf__edge--rows {
+  stroke: var(--data-q);
+  stroke-width: var(--stroke-bold);
+}
+.sf__edge--cols {
+  stroke: var(--data-v);
+  stroke-width: var(--stroke-bold);
+}
+.sf__edge--cancel {
+  stroke: var(--ink-3);
+  stroke-width: var(--stroke-regular);
+  stroke-dasharray: 3 3;
+}
+
+/* ------------------------------------------------------------ Sections */
+
+/*
+ * A section. Rendered by Section.astro rather than by a markdown ##, so its
+ * appearance is set here rather than by the h2 rules in .prose.
+ */
+.doc-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  /* .prose is a grid, so margins do not collapse; this adds to the paragraph
+     spacing above, hence the small value. */
+  padding-top: var(--sp-5);
+  /* Keeps the heading clear of the sticky masthead when jumping to an anchor */
+  scroll-margin-top: 4.5rem;
+}
+.doc-section > * { min-width: 0; }
+
+.doc-section__title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  font-size: clamp(var(--fs-700), 5.5vw, var(--fs-800));
+  font-weight: var(--fw-bold);
+  color: var(--ink-strong);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--tracking-tight);
+  margin: 0 0 var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line-1);
+  text-wrap: balance;
+}
+.doc-section__lead {
+  font-size: var(--fs-600);
+  color: var(--ink-2);
+  line-height: 1.65;
+  margin: 0 0 var(--sp-5);
+  text-wrap: pretty;
+}
+.doc-section__pending {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-100);
+  font-weight: var(--fw-medium);
+  color: var(--ink-3);
+  letter-spacing: var(--tracking-normal);
+}
+.doc-section__stage {
+  font-family: var(--font-mono);
+  font-size: var(--fs-50);
+  padding: 0.1em 0.4em;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xs);
+}
+.doc-section--planned .doc-section__title > span:first-child { color: var(--ink-3); }
+.doc-section--planned { padding-top: var(--sp-6); }

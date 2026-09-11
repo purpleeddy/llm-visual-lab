@@ -1,0 +1,124 @@
+---
+/**
+ * The four steps of equation (1) and the shape each one produces.
+ *
+ * The names of the steps come from **the same place as the step rail in the
+ * lab below** (`ui.lab.steps`), so the figure cannot call something "scores"
+ * while the rail calls it something else.
+ * The dimensions come from `examples.ts` for the same reason.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { t } from '../../lib/i18n/ui';
+import { DEFAULT_X, DEFAULT_WQ, DEFAULT_WV } from '../../lib/math/examples';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const steps = t(locale).lab.steps;
+
+const n = DEFAULT_X.length;
+const dK = DEFAULT_WQ[0].length;
+const dV = DEFAULT_WV[0].length;
+
+const STEPS = [
+  { name: steps.scores.name, formula: 'QKᵀ', shape: [n, n] },
+  { name: steps.scale.name, formula: '÷ √dₖ', shape: [n, n] },
+  { name: steps.softmax.name, formula: 'softmax', shape: [n, n] },
+  { name: steps.output.name, formula: '× V', shape: [n, dV] },
+];
+
+const BOX_W = 104;
+const GAP = 22;
+/** Room on the left for the Q/K box and the "shape that comes out" label */
+const PAD = 104;
+const yBox = 64;
+const BOX_H = 48;
+const x = (i: number) => PAD + i * (BOX_W + GAP);
+const W = PAD + STEPS.length * BOX_W + (STEPS.length - 1) * GAP + 20;
+
+const L = ko
+  ? {
+      inQK: 'Q 와 K',
+      inV: 'V 가 여기서 들어옵니다',
+      out: '결과',
+      shape: '나오는 모양',
+      title: 'attention 한 줄의 네 걸음',
+      desc: `왼쪽에서 오른쪽으로 네 개의 상자가 이어져 있습니다. 첫 상자는 ${steps.scores.name}으로 Q 와 K 의 전치를 곱해 ${n} × ${n} 을 만듭니다. 둘째는 ${steps.scale.name}로 √dₖ 로 나누며 모양은 ${n} × ${n} 그대로입니다. 셋째는 ${steps.softmax.name}로 softmax 를 지나 역시 ${n} × ${n} 입니다. 넷째는 ${steps.output.name}으로 V 를 곱해 ${n} × ${dV} 가 됩니다. 앞의 세 걸음은 모양이 바뀌지 않고, 마지막 걸음에서만 ${n} × ${dV} 로 바뀝니다.`,
+    }
+  : {
+      inQK: 'Q and K',
+      inV: 'V enters here',
+      out: 'result',
+      shape: 'shape that comes out',
+      title: 'The four steps inside one line of attention',
+      desc: `Four boxes run left to right. The first is ${steps.scores.name}: Q times K transposed, giving ${n} × ${n}. The second is ${steps.scale.name}: divide by the square root of d_k, still ${n} × ${n}. The third is ${steps.softmax.name}: softmax, again ${n} × ${n}. The fourth is ${steps.output.name}: multiply by V, giving ${n} × ${dV}. The shape does not change for the first three steps; only the last step changes it to ${n} × ${dV}.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} 178`} width={W} height="178" role="img" aria-labelledby="as-t as-d">
+  <title id="as-t">{L.title}</title>
+  <desc id="as-d">{L.desc}</desc>
+
+  <defs>
+    <marker
+      id="as-arrow"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="5"
+      markerHeight="5"
+      orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* It starts from Q and K; V arrives at the last step */}
+  <rect class="tmap__box tmap__box--head" x="20" y={yBox + 8} width="60" height="32" rx="4"></rect>
+  <text class="tmap__head" x="50" y={yBox + 29} text-anchor="middle">{L.inQK}</text>
+  <path class="tmap__line" d={`M 82 ${yBox + BOX_H / 2} H ${PAD - 5}`} marker-end="url(#as-arrow)"></path>
+
+  {
+    STEPS.map((s, i) => (
+      <g>
+        {i > 0 ? (
+          <path
+            class="tmap__line"
+            d={`M ${x(i) - GAP + 2} ${yBox + BOX_H / 2} H ${x(i) - 5}`}
+            marker-end="url(#as-arrow)"
+          />
+        ) : null}
+        <rect
+          class={i === STEPS.length - 1 ? 'tmap__box tmap__box--ffn' : 'tmap__box tmap__box--attn'}
+          x={x(i)}
+          y={yBox}
+          width={BOX_W}
+          height={BOX_H}
+          rx="4"
+        />
+        <text class="tmap__badge" x={x(i) + 10} y={yBox - 26}>
+          {i + 1}
+        </text>
+        <text class="tmap__label" x={x(i) + 22} y={yBox - 26}>
+          {s.name}
+        </text>
+        <text class="tmap__head" x={x(i) + BOX_W / 2} y={yBox + 30} text-anchor="middle">
+          {s.formula}
+        </text>
+        <text class="tmap__note" x={x(i) + BOX_W / 2} y={yBox + BOX_H + 20} text-anchor="middle">
+          {s.shape[0]} × {s.shape[1]}
+        </text>
+      </g>
+    ))
+  }
+
+  {/* V enters only at the final step */}
+  <path
+    class="tmap__line tmap__line--cross"
+    d={`M ${x(3) + BOX_W / 2} 150 V ${yBox + BOX_H + 30}`}
+    marker-end="url(#as-arrow)"></path>
+  <text class="tmap__note" x={x(3) + BOX_W / 2} y="164" text-anchor="middle">{L.inV}</text>
+
+  <text class="tmap__note" x="12" y={yBox + BOX_H + 20}>{L.shape}</text>
+</svg>

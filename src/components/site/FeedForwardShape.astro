@@ -1,0 +1,119 @@
+---
+/**
+ * The feed-forward network as a shape: widen, cut off the negatives, narrow again.
+ *
+ * The numbers are the computed ones from the worked example, so the hidden row
+ * shown here is the row the prose walks through.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { feedForward } from '../../lib/math/blocks';
+import { DEFAULT_X, FFN_B1, FFN_B2, FFN_W1, FFN_W2 } from '../../lib/math/examples';
+import { fmtCompact } from '../../lib/math/format';
+
+interface Props {
+  locale: Locale;
+  /** Which token's row to walk through */
+  row?: number;
+}
+const { locale, row = 0 } = Astro.props;
+const ko = locale === 'ko';
+
+const ff = feedForward(DEFAULT_X, FFN_W1, FFN_B1, FFN_W2, FFN_B2);
+const input = DEFAULT_X[row];
+const hidden = ff.hidden[row];
+const activated = ff.activated[row];
+const output = ff.output[row];
+const { dModel, dFF } = ff.dims;
+
+const CELL = 30;
+const GAP = 96;
+const yMid = 120;
+const xOf = (stage: number) => 40 + stage * (CELL * 1 + GAP);
+const colX = [40, 210, 380, 550];
+const W = 700;
+
+/** A column of cells, centred on yMid. */
+const colY = (count: number, i: number) => yMid - (count * CELL) / 2 + i * CELL;
+
+const L = ko
+  ? {
+      stages: ['들어온 것', `넓힌 것 (${dFF}칸)`, '음수를 0 으로', '다시 좁힌 것'],
+      shapes: [`${dModel}`, `${dFF}`, `${dFF}`, `${dModel}`],
+      relu: 'ReLU',
+      zeroed: `${dFF}칸 중 ${hidden.filter((v) => v <= 0).length}칸이 0 이 됩니다`,
+      note: '자리마다 따로, 같은 W 로. 여기서는 토큰끼리 정보가 오가지 않습니다.',
+      title: '넓혔다가 자르고 다시 좁히기',
+      desc: `왼쪽부터 네 칸입니다. 처음은 토큰 하나의 입력 벡터로 길이가 ${dModel} 입니다. 다음은 W1 을 곱하고 b1 을 더해 길이 ${dFF} 로 넓힌 것이고, 음수가 섞여 있습니다. 그다음이 ReLU 로 음수를 전부 0 으로 만든 것이며 ${dFF}칸 중 ${hidden.filter((v) => v <= 0).length}칸이 0 이 됩니다. 마지막은 W2 를 곱해 다시 길이 ${dModel} 로 좁힌 결과입니다. 넓힌 다음 잘라 내고 다시 좁히는 것이 전부이고, 이 과정에서 토큰끼리 정보가 오가지는 않습니다.`,
+    }
+  : {
+      stages: ['what comes in', `widened (${dFF})`, 'negatives set to 0', 'narrowed again'],
+      shapes: [`${dModel}`, `${dFF}`, `${dFF}`, `${dModel}`],
+      relu: 'ReLU',
+      zeroed: `${hidden.filter((v) => v <= 0).length} of the ${dFF} become 0`,
+      note: 'per position, with the same W. Nothing moves between tokens here.',
+      title: 'Widen, cut, narrow',
+      desc: `Four columns, left to right. The first is one token's input vector, of length ${dModel}. The second is that multiplied by W1 with b1 added, widened to ${dFF}, and it contains negative entries. The third is after the ReLU, which sets every negative to zero — ${hidden.filter((v) => v <= 0).length} of the ${dFF} entries. The fourth is the result of multiplying by W2, back to length ${dModel}. Widen, cut, narrow, and nothing passes between tokens along the way.`,
+    };
+
+const columns = [
+  { values: input, x: colX[0], tone: 'tmap__box--embed' },
+  { values: hidden, x: colX[1], tone: 'tmap__box' },
+  { values: activated, x: colX[2], tone: 'tmap__box--ffn' },
+  { values: output, x: colX[3], tone: 'tmap__box--embed' },
+];
+---
+
+<svg viewBox={`0 0 ${W} 268`} width={W} height="268" role="img" aria-labelledby="ffs-t ffs-d">
+  <title id="ffs-t">{L.title}</title>
+  <desc id="ffs-d">{L.desc}</desc>
+
+  <defs>
+    <marker id="ffs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {
+    columns.map((col, c) => (
+      <g>
+        <text class="tmap__note" x={col.x + 30} y="38" text-anchor="middle">
+          {L.stages[c]}
+        </text>
+        <text class="tmap__head" x={col.x + 30} y="54" text-anchor="middle">
+          {L.shapes[c]}
+        </text>
+        {col.values.map((v, i) => (
+          <g>
+            <rect
+              class={`tmap__box ${col.tone} ${c === 2 && hidden[i] <= 0 ? 'ffs__zeroed' : ''}`}
+              x={col.x}
+              y={colY(col.values.length, i)}
+              width={60}
+              height={CELL}
+            />
+            <text
+              class="hp__value"
+              x={col.x + 30}
+              y={colY(col.values.length, i) + 20}
+              text-anchor="middle"
+              style="fill: var(--ink-1);"
+            >
+              {fmtCompact(v)}
+            </text>
+          </g>
+        ))}
+        {c < 3 ? (
+          <path
+            class="tmap__line"
+            d={`M ${col.x + 62} ${yMid} H ${columns[c + 1].x - 5}`}
+            marker-end="url(#ffs-arrow)"
+          />
+        ) : null}
+      </g>
+    ))
+  }
+
+  <text class="tmap__head" x={(colX[1] + 60 + colX[2]) / 2} y={yMid - 10} text-anchor="middle">{L.relu}</text>
+  <text class="tmap__note" x={colX[2] - 30} y="252" text-anchor="middle">{L.zeroed}</text>
+  <text class="tmap__note" x={colX[0]} y="252">{L.note}</text>
+</svg>

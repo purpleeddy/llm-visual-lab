@@ -1,0 +1,134 @@
+---
+/**
+ * How one input becomes several heads and comes back as one thing again.
+ *
+ * The shapes are read from the worked example, so the figure cannot drift from
+ * the numbers the prose quotes.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { computeMultiHead } from '../../lib/math/multihead';
+import { defaultMultiHeadInput } from '../../lib/math/examples';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const { dims } = computeMultiHead(defaultMultiHeadInput());
+const { n, dModel, h, dK, dV } = dims;
+
+const BOX_W = 96;
+const BOX_H = 40;
+const xIn = 26;
+const xHead = 168;
+const xOut = 322;
+const xConcat = 452;
+const xFinal = 600;
+const yMid = 118;
+const headY = (i: number) => 62 + i * 92;
+
+const W = 744;
+
+const L = ko
+  ? {
+      input: 'X',
+      inputShape: `${n} × ${dModel}`,
+      head: (i: number) => `갈래 ${i}`,
+      headShape: `${n} × ${dV}`,
+      concat: '이어 붙이기',
+      concatShape: `${n} × ${h * dV}`,
+      wo: '× W_O',
+      out: 'MultiHead',
+      outShape: `${n} × ${dModel}`,
+      note: '갈래마다 W 가 다르고, 계산은 모두 같습니다',
+      title: '갈래 여러 개로 나눴다가 다시 하나로',
+      desc: `왼쪽에 입력 X 가 있고 크기는 ${n} × ${dModel} 입니다. 거기서 화살표가 ${h} 갈래로 갈라져 나가고, 각 갈래는 자기만의 W_Q, W_K, W_V 를 써서 앞에서 본 것과 똑같은 attention 을 계산합니다. 각 갈래가 내놓는 결과의 크기는 ${n} × ${dV} 입니다. 그다음 ${h} 개를 옆으로 이어 붙여 ${n} × ${h * dV} 를 만들고, 마지막으로 W_O 를 곱해 다시 ${n} × ${dModel} 로 돌아옵니다. 들어간 크기와 나온 크기가 같아서 층을 몇 개든 쌓을 수 있습니다.`,
+    }
+  : {
+      input: 'X',
+      inputShape: `${n} × ${dModel}`,
+      head: (i: number) => `head ${i}`,
+      headShape: `${n} × ${dV}`,
+      concat: 'join',
+      concatShape: `${n} × ${h * dV}`,
+      wo: '× W_O',
+      out: 'MultiHead',
+      outShape: `${n} × ${dModel}`,
+      note: 'different W per head, the same calculation in each',
+      title: 'Splitting into heads and coming back to one',
+      desc: `On the left is the input X, of size ${n} × ${dModel}. Arrows branch from it into ${h} heads. Each head has its own W_Q, W_K and W_V and runs exactly the attention calculation seen earlier, producing a result of size ${n} × ${dV}. The ${h} results are then laid side by side to make ${n} × ${h * dV}, and one final matrix W_O brings that back to ${n} × ${dModel}. What comes out is the same size as what went in, which is what lets the layers stack.`,
+    };
+
+const heads = Array.from({ length: h }, (_, i) => i);
+---
+
+<svg viewBox={`0 0 ${W} 250`} width={W} height="250" role="img" aria-labelledby="mhs-t mhs-d">
+  <title id="mhs-t">{L.title}</title>
+  <desc id="mhs-d">{L.desc}</desc>
+
+  <defs>
+    <marker
+      id="mhs-arrow"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="5"
+      markerHeight="5"
+      orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* input */}
+  <rect class="tmap__box tmap__box--embed" x={xIn} y={yMid - BOX_H / 2} width={BOX_W} height={BOX_H} rx="4"></rect>
+  <text class="tmap__head" x={xIn + BOX_W / 2} y={yMid - 2} text-anchor="middle">{L.input}</text>
+  <text class="tmap__note" x={xIn + BOX_W / 2} y={yMid + 14} text-anchor="middle">{L.inputShape}</text>
+
+  {
+    heads.map((i) => (
+      <g>
+        {/* the branch out, and the join back */}
+        <path
+          class="tmap__line"
+          d={`M ${xIn + BOX_W + 2} ${yMid} C ${xIn + BOX_W + 40} ${yMid}, ${xHead - 40} ${headY(i) + BOX_H / 2}, ${xHead - 5} ${headY(i) + BOX_H / 2}`}
+          marker-end="url(#mhs-arrow)"
+        />
+        <rect class="tmap__box tmap__box--attn" x={xHead} y={headY(i)} width={BOX_W} height={BOX_H} rx="4" />
+        <text class="tmap__label" x={xHead + BOX_W / 2} y={headY(i) + 25} text-anchor="middle">
+          {L.head(i + 1)}
+        </text>
+
+        <path
+          class="tmap__line"
+          d={`M ${xHead + BOX_W + 2} ${headY(i) + BOX_H / 2} H ${xOut - 5}`}
+          marker-end="url(#mhs-arrow)"
+        />
+        <rect class="tmap__box" x={xOut} y={headY(i)} width={72} height={BOX_H} rx="4" />
+        <text class="tmap__note" x={xOut + 36} y={headY(i) + 25} text-anchor="middle">
+          {L.headShape}
+        </text>
+
+        <path
+          class="tmap__line"
+          d={`M ${xOut + 74} ${headY(i) + BOX_H / 2} C ${xOut + 110} ${headY(i) + BOX_H / 2}, ${xConcat - 40} ${yMid}, ${xConcat - 5} ${yMid}`}
+          marker-end="url(#mhs-arrow)"
+        />
+      </g>
+    ))
+  }
+
+  {/* join, then one more matrix */}
+  <rect class="tmap__box tmap__box--head" x={xConcat} y={yMid - BOX_H / 2} width={BOX_W} height={BOX_H} rx="4"></rect>
+  <text class="tmap__label--sm" x={xConcat + BOX_W / 2} y={yMid - 2} text-anchor="middle">{L.concat}</text>
+  <text class="tmap__note" x={xConcat + BOX_W / 2} y={yMid + 14} text-anchor="middle">{L.concatShape}</text>
+
+  <path class="tmap__line" d={`M ${xConcat + BOX_W + 2} ${yMid} H ${xFinal - 5}`} marker-end="url(#mhs-arrow)"></path>
+  <text class="tmap__head" x={(xConcat + BOX_W + xFinal) / 2} y={yMid - 10} text-anchor="middle">{L.wo}</text>
+
+  <rect class="tmap__box tmap__box--ffn" x={xFinal} y={yMid - BOX_H / 2} width={BOX_W + 20} height={BOX_H} rx="4"></rect>
+  <text class="tmap__label--sm" x={xFinal + (BOX_W + 20) / 2} y={yMid - 2} text-anchor="middle">{L.out}</text>
+  <text class="tmap__note" x={xFinal + (BOX_W + 20) / 2} y={yMid + 14} text-anchor="middle">{L.outShape}</text>
+
+  <text class="tmap__note" x={xHead} y="236">{L.note}</text>
+</svg>

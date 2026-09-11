@@ -1,0 +1,114 @@
+---
+/**
+ * The positional encoding as a block of numbers: positions down, dimensions across.
+ *
+ * The same values as PositionWaves, read as a table rather than as curves — this
+ * is the shape that actually gets added to the embeddings.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { positionalEncoding } from '../../lib/math/positional';
+import { fmt } from '../../lib/math/format';
+
+interface Props {
+  locale: Locale;
+  tokens?: number;
+}
+const { locale, tokens = 6 } = Astro.props;
+const ko = locale === 'ko';
+
+const D_MODEL = 4;
+const pe = positionalEncoding(tokens, D_MODEL);
+
+const CELL_W = 74;
+const CELL_H = 30;
+const PAD_L = 64;
+const yTop = 62;
+const W = PAD_L + D_MODEL * CELL_W + 170;
+
+/** −1 to 1 onto the sequential ramp, so sign shows as light or dark. */
+const level = (v: number) => Math.max(0, Math.min(7, Math.round(((v + 1) / 2) * 7)));
+
+const L = ko
+  ? {
+      pos: '위치',
+      dim: (i: number) => `자리 ${i}`,
+      kind: (i: number) => (i % 2 === 0 ? 'sin' : 'cos'),
+      note: [
+        '한 줄이 토큰 하나의 위치 벡터입니다.',
+        '왼쪽 두 자리는 줄마다 크게 달라지고,',
+        '오른쪽 두 자리는 거의 그대로입니다.',
+      ],
+      title: '위치 표현 행렬',
+      desc: `세로가 토큰 위치 0번부터 ${tokens - 1}번까지, 가로가 벡터의 네 자리인 표입니다. 자리 0 과 2 는 sin, 자리 1 과 3 은 cos 입니다. 0번 위치는 0, 1, 0, 1 입니다. 아래로 내려갈수록 왼쪽 두 자리는 값이 크게 오르내리지만 오른쪽 두 자리는 거의 변하지 않습니다. 이 표의 한 줄이 같은 자리의 embedding 에 그대로 더해집니다.`,
+    }
+  : {
+      pos: 'position',
+      dim: (i: number) => `slot ${i}`,
+      kind: (i: number) => (i % 2 === 0 ? 'sin' : 'cos'),
+      note: [
+        'one row is one token’s position vector.',
+        'The left two slots swing from row to row;',
+        'the right two barely move.',
+      ],
+      title: 'The positional encoding matrix',
+      desc: `A table with token positions 0 to ${tokens - 1} down the side and the four slots of the vector across the top. Slots 0 and 2 are sines, slots 1 and 3 cosines. Position 0 is 0, 1, 0, 1. Going down the table the left two slots swing widely while the right two hardly change. One row of this table is added directly to the embedding at that position.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} ${yTop + tokens * CELL_H + 26}`} width={W} height={yTop + tokens * CELL_H + 26} role="img" aria-labelledby="pg-t pg-d">
+  <title id="pg-t">{L.title}</title>
+  <desc id="pg-d">{L.desc}</desc>
+
+  <text class="tmap__note" x="12" y={yTop - 22}>{L.pos}</text>
+  {
+    Array.from({ length: D_MODEL }, (_, j) => (
+      <g>
+        <text class="tmap__head" x={PAD_L + j * CELL_W + CELL_W / 2} y={yTop - 24} text-anchor="middle">
+          {L.kind(j)}
+        </text>
+        <text class="tmap__note" x={PAD_L + j * CELL_W + CELL_W / 2} y={yTop - 10} text-anchor="middle">
+          {L.dim(j)}
+        </text>
+      </g>
+    ))
+  }
+
+  {
+    pe.matrix.map((row, i) => (
+      <g>
+        <text class="tmap__note" x={PAD_L - 10} y={yTop + i * CELL_H + 20} text-anchor="end">
+          {i}
+        </text>
+        {row.map((v, j) => (
+          <g>
+            <rect
+              class="hp__cell"
+              x={PAD_L + j * CELL_W}
+              y={yTop + i * CELL_H}
+              width={CELL_W}
+              height={CELL_H}
+              style={`fill: var(--seq-${level(v)});`}
+            />
+            <text
+              class="hp__value"
+              x={PAD_L + j * CELL_W + CELL_W / 2}
+              y={yTop + i * CELL_H + 20}
+              text-anchor="middle"
+              style={`fill: var(${level(v) >= 5 ? '--seq-ink-high' : '--seq-ink-low'});`}
+            >
+              {fmt(v, 3)}
+            </text>
+          </g>
+        ))}
+      </g>
+    ))
+  }
+
+  {
+    L.note.map((line, i) => (
+      <text class="tmap__note" x={PAD_L + D_MODEL * CELL_W + 16} y={yTop + 20 + i * 18}>
+        {line}
+      </text>
+    ))
+  }
+</svg>

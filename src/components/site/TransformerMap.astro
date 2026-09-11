@@ -1,0 +1,311 @@
+---
+/**
+ * Figure 1 of the paper, redrawn.
+ *
+ * Redrawn rather than reproduced: the colours have to follow the theme, and
+ * the parts explained so far have to be distinguishable from the parts left to
+ * a later stage.
+ *
+ * Box coordinates are not written by hand but stacked upward from the bottom.
+ * Writing each one out invites the mistake of an arrow that ends inside a box.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+  /** Which block to emphasise for the document being read */
+  highlight?: 'attention' | 'none';
+}
+
+const { locale, highlight = 'attention' } = Astro.props;
+const ko = locale === 'ko';
+const lit = highlight === 'attention';
+
+const L = {
+  encoder: 'Encoder',
+  decoder: 'Decoder',
+  inputs: ko ? '입력 문장' : 'Inputs',
+  outputs: ko ? '정답 문장 (한 칸 밀어서)' : 'Outputs (shifted right)',
+  inputEmbed: ko ? '입력 embedding' : 'Input Embedding',
+  outputEmbed: ko ? '출력 embedding' : 'Output Embedding',
+  posEnc: ko ? '위치 encoding' : 'Positional Encoding',
+  mha: 'Multi-Head Attention',
+  maskedMha: 'Masked Multi-Head Attention',
+  addNorm: 'Add & Norm',
+  ffn: 'Feed Forward',
+  linear: 'Linear',
+  softmax: 'Softmax',
+  probs: ko ? '다음 토큰 확률' : 'Output Probabilities',
+  nx: ko ? '6번 반복' : '6×',
+  self: 'self',
+  cross: ko ? 'K, V 는 encoder 에서' : 'K, V from the encoder',
+  now: ko ? '지금 읽는 곳' : 'you are here',
+};
+
+type Kind = 'attn' | 'norm' | 'ffn' | 'head' | 'embed';
+
+interface Spec {
+  label: string;
+  kind: Kind;
+  sub?: string;
+  later?: boolean;
+  now?: boolean;
+}
+
+interface Box extends Spec {
+  x: number;
+  /** The top edge. A smaller y is further up the screen. */
+  top: number;
+  bottom: number;
+  h: number;
+}
+
+const H: Record<Kind, number> = { attn: 38, norm: 26, ffn: 38, head: 36, embed: 36 };
+const GAP = 20;
+
+const EX = 200;
+const DX = 500;
+const BW = 200;
+const ex = EX - BW / 2;
+const dx = DX - BW / 2;
+const PAD = 14;
+
+const STACK_BOTTOM = 500;
+
+/** Stacks upward: the first entry of the array ends up at the bottom. */
+function stack(specs: Spec[], x: number, bottom: number, gap = GAP): Box[] {
+  const out: Box[] = [];
+  let y = bottom;
+  for (const s of specs) {
+    const h = H[s.kind];
+    out.push({ ...s, x, bottom: y, top: y - h, h });
+    y = y - h - gap;
+  }
+  return out;
+}
+
+const encoder = stack(
+  [
+    { label: L.mha, kind: 'attn', sub: L.self, now: lit },
+    { label: L.addNorm, kind: 'norm', later: true },
+    { label: L.ffn, kind: 'ffn', later: true },
+    { label: L.addNorm, kind: 'norm', later: true },
+  ],
+  ex,
+  STACK_BOTTOM,
+);
+
+const decoder = stack(
+  [
+    { label: L.maskedMha, kind: 'attn', now: lit },
+    { label: L.addNorm, kind: 'norm', later: true },
+    { label: L.mha, kind: 'attn', sub: L.cross, now: lit },
+    { label: L.addNorm, kind: 'norm', later: true },
+    { label: L.ffn, kind: 'ffn', later: true },
+    { label: L.addNorm, kind: 'norm', later: true },
+  ],
+  dx,
+  STACK_BOTTOM,
+);
+
+const encTop = encoder[encoder.length - 1].top;
+const decTop = decoder[decoder.length - 1].top;
+
+/** The output head above the decoder stack */
+const head = stack(
+  [
+    { label: L.linear, kind: 'head', later: true },
+    { label: L.softmax, kind: 'head', later: true },
+  ],
+  dx,
+  decTop - PAD - GAP - 14,
+);
+
+const PLUS_CY = STACK_BOTTOM + 52;
+const PLUS_R = 11;
+const embedTop = PLUS_CY + 32;
+const embedH = H.embed;
+const embedBottom = embedTop + embedH;
+const captionY = embedBottom + 36;
+const VIEW_TOP = head[1].top - 46;
+const VIEW_BOTTOM = captionY + 18;
+
+/** An arrow from the top edge of the lower box to the bottom edge of the upper one */
+function link(x: number, fromTop: number, toBottom: number): string {
+  return `M ${x} ${fromTop} L ${x} ${toBottom + 3}`;
+}
+
+const boxes = [...encoder, ...decoder, ...head];
+const crossY = decoder[2].top + 19;
+---
+
+<svg
+  viewBox={`-52 ${VIEW_TOP} 804 ${VIEW_BOTTOM - VIEW_TOP}`}
+  width="804"
+  height={VIEW_BOTTOM - VIEW_TOP}
+  role="img"
+  aria-labelledby="tmap-t tmap-d"
+>
+  <title id="tmap-t">
+    {ko ? 'Transformer 전체 구조' : 'The Transformer architecture'}
+  </title>
+  <desc id="tmap-d">
+    {
+      ko
+        ? '왼쪽은 encoder, 오른쪽은 decoder입니다. 두 쪽 모두 아래에서 embedding과 위치 encoding을 더한 값을 받고, 같은 블록을 여섯 번 쌓습니다. Encoder 블록은 multi-head self-attention과 feed forward로 이루어지고, 각각 뒤에 Add & Norm이 붙습니다. Decoder 블록은 masked multi-head self-attention, encoder의 출력을 K와 V로 받는 multi-head attention, feed forward 세 부분으로 이루어집니다. Decoder 맨 위에서 Linear와 Softmax를 지나 다음 토큰의 확률이 나옵니다.'
+        : 'The encoder is on the left and the decoder on the right. Both take embeddings plus a positional encoding from below and stack the same block six times. An encoder block holds multi-head self-attention and a feed-forward network, each followed by Add & Norm. A decoder block holds masked multi-head self-attention, a multi-head attention that takes K and V from the encoder output, and a feed-forward network. At the top of the decoder a Linear layer and a Softmax produce the probabilities for the next token.'
+    }
+  </desc>
+
+  <defs>
+    <marker id="tm-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ink-3)"></path>
+    </marker>
+    <marker id="tm-arrow-cross" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--data-v)"></path>
+    </marker>
+  </defs>
+
+  <rect
+    class="tmap__stack"
+    x={ex - PAD}
+    y={encTop - PAD}
+    width={BW + PAD * 2}
+    height={STACK_BOTTOM - encTop + PAD * 2}
+    rx="8"></rect>
+  <rect
+    class="tmap__stack"
+    x={dx - PAD}
+    y={decTop - PAD}
+    width={BW + PAD * 2}
+    height={STACK_BOTTOM - decTop + PAD * 2}
+    rx="8"></rect>
+
+  <text class="tmap__label--sm" x={ex - PAD - 12} y={(encTop + STACK_BOTTOM) / 2} text-anchor="end">
+    {L.nx}
+  </text>
+  <text class="tmap__label--sm" x={dx + BW + PAD + 12} y={(decTop + STACK_BOTTOM) / 2} text-anchor="start">
+    {L.nx}
+  </text>
+
+  <text class="tmap__title" x={EX} y={encTop - PAD - 10} text-anchor="middle">{L.encoder}</text>
+  <text class="tmap__title" x={DX} y={decTop - PAD - 10} text-anchor="middle">{L.decoder}</text>
+
+  {
+    [encoder, decoder].map((col) =>
+      col
+        .slice(0, -1)
+        .map((b, i) => (
+          <path
+            class="tmap__line"
+            d={link(b.x + BW / 2, b.top, col[i + 1].bottom)}
+            marker-end="url(#tm-arrow)"
+          />
+        )),
+    )
+  }
+
+  <path class="tmap__line" d={link(DX, decTop, head[0].bottom)} marker-end="url(#tm-arrow)"></path>
+  <path class="tmap__line" d={link(DX, head[0].top, head[1].bottom)} marker-end="url(#tm-arrow)"></path>
+  <path
+    class="tmap__line"
+    d={`M ${DX} ${head[1].top} L ${DX} ${head[1].top - 15}`}
+    marker-end="url(#tm-arrow)"></path>
+  <text class="tmap__label" x={DX} y={head[1].top - 26} text-anchor="middle">{L.probs}</text>
+
+  <path
+    class="tmap__line tmap__line--cross"
+    d={`M ${ex + BW + PAD} ${encTop + 10} C ${ex + BW + 90} ${encTop + 10}, ${dx - 70} ${crossY} ${dx - 7} ${crossY}`}
+    marker-end="url(#tm-arrow-cross)"></path>
+
+  {
+    boxes.map((b) => (
+      <g class={b.later ? 'tmap__later' : ''}>
+        <rect
+          class={`tmap__box tmap__box--${b.kind}${b.now ? ' tmap__now' : ''}`}
+          x={b.x}
+          y={b.top}
+          width={BW}
+          height={b.h}
+          rx="5"
+        />
+        <text
+          class="tmap__label"
+          x={b.x + BW / 2}
+          y={b.top + b.h / 2 + (b.sub ? -1 : 4)}
+          text-anchor="middle"
+        >
+          {b.label}
+        </text>
+        {b.sub ? (
+          <text class="tmap__label--sm" x={b.x + BW / 2} y={b.top + b.h / 2 + 13} text-anchor="middle">
+            {b.sub}
+          </text>
+        ) : null}
+      </g>
+    ))
+  }
+
+  {
+    [
+      { cx: EX, labelX: EX - 120, anchor: 'end' as const, dir: -1 },
+      { cx: DX, labelX: DX + 120, anchor: 'start' as const, dir: 1 },
+    ].map((p) => (
+      <g>
+        <path class="tmap__line" d={link(p.cx, PLUS_CY - PLUS_R, STACK_BOTTOM)} marker-end="url(#tm-arrow)" />
+        <circle
+          cx={p.cx}
+          cy={PLUS_CY}
+          r={PLUS_R}
+          fill="var(--surface-raised)"
+          stroke="var(--line-3)"
+          stroke-width="1.25"
+        />
+        <path
+          d={`M ${p.cx - 6} ${PLUS_CY} H ${p.cx + 6} M ${p.cx} ${PLUS_CY - 6} V ${PLUS_CY + 6}`}
+          stroke="var(--ink-1)"
+          stroke-width="1.4"
+        />
+        <path
+          class="tmap__line"
+          d={`M ${p.labelX - p.dir * 6} ${PLUS_CY} L ${p.cx + p.dir * (PLUS_R + 3)} ${PLUS_CY}`}
+          marker-end="url(#tm-arrow)"
+        />
+        <text class="tmap__label--sm" x={p.labelX} y={PLUS_CY + 4} text-anchor={p.anchor}>
+          {L.posEnc}
+        </text>
+        <path class="tmap__line" d={link(p.cx, embedTop, PLUS_CY + PLUS_R)} marker-end="url(#tm-arrow)" />
+      </g>
+    ))
+  }
+
+  {
+    [
+      { x: ex, label: L.inputEmbed, caption: L.inputs },
+      { x: dx, label: L.outputEmbed, caption: L.outputs },
+    ].map((c) => (
+      <g>
+        <rect class="tmap__box tmap__box--embed" x={c.x} y={embedTop} width={BW} height={embedH} rx="5" />
+        <text class="tmap__label" x={c.x + BW / 2} y={embedTop + embedH / 2 + 4} text-anchor="middle">
+          {c.label}
+        </text>
+        <path
+          class="tmap__line"
+          d={link(c.x + BW / 2, captionY - 15, embedBottom)}
+          marker-end="url(#tm-arrow)"
+        />
+        <text class="tmap__label" x={c.x + BW / 2} y={captionY} text-anchor="middle">
+          {c.caption}
+        </text>
+      </g>
+    ))
+  }
+
+  {
+    lit ? (
+      <text class="tmap__badge" x={ex - PAD - 8} y={encoder[0].top + 23} text-anchor="end">
+        {L.now} →
+      </text>
+    ) : null
+  }
+</svg>

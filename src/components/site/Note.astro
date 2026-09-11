@@ -1,0 +1,11 @@
+---
+interface Props {
+  variant?: 'plain' | 'try' | 'why' | 'limit' | 'scope';
+  title?: string;
+}
+const { variant = 'plain', title } = Astro.props;
+---
+<aside class={`note${variant === 'plain' ? '' : ` note--${variant}`}`}>
+  {title ? <p class="note__title">{title}</p> : null}
+  <slot />
+</aside>

@@ -1,0 +1,106 @@
+---
+/**
+ * Q, K and V branching out of a single token.
+ *
+ * The dimensions come from the worked example (`examples.ts`); they must not
+ * drift from the table in the prose.
+ * Colour tells Q, K and V apart and is **never used on text** — against a
+ * light background some of these fall below 3:1.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { DEFAULT_X, DEFAULT_WQ, DEFAULT_WV } from '../../lib/math/examples';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const dModel = DEFAULT_X[0].length;
+const dK = DEFAULT_WQ[0].length;
+const dV = DEFAULT_WV[0].length;
+
+const CELL = 18;
+const xIn = 28;
+const yIn = 100;
+const xOut = 250;
+const ROW_Y = [40, 100, 160];
+
+const L = ko
+  ? {
+      input: '토큰 한 줄',
+      roles: ['무엇을 찾고 있는지', '무엇을 제공하는지', '실제로 전달될 내용'],
+      title: '같은 한 줄에서 Q, K, V 가 갈라져 나옵니다',
+      desc: `왼쪽에 토큰 한 줄이 있습니다. 숫자 ${dModel}개짜리 한 줄입니다. 여기서 화살표 세 개가 오른쪽으로 갈라져 나가는데, 각각 W_Q, W_K, W_V 를 곱합니다. 그 결과가 Query, Key, Value 세 줄이고 길이는 각각 ${dK}, ${dK}, ${dV} 입니다. Query 는 이 토큰이 무엇을 찾고 있는지, Key 는 무엇을 제공하는지, Value 는 실제로 전달될 내용을 맡습니다. 셋 다 같은 한 줄에서 나오지만 곱하는 W 가 달라서 서로 다른 값이 됩니다.`,
+    }
+  : {
+      input: 'one token',
+      roles: ['what it is looking for', 'what it offers', 'what actually gets passed on'],
+      title: 'Q, K and V all come out of the same row',
+      desc: `On the left is a single token: one row of ${dModel} numbers. Three arrows branch out to the right, multiplying it by W_Q, W_K and W_V. The results are Query, Key and Value, of length ${dK}, ${dK} and ${dV}. Query stands for what this token is looking for, Key for what it offers, and Value for what actually gets passed on. All three come from the same row; they differ because the three W matrices differ.`,
+    };
+
+const ROWS = [
+  { name: 'Q', mul: 'W_Q', len: dK, tone: 'q' },
+  { name: 'K', mul: 'W_K', len: dK, tone: 'k' },
+  { name: 'V', mul: 'W_V', len: dV, tone: 'v' },
+];
+---
+
+<svg viewBox="0 0 480 206" width="480" height="206" role="img" aria-labelledby="qkv-t qkv-d">
+  <title id="qkv-t">{L.title}</title>
+  <desc id="qkv-d">{L.desc}</desc>
+
+  <defs>
+    <marker
+      id="qkv-arrow"
+      viewBox="0 0 10 10"
+      refX="9"
+      refY="5"
+      markerWidth="5"
+      markerHeight="5"
+      orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {/* The input row */}
+  <text class="tmap__note" x={xIn + (dModel * CELL) / 2} y={yIn - 10} text-anchor="middle">
+    {L.input}
+  </text>
+  {
+    Array.from({ length: dModel }, (_, c) => (
+      <rect class="tmap__box" x={xIn + c * CELL} y={yIn} width={CELL} height={CELL} />
+    ))
+  }
+
+  {
+    ROWS.map((r, i) => (
+      <g>
+        <path
+          class="tmap__line"
+          d={`M ${xIn + dModel * CELL + 6} ${yIn + CELL / 2} C ${xIn + dModel * CELL + 60} ${yIn + CELL / 2}, ${xOut - 70} ${ROW_Y[i] + CELL / 2}, ${xOut - 8} ${ROW_Y[i] + CELL / 2}`}
+          marker-end="url(#qkv-arrow)"
+        />
+        <text class="tmap__head" x={xOut - 58} y={ROW_Y[i] + 2} text-anchor="middle">
+          ×{r.mul}
+        </text>
+        {Array.from({ length: r.len }, (_, c) => (
+          <rect
+            class={`tmap__box qkv__cell qkv__cell--${r.tone}`}
+            x={xOut + c * CELL}
+            y={ROW_Y[i]}
+            width={CELL}
+            height={CELL}
+          />
+        ))}
+        <text class="tmap__head" x={xOut + r.len * CELL + 12} y={ROW_Y[i] + 13}>
+          {r.name}
+        </text>
+        <text class="tmap__note" x={xOut + r.len * CELL + 30} y={ROW_Y[i] + 13}>
+          {L.roles[i]}
+        </text>
+      </g>
+    ))
+  }
+</svg>
