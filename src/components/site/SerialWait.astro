@@ -1,0 +1,98 @@
+---
+/**
+ * Waiting in line against working at once.
+ *
+ * Five tokens, five units of work each way. In the top row each unit has to
+ * wait for the one before it; in the bottom row all five start on the same
+ * tick. Same amount of work, a different amount of time.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const n = 5;
+const TICK = 78;
+const x0 = 130;
+const BOX_W = TICK - 10;
+const BOX_H = 22;
+const yA = 44;
+const yB = 118;
+const W = x0 + n * TICK + 20;
+
+const L = ko
+  ? {
+      a: '순서대로',
+      b: '한꺼번에',
+      tick: (i: number) => `${i + 1}`,
+      time: '시간 →',
+      token: (i: number) => `토큰 ${i + 1}`,
+      noteA: `${n} 칸의 시간이 걸립니다. 각 토큰은 앞 토큰이 끝나야 시작할 수 있어요.`,
+      noteB: '1 칸의 시간이 걸립니다. 계산의 양은 같고, 기다림만 없습니다.',
+      title: '줄을 서는 것과 한꺼번에 하는 것',
+      desc: `위 줄은 토큰 ${n} 개를 순서대로 처리하는 경우로, 토큰 하나의 상자가 시간 축을 따라 하나씩 뒤로 밀려 ${n} 칸의 시간이 걸립니다. 아래 줄은 같은 ${n} 개를 한꺼번에 처리하는 경우로, 상자 ${n} 개가 모두 첫 칸에 나란히 있어 1 칸의 시간이 걸립니다. 계산의 양은 같고 기다림의 유무만 다릅니다.`,
+    }
+  : {
+      a: 'in order',
+      b: 'all at once',
+      tick: (i: number) => `${i + 1}`,
+      time: 'time →',
+      token: (i: number) => `token ${i + 1}`,
+      noteA: `${n} ticks. Each token can only start when the one before it is done.`,
+      noteB: '1 tick. The same amount of work, with no waiting.',
+      title: 'Waiting in line against working at once',
+      desc: `The top row processes ${n} tokens in order: each token's box sits one tick later than the previous one, so it takes ${n} ticks. The bottom row processes the same ${n} at once: all ${n} boxes sit in the first tick, so it takes 1. The amount of work is the same; only the waiting differs.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} 290`} width={W} height="290" role="img" aria-labelledby="sw-t sw-d">
+  <title id="sw-t">{L.title}</title>
+  <desc id="sw-d">{L.desc}</desc>
+  <defs>
+    <marker id="sw-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {
+    Array.from({ length: n }, (_, i) => (
+      <text class="tmap__note" x={x0 + i * TICK + BOX_W / 2} y="18" text-anchor="middle">
+        {L.tick(i)}
+      </text>
+    ))
+  }
+  <text class="tmap__note" x={x0 + n * TICK - 6} y="18" text-anchor="end">{L.time}</text>
+
+  <text class="tmap__title" x="12" y={yA + 16}>{L.a}</text>
+  {
+    Array.from({ length: n }, (_, i) => (
+      <g>
+        <rect class="tmap__box tmap__box--attn" x={x0 + i * TICK} y={yA} width={BOX_W} height={BOX_H} rx="3" />
+        <text class="tmap__label--sm" x={x0 + i * TICK + BOX_W / 2} y={yA + 15} text-anchor="middle" style="fill: var(--ink-1);">
+          {L.token(i)}
+        </text>
+        {i < n - 1 ? (
+          <path class="tmap__line" d={`M ${x0 + i * TICK + BOX_W} ${yA + BOX_H / 2} H ${x0 + (i + 1) * TICK - 2}`} marker-end="url(#sw-arrow)" />
+        ) : null}
+      </g>
+    ))
+  }
+  <text class="tmap__note" x="12" y={yA + 46}>{L.noteA}</text>
+
+  <text class="tmap__title" x="12" y={yB + 16}>{L.b}</text>
+  {
+    Array.from({ length: n }, (_, i) => (
+      <g>
+        <rect class="tmap__box tmap__box--attn" x={x0} y={yB + i * (BOX_H + 4)} width={BOX_W} height={BOX_H} rx="3" />
+        <text class="tmap__label--sm" x={x0 + BOX_W / 2} y={yB + i * (BOX_H + 4) + 15} text-anchor="middle" style="fill: var(--ink-1);">
+          {L.token(i)}
+        </text>
+      </g>
+    ))
+  }
+  <text class="tmap__note" x={x0 + BOX_W + 16} y={yB + 15}>{locale === 'ko' ? '모두 첫 칸에서 시작' : 'all start in the first tick'}</text>
+  <text class="tmap__note" x="12" y={yB + n * (BOX_H + 4) + 18}>{L.noteB}</text>
+</svg>

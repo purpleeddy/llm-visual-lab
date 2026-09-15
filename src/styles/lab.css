@@ -717,3 +717,122 @@ button.mgrid__cell:hover { background: var(--surface-inset); }
     stroke-dashoffset: 0;
   }
 }
+
+/* ------------------------------------------------- The big-picture walk */
+
+/*
+ * Two panels: the small map on the left says where along the route we are,
+ * the stage on the right shows the data as it looks there. On a narrow screen
+ * the map goes above the stage.
+ */
+.walk__panels {
+  display: grid;
+  grid-template-columns: minmax(0, 300px) minmax(0, 1fr);
+  gap: var(--sp-5);
+  align-items: start;
+  padding: var(--sp-4);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+}
+@media (max-width: 44rem) {
+  .walk__panels { grid-template-columns: minmax(0, 1fr); }
+}
+.walk__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+.walk__map .walk__svg { max-width: 348px; margin: 0 auto; }
+/* A heading inside the stage. Not .tmap__title: that uppercases, and these are sentences. */
+.walk__title { fill: var(--ink-strong); font-size: 12px; font-weight: var(--fw-bold); }
+
+/* The current part of the map comes forward; nothing else changes. */
+.walk__lit rect,
+.walk__lit circle {
+  stroke: var(--accent);
+  stroke-width: var(--stroke-bold);
+}
+.walk__lit text { fill: var(--accent); font-weight: var(--fw-bold); }
+.walk__lit .tmap__stack { stroke-dasharray: none; }
+
+/* A cell with no value drawn in it. Three kinds, told apart by fill. */
+.walk__cell {
+  fill: var(--seq-1);
+  stroke: var(--line-3);
+  stroke-width: var(--stroke-hairline);
+}
+.walk__cell--pos { fill: var(--status-warn-wash); stroke: var(--status-warn); }
+.walk__cell--sum { fill: var(--accent-wash); stroke: var(--accent); }
+.walk__cell--out { fill: var(--seq-3); stroke: var(--seq-5); }
+.walk__cell--masked { fill: var(--blocked-surface); stroke: var(--line-2); }
+.walk__bar { fill: var(--seq-5); }
+
+/* Frames fade; parts of the pipeline slide into place. Cuts under reduced motion. */
+.walk__frame {
+  transition: opacity var(--motion-slow) var(--ease);
+}
+.walk__frame[data-on='false'] { opacity: 0; pointer-events: none; }
+.walk__move {
+  transition: transform var(--motion-slow) var(--ease), opacity var(--motion-slow) var(--ease);
+}
+
+.walk__text { margin-top: var(--sp-4); }
+.walk__what, .walk__watch { margin: 0 0 var(--sp-2); line-height: 1.7; }
+.walk__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--ink-inverse);
+  font-family: var(--font-mono);
+  font-size: var(--fs-100);
+  font-weight: var(--fw-bold);
+  margin-right: var(--sp-1);
+  vertical-align: middle;
+}
+.walk__watch { color: var(--ink-2); }
+.walk__watch strong { color: var(--accent); margin-right: var(--sp-1); }
+
+/* --------------------------------------------- The smaller explorers */
+
+.explorer__controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+  align-items: flex-end;
+  margin-bottom: var(--sp-4);
+}
+.explorer__control { display: flex; flex-direction: column; gap: var(--sp-1); flex: 1 1 11rem; min-width: 0; }
+.explorer__control--wide { flex-basis: 100%; }
+.explorer__numbers { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.explorer__range { width: 100%; min-width: 6rem; accent-color: var(--accent); }
+.lab__toggle .explorer__range { width: 11rem; max-width: 100%; }
+.explorer__panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+  padding: var(--sp-4);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+}
+.explorer__svg { display: block; width: 100%; height: auto; max-width: 100%; }
+.explorer__svg--bars {
+  padding: var(--sp-4);
+  background: var(--surface-panel-inset);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-sm);
+  max-width: 34rem;
+}
+.explorer__line { margin: 0 0 var(--sp-2); font-family: var(--font-mono); font-size: var(--fs-200); color: var(--ink-1); }
+.explorer__line strong { font-family: var(--font-sans); color: var(--ink-2); font-weight: var(--fw-medium); margin-right: var(--sp-2); }
+
+/* The beam table lists whole candidates, one per line. */
+.beam__cand { display: block; white-space: nowrap; }
+.lab--beam .terms__table td { text-align: left; }

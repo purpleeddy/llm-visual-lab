@@ -1,0 +1,68 @@
+---
+/**
+ * Why eight heads cost no more than one: 512 is shared out as 8 × 64.
+ *
+ * One bar of 512 cells against eight bars of 64, drawn to the same scale, so
+ * the total width is visibly the same.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { PAPER } from '../../lib/paper';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const dModel = 512;
+const h = 8;
+const dK = dModel / h;
+const W = 560;
+const x0 = 24;
+const barW = W - x0 - 24;
+const unit = barW / dModel;
+const y1 = 44;
+const y2 = 110;
+const H = 22;
+const gap = 3;
+void PAPER;
+
+const L = ko
+  ? {
+      one: `갈래 하나가 ${dModel} 칸 전부를 씀`,
+      many: `갈래 ${h} 개가 ${dK} 칸씩 나눠 씀`,
+      note: `${h} × ${dK} = ${dModel}. 전체 폭은 같고, 나눠서 따로 계산할 뿐입니다.`,
+      title: '갈래를 늘려도 전체 폭은 같다',
+      desc: `위에는 ${dModel} 칸짜리 막대 하나가 있고, 아래에는 ${dK} 칸짜리 막대 ${h} 개가 나란히 있습니다. 아래 막대들을 다 합친 길이가 위 막대와 같습니다. 갈래를 여덟으로 나눈다는 것은 ${dModel} 칸을 ${dK} 칸씩 여덟 묶음으로 나눠 따로 계산한다는 뜻이고, 전체 계산량은 그대로입니다.`,
+    }
+  : {
+      one: `one head using all ${dModel} slots`,
+      many: `${h} heads using ${dK} slots each`,
+      note: `${h} × ${dK} = ${dModel}. The total width is the same; it is only divided up and computed separately.`,
+      title: 'More heads, the same total width',
+      desc: `At the top is one bar of ${dModel} cells; below it are ${h} bars of ${dK} cells side by side. The lower bars together are exactly as long as the upper one. Splitting into eight heads means dividing the ${dModel} slots into eight groups of ${dK} and computing each separately, with the total amount of work unchanged.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} 176`} width={W} height="176" role="img" aria-labelledby="hb-t hb-d">
+  <title id="hb-t">{L.title}</title>
+  <desc id="hb-d">{L.desc}</desc>
+
+  <text class="tmap__note" x={x0} y={y1 - 10}>{L.one}</text>
+  <rect class="walk__cell walk__cell--sum" x={x0} y={y1} width={barW} height={H} rx="3"></rect>
+  <text class="tp__num" x={x0 + barW / 2} y={y1 + 15} text-anchor="middle">{dModel}</text>
+
+  <text class="tmap__note" x={x0} y={y2 - 10}>{L.many}</text>
+  {
+    Array.from({ length: h }, (_, i) => (
+      <g>
+        <rect class="walk__cell walk__cell--pos" x={x0 + i * dK * unit + (i === 0 ? 0 : gap / 2)} y={y2} width={dK * unit - gap} height={H} rx="3" />
+        <text class="tp__num" x={x0 + i * dK * unit + (dK * unit) / 2} y={y2 + 15} text-anchor="middle">
+          {dK}
+        </text>
+      </g>
+    ))
+  }
+
+  <text class="tmap__note" x={x0} y="164">{L.note}</text>
+</svg>

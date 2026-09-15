@@ -130,7 +130,8 @@ body {
 }
 
 .masthead__contents,
-.lang-switch {
+.lang-switch,
+.star-link {
   font-size: var(--fs-100);
   font-weight: var(--fw-medium);
   padding: 0.35em 0.7em;
@@ -143,10 +144,15 @@ body {
   transition: color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
 }
 .masthead__contents:hover,
-.lang-switch:hover {
+.lang-switch:hover,
+.star-link:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
+/* The GitHub star: a small mark and one word, in the same row as the other tools. */
+.star-link { display: inline-flex; align-items: center; gap: 0.35em; }
+.star-link__mark { flex: none; color: var(--status-warn); }
+.star-link:hover .star-link__mark { color: var(--accent); }
 @media (min-width: 60rem) {
   .masthead__contents {
     display: none;
@@ -164,9 +170,11 @@ body {
     gap: var(--sp-2);
   }
   .masthead__contents,
-  .lang-switch {
+  .lang-switch,
+  .star-link {
     padding: 0.3em 0.5em;
   }
+  .star-link__text { display: none; }
   .theme-toggle button {
     min-width: 1.9rem;
     padding: 0.3em 0.35em;
@@ -297,19 +305,12 @@ body {
   font-weight: var(--fw-semi);
   border-left-color: var(--accent);
 }
-.sidebar__pending {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-2);
-  padding: 0.3rem 0 0.3rem var(--sp-3);
-  border-left: 2px solid transparent;
-  color: var(--ink-3);
-  line-height: var(--lh-snug);
-  cursor: default;
-}
-/* Once, beside the group heading. Per item it would repeat nine times. */
+/* Beside a group heading that has no documents under it yet.
+   It wraps as one unit: "in preparation" must never split across two lines. */
 .sidebar__flag {
-  margin-left: var(--sp-2);
+  display: inline-block;
+  white-space: nowrap;
+  margin-left: var(--sp-1);
   font-family: var(--font-mono);
   font-size: var(--fs-50);
   font-weight: var(--fw-normal);

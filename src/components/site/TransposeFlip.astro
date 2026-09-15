@@ -1,0 +1,86 @@
+---
+/**
+ * The transpose of the example X: rows become columns.
+ *
+ * Each row of X keeps its colour on the way over, so the eye can follow row 1
+ * of X into column 1 of Xᵀ without reading a single number.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { DEFAULT_X } from '../../lib/math/examples';
+import { transpose } from '../../lib/math/matrix';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const X = DEFAULT_X;
+const XT = transpose(X);
+const CELL = 34;
+const xL = 60;
+const xR = 330;
+const yTop = 54;
+const W = 520;
+const rowFill = ['var(--data-q-wash)', 'var(--data-k-wash)', 'var(--data-v-wash)'];
+const rowStroke = ['var(--data-q)', 'var(--data-k)', 'var(--data-v)'];
+
+const L = ko
+  ? {
+      left: `X (${X.length}행 ${X[0].length}열)`,
+      right: `Xᵀ (${XT.length}행 ${XT[0].length}열)`,
+      note: 'X 의 1행이 Xᵀ 의 1열이 됩니다. 색이 같은 칸이 같은 숫자예요.',
+      title: '전치 — 행이 열이 되는 것',
+      desc: `왼쪽은 ${X.length}행 ${X[0].length}열 행렬 X 이고, 오른쪽은 그 전치 Xᵀ 로 ${XT.length}행 ${XT[0].length}열입니다. X 의 각 행이 색으로 구분되어 있고, 같은 색의 숫자들이 Xᵀ 에서는 세로로 한 열을 이룹니다. X 의 1행 ${X[0].join(', ')} 이 Xᵀ 의 1열이 됩니다.`,
+    }
+  : {
+      left: `X (${X.length} rows, ${X[0].length} columns)`,
+      right: `Xᵀ (${XT.length} rows, ${XT[0].length} columns)`,
+      note: 'row 1 of X becomes column 1 of Xᵀ. Same colour, same numbers.',
+      title: 'Transpose — rows become columns',
+      desc: `On the left is the ${X.length} × ${X[0].length} matrix X; on the right its transpose Xᵀ, which is ${XT.length} × ${XT[0].length}. Each row of X has its own colour, and the numbers of that colour stand as one column in Xᵀ. Row 1 of X, ${X[0].join(', ')}, becomes column 1 of Xᵀ.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} 232`} width={W} height="232" role="img" aria-labelledby="tf-t tf-d">
+  <title id="tf-t">{L.title}</title>
+  <desc id="tf-d">{L.desc}</desc>
+  <defs>
+    <marker id="tf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  <text class="tmap__head" x={xL} y={yTop - 16}>{L.left}</text>
+  {
+    X.map((row, i) =>
+      row.map((v, j) => (
+        <g>
+          <rect x={xL + j * CELL} y={yTop + i * CELL} width={CELL} height={CELL} fill={rowFill[i]} stroke={rowStroke[i]} stroke-width="1" />
+          <text class="hp__value" x={xL + j * CELL + CELL / 2} y={yTop + i * CELL + CELL / 2 + 4} text-anchor="middle" style="fill: var(--ink-1);">
+            {v}
+          </text>
+        </g>
+      )),
+    )
+  }
+
+  <path class="tmap__line" d={`M ${xL + X[0].length * CELL + 20} ${yTop + 50} H ${xR - 24}`} marker-end="url(#tf-arrow)"></path>
+  <text class="tmap__op" x={(xL + X[0].length * CELL + xR) / 2 - 8} y={yTop + 40}>ᵀ</text>
+
+  <text class="tmap__head" x={xR} y={yTop - 16}>{L.right}</text>
+  {
+    XT.map((row, i) =>
+      row.map((v, j) => (
+        <g>
+          <rect x={xR + j * CELL} y={yTop + i * CELL} width={CELL} height={CELL} fill={rowFill[j]} stroke={rowStroke[j]} stroke-width="1" />
+          <text class="hp__value" x={xR + j * CELL + CELL / 2} y={yTop + i * CELL + CELL / 2 + 4} text-anchor="middle" style="fill: var(--ink-1);">
+            {v}
+          </text>
+        </g>
+      )),
+    )
+  }
+
+  <text class="tmap__note" x={xL} y="222">{L.note}</text>
+</svg>

@@ -1,6 +1,6 @@
 # Progress log
 
-- Updated: 2026-09-11
+- Updated: 2026-09-15
 - Scope document: `docs/current-task.md`
 - Coverage map: `docs/papers/attention-is-all-you-need-coverage.md`
 - Status: **P0 + P1 → design rebuild → single-page rebuild and full rewrite of the
@@ -1008,3 +1008,119 @@ The coverage map records each of these against the section it belongs to.
   cannot.
 - The diagrams are still drawn at fixed widths and centred in a wider frame, so
   several sit in empty space. Unchanged from the previous scope.
+
+---
+
+# The learning path lists only what exists (2026-09-15)
+
+## Why
+
+The left rail's "이어지는 길 / Where it goes" group was badged "예정 / later" and listed
+nine follow-up topics. Asked whether that was right: it was not. The titles came from
+section 6 of `docs/plan.md`, which calls them recommended directions and explicitly
+not a sequence; P5 scopes one change document at a time; and the plan says being
+current is not solved by fixing model names in advance. None of the nine had a scope,
+an order or a date. Presenting them as a scheduled path — and reading "a later stage
+covers it" to screen readers — promised work that did not exist.
+
+## What changed
+
+| | |
+| --- | --- |
+| `src/lib/curriculum.ts` | The nine items removed. `CourseItem.status` and `CourseGroup.planned` removed: the menu now holds readable documents only, and an empty group means "in preparation" |
+| `src/components/site/Sidebar.astro` | An empty group shows a chip beside its heading; the planned-item branch is gone |
+| `src/lib/i18n/ui.ts` | `nav.later` ('예정' / 'later') → `nav.inPreparation` ('준비중' / 'in preparation') |
+| `src/styles/base.css` | The unused `.sidebar__pending` rule removed. `.sidebar__flag` is now `inline-block` + `nowrap` |
+| `src/content/docs/{ko,en}/index.mdx` | "How to read it" no longer calls the menu "the whole road this wiki will cover", and the closing note no longer says the post-2017 material "has its place" in it |
+
+### A bug found while looking at it
+
+The English chip, "in preparation", is long enough that it split across two lines
+inside its own border ("in" / "preparation") in the 208px rail. It now wraps as a
+single unit. The markup also gained a real space between the heading and the chip,
+because without one the accessible text read "이어지는 길준비중" and
+"WHERE IT GOESin preparation" as single words.
+
+## Verification
+
+| | Result |
+| --- | --- |
+| Types | `npx tsc --noEmit` — clean |
+| Build | `npx astro build` — 3 routes |
+| Maths | `npx vitest run` — 147 passing (untouched) |
+| Browser | `npx playwright test` — **112 passing** |
+| Rendered menu | ko: "출발점 · Attention Is All You Need · 이어지는 길 준비중"; en: "Where it starts · Attention Is All You Need · Where it goes in preparation" |
+| Screens | the menu shot in ko/en × light/dark × 1440/390 and looked at |
+| Leftovers | no `sidebar__pending`, no `nav.later`, none of the nine titles anywhere in `src/` or `scripts/` |
+
+The rewritten check asserts the chip text in both languages, that the removed titles
+and the word "예정" do not appear, that the English chip occupies one line, and that a
+space separates it from the heading. The one-line assertion was confirmed to catch the
+bug: restoring the old inline style in the browser gives two line boxes.
+
+## Open problems
+
+- **The architecture diagram in `#big-picture` is now out of date in the same way.**
+  `TransformerMap` still fades Add & Norm, Feed Forward, Linear and Softmax, and its
+  caption says the faded blocks are "named here and left for later" (ko: "이름만 알아
+  두고 넘어갑니다"). Since the remaining sections were written, `#blocks` works through
+  the feed-forward network and normalization with real numbers, and `#training` covers
+  the output distribution. Not changed here — outside this request.
+
+# No seams, and a picture at every key point (2026-09-15)
+
+## Why
+
+The reader could not picture "토큰 수만큼의 줄이 쌓인 덩어리가 encoder 로 들어갑니다" in
+`#big-picture`. The words for a token's numbers drifted (뭉치 → 한 줄 in a caption → 줄이
+쌓인 덩어리) with no sentence making the switch, and no figure showed rows stacking into a
+block or the block keeping its row count through the encoder: every figure on the page
+was a still, and only four islands existed, all in sections 3–6. The standard restated
+for this scope was comprehension above everything — example, moving figure where a still
+fails, an interaction at each key point, no ambiguity at any boundary — which is what
+`docs/plan.md` §5.3–5.4 and §7 already ask for.
+
+## What changed
+
+- **`BigPictureWalk`** (`src/components/lab/`): the route in seven steppable frames with a
+  mini map that lights the current part. `Stepper` was extracted from `AttentionLab` so
+  both rails are one component. `TokenPipeline.astro` removed.
+- **Prose seams**, both languages: the big-picture section names "한 줄" once, bridges
+  rows → block before ⊕, opens step 3 by pointing back at the block, points each step at a
+  frame; 덩어리 means one thing; every term the audit found used before its definition
+  (갈래, 가리기, 흩어진 정도, BLEU, F1, perplexity, ln, Adam, 투영, Sublayer) is glossed at
+  first use; `#proportion` no longer opens on unseen scores; the seven lab steps are mapped
+  to the four formula steps; `A⁽²⁾`, `W₁` and `b₁` are printed so every quoted number can
+  be checked; the `n × n` cost is stated in `#attention` before `#results` relies on it.
+- **Seven explorers** replace seven stills: positions (position + pair), layer norm
+  (editable row, add/multiply all, γ, β), residual (bypass on/off over six layers, cos θ
+  to the input), loss (p of the right word, ε), beam width (1/2/3), BLEU against cost
+  (en-De/en-Fr), head patterns (query token). Copy in `src/lib/i18n/explorers.ts`.
+- **Five stills** for claims that had none: `SerialWait`, `TransposeFlip`, `ConcatShape`,
+  `HeadBudget`, `BleuExample`.
+
+## Verification
+
+| | Result |
+| --- | --- |
+| Types | `npx tsc --noEmit` — clean |
+| Build | `npm run build` — 3 routes |
+| Maths | `npm test` — 147 passing (untouched) |
+| Browser | `npx playwright test` — **130 passing** (65 desktop + 65 mobile), including the walk on both pages and one check per explorer |
+| Screens | every frame of the walk at 1440 (ko), frame 4 at 390, frame 6 dark; every explorer and new still at 1440 (ko), residual with the bypass off, beam at widths 2 and 3 — all looked at; three drawing bugs found this way and fixed (clipped "× 6", a title over an arrow, unflattened cells) |
+| Read-through | 뭉치 and 단락 no longer appear on the Korean page; 덩어리 only means the stacked block |
+| Not run | `git status` / `git diff`: git on this machine refuses to run until the Xcode licence is accepted, so the tree was reviewed from the file list instead |
+
+The residual explorer's guidance was rewritten after looking at its numbers: with the
+bypass, cos θ to the input stays positive through six layers (0.35 at layer 6); without
+it, the direction flips negative from layer 4. The hand-chosen W make the size of the
+effect unlike a real model, and the text says so.
+
+## Open problems
+
+- `TransformerMap` still fades the blocks the later sections now cover, and its caption
+  still says they are left for later. Carried over from the previous scope.
+- `PositionExplorer` and the walk are conceptual in different senses: the walk draws no
+  values at all (and says so); the explorer computes real ones for d_model = 4.
+- The English `BleuExample` and `SerialWait` copy was written alongside the Korean and
+  has not had a separate editing pass.

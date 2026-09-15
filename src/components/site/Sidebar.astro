@@ -1,10 +1,10 @@
 ---
 /**
- * The left-hand menu — the whole learning path.
+ * The left-hand menu — the learning path.
  *
- * Not the **contents of the article** but the **whole route** this wiki means
- * to cover, starting from one paper and widening into what came after it.
- * Only one entry can be read today; the rest are announcements, not links.
+ * Not the **contents of the article** but the route this wiki is taking, starting
+ * from one paper and widening into what came after it. Only documents that exist
+ * appear, as links. A group with nothing in it yet says so beside its heading.
  *
  * The contents of the article live on the right, in PageToc.
  */
@@ -28,29 +28,28 @@ const ui = t(locale);
       <div class="sidebar__group">
         <p class="sidebar__title">
           {group.title[locale]}
-          {group.planned ? <span class="sidebar__flag">{ui.nav.later}</span> : null}
+          {/* A real space, so the heading and the chip are not read as one word */}
+          {group.items.length === 0 ? (
+            <>
+              {' '}
+              <span class="sidebar__flag">{ui.nav.inPreparation}</span>
+            </>
+          ) : null}
         </p>
-        <ul class="sidebar__list">
-          {group.items.map((item) =>
-            item.status === 'ready' ? (
+        {group.items.length > 0 ? (
+          <ul class="sidebar__list">
+            {group.items.map((item) => (
               <li>
                 <a
                   class="sidebar__link"
-                  href={docHref(locale, item.id ?? '')}
+                  href={docHref(locale, item.id)}
                   aria-current={item.id === current ? 'page' : undefined}>
                   {item.title[locale]}
                 </a>
               </li>
-            ) : (
-              <li>
-                <span class="sidebar__pending">
-                  {item.title[locale]}
-                  <span class="visually-hidden"> — {ui.status.plannedNote}</span>
-                </span>
-              </li>
-            ),
-          )}
-        </ul>
+            ))}
+          </ul>
+        ) : null}
       </div>
     ))
   }

@@ -94,3 +94,227 @@ const en: Record<AttentionStep, StepText> = {
 };
 
 export const LAB_TEXT: Record<Locale, Record<AttentionStep, StepText>> = { ko, en };
+
+/* ------------------------------------------------------------------ */
+/* The big-picture walk: one frame per step of the route, in prose.    */
+
+export const WALK_STEPS = ['tokens', 'row', 'block', 'position', 'encoder', 'decoder', 'probs'] as const;
+export type WalkStep = (typeof WALK_STEPS)[number];
+
+export interface WalkStepText {
+  /** The chip label on the rail */
+  name: string;
+  /** What happens at this step */
+  what: string;
+  /** What to look at in the picture */
+  watch: string;
+}
+
+export interface WalkText {
+  title: string;
+  kind: string;
+  kindNote: string;
+  /** Labels drawn inside the picture */
+  fig: {
+    sentence: string;
+    token: string;
+    id: string;
+    row: string;
+    really512: string;
+    block: string;
+    posRows: string;
+    stillSame: string;
+    layer: string;
+    attention: string;
+    feedForward: string;
+    maskedAttention: string;
+    crossAttention: string;
+    rowsIn: string;
+    rowsOut: string;
+    valuesChanged: string;
+    outputSoFar: string;
+    notYet: string;
+    fromEncoder: string;
+    nextWordProbs: string;
+    vocabCount: string;
+    attnProbs: string;
+    tokenCount: string;
+    map: {
+      inputs: string;
+      outputs: string;
+      embed: string;
+      position: string;
+      encoder: string;
+      decoder: string;
+      times: string;
+      head: string;
+      probs: string;
+      now: string;
+    };
+  };
+  steps: Record<WalkStep, WalkStepText>;
+}
+
+const walkKo: WalkText = {
+  title: '문장이 들어가서 확률이 나오기까지',
+  kind: '개념 도식',
+  kindNote:
+    '칸 안의 값은 그리지 않았습니다. 줄의 개수와 덩어리의 모양만 실제 모델과 같아요. 왼쪽 작은 구조도에서 지금 어디를 보고 있는지가 함께 표시됩니다.',
+  fig: {
+    sentence: '문장',
+    token: '토큰',
+    id: '번호',
+    row: '숫자 한 줄',
+    really512: '실제로는 512칸',
+    block: '줄 5개 × 512칸 = 덩어리 하나',
+    posRows: '위치마다 다른 줄',
+    stillSame: '더해도 5 × 512 그대로',
+    layer: '층',
+    attention: 'attention',
+    feedForward: 'feed forward',
+    maskedAttention: '가려진 attention',
+    crossAttention: 'encoder 를 보는 attention',
+    rowsIn: '줄 5개 들어감',
+    rowsOut: '줄 5개 나옴',
+    valuesChanged: '값만 달라짐',
+    outputSoFar: '지금까지 만든 출력',
+    notYet: '아직 없음 → 가림',
+    fromEncoder: 'encoder 의 줄 5개',
+    nextWordProbs: '다음 단어의 확률',
+    vocabCount: '후보 = 어휘 전체 (수만 개)',
+    attnProbs: 'attention 안의 확률',
+    tokenCount: '후보 = 토큰 5개',
+    map: {
+      inputs: '입력 문장',
+      outputs: '지금까지의 출력',
+      embed: 'embedding',
+      position: '위치 ⊕',
+      encoder: 'Encoder',
+      decoder: 'Decoder',
+      times: '× 6',
+      head: 'Linear · Softmax',
+      probs: '다음 단어 확률',
+      now: '지금 여기',
+    },
+  },
+  steps: {
+    tokens: {
+      name: '토큰',
+      what: '문장을 토큰으로 자릅니다. 예문 "The animal didn\'t cross" 는 다섯 조각이 돼요. didn\'t 가 did 와 n\'t 로 나뉜 것을 보세요.',
+      watch: '토큰 수를 세어 두세요. 이 숫자 5 가 마지막 단계까지 그대로 따라다닙니다.',
+    },
+    row: {
+      name: '한 줄',
+      what: '토큰마다 고유 번호가 있고, 그 번호로 표에서 숫자 512개를 꺼냅니다. 이 512개를 옆으로 나란히 적은 것을 이 글에서는 "한 줄" 이라고 부릅니다.',
+      watch: '토큰 하나에 줄 하나. 그림은 일곱 칸만 그렸지만 실제로는 512칸이에요.',
+    },
+    block: {
+      name: '덩어리',
+      what: '다섯 줄을 위아래로 붙여 쌓으면 5 × 512 크기의 덩어리 하나가 됩니다. 앞으로는 이 덩어리 단위로 계산이 진행돼요.',
+      watch: '줄의 수 5 는 토큰의 수이고, 칸의 수 512 는 토큰 하나를 나타내는 숫자의 개수입니다.',
+    },
+    position: {
+      name: '위치 ⊕',
+      what: '문제가 하나 있어요. 이 모델은 다섯 줄을 한꺼번에 보기 때문에, 덩어리만 봐서는 어느 줄이 첫째 단어이고 어느 줄이 둘째 단어인지 알 수 없습니다. "개가 사람을 물었다" 와 "사람이 개를 물었다" 는 토큰이 같아서 순서를 모르면 구분이 안 돼요. 그래서 위치마다 다른 숫자 512개짜리 줄을 만들어, 같은 자리의 줄에 칸마다 더합니다. 이 줄이 "너는 첫째, 너는 둘째" 라는 표시입니다.',
+      watch: '더하고 나면 각 줄에 "무슨 단어인지" 와 "몇 번째인지" 가 함께 들어 있어서, 뒤의 계산이 순서를 알 수 있습니다. 옆에 이어 붙이지 않고 더하는 건 줄의 길이를 512 로 그대로 두기 위해서예요. 위치를 어떤 숫자로 만드는지는 "위치" 절에서 봅니다.',
+    },
+    encoder: {
+      name: 'Encoder',
+      what: '지금 각 줄에는 자기 단어와 자기 위치만 들어 있어요. 그런데 "it" 이 무엇인지는 "animal" 을 봐야 알 수 있듯, 단어의 뜻은 주변 단어에 달려 있습니다. 그래서 덩어리를 encoder 에 넣습니다. encoder 의 한 층은 두 부분이에요. attention 에서 각 줄이 다른 모든 줄을 보고 필요한 정보를 섞어 오고, feed forward 에서 그 결과를 줄마다 따로 한 번 더 다듬습니다. 한 번 섞는 것으로는 부족해서 똑같은 층을 여섯 번 거칩니다. 층을 지날수록 더 멀리, 더 여러 단계 건너의 관계까지 담기게 돼요.',
+      watch: '들어갈 때 줄 5개, 나올 때도 줄 5개입니다. 달라지는 건 각 줄의 값이에요. 들어갈 때는 "자기 단어" 만 담고 있던 줄이, 나올 때는 문장 전체를 본 뒤의 값이 됩니다.',
+    },
+    decoder: {
+      name: 'Decoder',
+      what: '이제 번역문을 만드는 쪽입니다. decoder 는 한 번에 한 단어씩 씁니다. 그림은 아래에서 위로 읽으세요. 맨 아래가 지금까지 쓴 단어들(시작 표시, 그, 동물은)이고, 입력 쪽과 똑같이 줄이 되어 위로 올라갑니다. ① 가려진 attention: 쓴 단어들끼리 서로 봅니다. 아직 안 쓴 뒷자리는 빗금으로 막혀 있어요. ② encoder 를 보는 attention: 왼쪽에서 점선으로 들어오는 encoder 의 줄 5개, 즉 원문을 봅니다. ③ feed forward: encoder 와 같습니다. 이 층도 여섯 번 반복돼요.',
+      watch: '왜 가리느냐면, 배울 때는 정답 문장이 통째로 들어와 있어서 뒷단어를 미리 보면 답을 베끼는 셈이기 때문이에요. ② 가 있어서 decoder 는 매 단어마다 원문 전체를 다시 봅니다. 번역은 여기서 일어납니다.',
+    },
+    probs: {
+      name: '확률',
+      what: 'decoder 의 마지막 줄을 어휘 개수만큼의 점수로 바꾸고, 합이 1 인 확률로 만듭니다. 가장 높은 후보가 다음 단어가 돼요.',
+      watch: '확률이 두 군데 있어요. 오른쪽 작은 그래프는 attention 안에서 "어느 토큰을 얼마나 볼지" 이고 후보가 토큰 5개입니다. 왼쪽은 "다음 단어가 무엇일지" 이고 후보가 어휘 전체예요.',
+    },
+  },
+};
+
+const walkEn: WalkText = {
+  title: 'From a sentence to the next-word probabilities',
+  kind: 'Conceptual sketch',
+  kindNote:
+    'No values are drawn inside the cells. Only the number of rows and the shape of the block match the real model. The small map on the left shows where along the route you are.',
+  fig: {
+    sentence: 'Sentence',
+    token: 'Token',
+    id: 'Id',
+    row: 'A row of numbers',
+    really512: 'really 512 cells',
+    block: '5 rows × 512 cells = one block',
+    posRows: 'one row per position',
+    stillSame: 'still 5 × 512 after adding',
+    layer: 'layer',
+    attention: 'attention',
+    feedForward: 'feed forward',
+    maskedAttention: 'masked attention',
+    crossAttention: 'attention over the encoder',
+    rowsIn: '5 rows in',
+    rowsOut: '5 rows out',
+    valuesChanged: 'only the values changed',
+    outputSoFar: 'output so far',
+    notYet: 'not yet → masked',
+    fromEncoder: 'the encoder\'s 5 rows',
+    nextWordProbs: 'probability of the next word',
+    vocabCount: 'candidates = whole vocabulary (tens of thousands)',
+    attnProbs: 'inside attention',
+    tokenCount: 'candidates = the 5 tokens',
+    map: {
+      inputs: 'input sentence',
+      outputs: 'output so far',
+      embed: 'embedding',
+      position: 'position ⊕',
+      encoder: 'Encoder',
+      decoder: 'Decoder',
+      times: '× 6',
+      head: 'Linear · Softmax',
+      probs: 'next-word probabilities',
+      now: 'you are here',
+    },
+  },
+  steps: {
+    tokens: {
+      name: 'Tokens',
+      what: 'The sentence is cut into tokens. "The animal didn\'t cross" becomes five pieces. Notice that didn\'t splits into did and n\'t.',
+      watch: 'Count the tokens. That number, 5, follows us all the way to the last step.',
+    },
+    row: {
+      name: 'A row',
+      what: 'Every token has an id, and the id looks up 512 numbers in a table. Written side by side, those 512 numbers are what this page calls "a row".',
+      watch: 'One token, one row. Seven cells are drawn; a real model has 512.',
+    },
+    block: {
+      name: 'A block',
+      what: 'Stack the five rows on top of each other and you have one block, 5 × 512. From here on the calculation works on this block.',
+      watch: 'The number of rows, 5, is the number of tokens. The number of cells, 512, is how many numbers describe one token.',
+    },
+    position: {
+      name: '⊕ position',
+      what: 'There is a problem. This model looks at all five rows at once, so from the block alone it cannot tell which row is the first word and which the second. "The dog bit the man" and "The man bit the dog" have the same tokens; without order they are the same. So a different row of 512 numbers is made for each position and added, cell by cell, to the row in that position. That row is the mark that says "you are first, you are second".',
+      watch: 'Once added, each row carries both "which word" and "which position", so everything downstream can tell the order. It is added rather than stuck on the end so the row stays 512 long. What numbers stand for a position is worked out in the positions section.',
+    },
+    encoder: {
+      name: 'Encoder',
+      what: 'Right now each row holds only its own word and its own position. But a word\'s meaning depends on its neighbours, the way "it" can only be resolved by looking at "animal". So the block goes into the encoder. One encoder layer has two parts: in attention every row looks at every other row and mixes in what it needs; in feed forward that result is worked over once more, one row at a time. One round of mixing is not enough, so the same layer is applied six times. Each pass reaches further, to relationships several hops away.',
+      watch: '5 rows go in and 5 rows come out. What changes is the values: a row that went in holding only "its own word" comes out holding what it found by looking at the whole sentence.',
+    },
+    decoder: {
+      name: 'Decoder',
+      what: 'Now the side that writes the translation. The decoder writes one word at a time. Read the picture from the bottom up. At the bottom are the words written so far (a start marker, then two words); they become rows exactly as the input did and travel upward. ① Masked attention: the written words look at each other, and the positions not yet written are hatched out. ② Attention over the encoder: this looks at the encoder\'s 5 rows arriving on the dashed line from the left, that is, the source sentence. ③ Feed forward: as in the encoder. This layer, too, repeats six times.',
+      watch: 'Why mask? Because while learning, the whole correct sentence is in the input, and peeking at a later word would be copying the answer. Part ② is why the decoder re-reads the whole source for every word. This is where translating happens.',
+    },
+    probs: {
+      name: 'Probabilities',
+      what: 'The decoder\'s last row is turned into one score per vocabulary entry, then into probabilities that sum to 1. The highest candidate is the next word.',
+      watch: 'There are probabilities in two places. The small chart on the right is "how much to look at each token" inside attention, with 5 candidates. The left one is "which word comes next", with the whole vocabulary as candidates.',
+    },
+  },
+};
+
+export const WALK_TEXT: Record<Locale, WalkText> = { ko: walkKo, en: walkEn };

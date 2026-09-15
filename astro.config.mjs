@@ -7,8 +7,9 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 
 // GitHub Pages 의 프로젝트 페이지 경로. 모든 내부 링크와 asset 이 이 경로 아래에 놓인다.
-// site 는 저장소 remote 가 없어 확인하지 못했다. sitemap 을 만들지 않으므로 생략한다.
+// GitHub Pages 의 프로젝트 페이지: https://purpleeddy.github.io/llm-visual-lab/
 export default defineConfig({
+  site: 'https://purpleeddy.github.io',
   base: '/llm-visual-lab/',
   trailingSlash: 'always',
   build: { format: 'directory' },

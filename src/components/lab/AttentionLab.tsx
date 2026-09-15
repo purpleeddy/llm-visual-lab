@@ -3,6 +3,7 @@ import { MatrixGrid, type CellRef } from './MatrixGrid';
 import { EditableMatrix } from './EditableMatrix';
 import { ConnectorOverlay, type ConnectorLink } from './ConnectorOverlay';
 import { TermExpansion } from './TermExpansion';
+import { Stepper } from './Stepper';
 import {
   ATTENTION_STEPS,
   computeAttention,
@@ -291,39 +292,12 @@ export function AttentionLab({ locale }: AttentionLabProps) {
       <p className="lab__note">{ui.lab.kindNote}</p>
 
       {/* ---- Moving between steps ---- */}
-      <nav className="stepper" aria-label={ui.lab.step}>
-        <button
-          type="button"
-          className="btn stepper__arrow"
-          onClick={() => goStep(stepIndex - 1)}
-          disabled={stepIndex === 0}
-        >
-          <span aria-hidden="true">←</span> {ui.lab.prevStep}
-        </button>
-        <ol className="stepper__list">
-          {ATTENTION_STEPS.map((s, i) => (
-            <li key={s}>
-              <button
-                type="button"
-                className={`stepper__chip${i === stepIndex ? ' is-current' : ''}${i < stepIndex ? ' is-done' : ''}`}
-                aria-current={i === stepIndex ? 'step' : undefined}
-                onClick={() => goStep(i)}
-              >
-                <span className="stepper__num">{i + 1}</span>
-                <span className="stepper__name">{ui.lab.steps[s].name}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
-        <button
-          type="button"
-          className="btn stepper__arrow"
-          onClick={() => goStep(stepIndex + 1)}
-          disabled={stepIndex === ATTENTION_STEPS.length - 1}
-        >
-          {ui.lab.nextStep} <span aria-hidden="true">→</span>
-        </button>
-      </nav>
+      <Stepper
+        steps={ATTENTION_STEPS.map((s) => ({ id: s, name: ui.lab.steps[s].name }))}
+        index={stepIndex}
+        onChange={goStep}
+        labels={{ rail: ui.lab.step, prev: ui.lab.prevStep, next: ui.lab.nextStep }}
+      />
 
       <p className="visually-hidden" aria-live="polite">
         {announcement ||

@@ -1,0 +1,92 @@
+---
+/**
+ * Two heads joined side by side, then multiplied by W_O — the shapes only.
+ *
+ * Drawn from the worked example's dimensions so the numbers in the labels are
+ * the ones the prose uses (two 3 × 2 heads → 3 × 4 → W_O 4 × 4 → 3 × 4).
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { computeMultiHead } from '../../lib/math/multihead';
+import { defaultMultiHeadInput } from '../../lib/math/examples';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const r = computeMultiHead(defaultMultiHeadInput());
+const n = r.dims.n;
+const dV = r.dims.dV;
+const h = r.perHead.length;
+const dModel = h * dV;
+const CELL = 18;
+const y0 = 60;
+const gap = 6;
+const xO1 = 40;
+const xO2 = xO1 + dV * CELL + gap;
+const xConcat = 190;
+const xWO = xConcat + dModel * CELL + 44;
+const xOut = xWO + dModel * CELL + 44;
+const W = xOut + dModel * CELL + 30;
+
+const L = ko
+  ? {
+      heads: [`O⁽¹⁾ ${n}×${dV}`, `O⁽²⁾ ${n}×${dV}`],
+      concat: `옆으로 붙임 ${n}×${dModel}`,
+      wo: `W_O ${dModel}×${dModel}`,
+      out: `결과 ${n}×${dModel}`,
+      note: `붙이면 행 수는 그대로 ${n} 이고 열만 ${dV} + ${dV} = ${dModel} 이 됩니다. W_O 를 곱해도 모양은 ${n}×${dModel} 그대로예요.`,
+      title: '갈래를 다시 하나로 모으는 모양',
+      desc: `왼쪽에 ${n}행 ${dV}열짜리 갈래 결과 둘이 나란히 있고, 이 둘을 옆으로 붙여 ${n}행 ${dModel}열이 됩니다. 거기에 ${dModel}행 ${dModel}열의 W_O 를 곱하면 결과는 다시 ${n}행 ${dModel}열입니다. 행 수는 처음부터 끝까지 토큰 수 ${n} 으로 같습니다.`,
+    }
+  : {
+      heads: [`O⁽¹⁾ ${n}×${dV}`, `O⁽²⁾ ${n}×${dV}`],
+      concat: `joined ${n}×${dModel}`,
+      wo: `W_O ${dModel}×${dModel}`,
+      out: `result ${n}×${dModel}`,
+      note: `Joining keeps ${n} rows and makes ${dV} + ${dV} = ${dModel} columns. Multiplying by W_O leaves the shape at ${n}×${dModel}.`,
+      title: 'The shapes of gathering the heads back',
+      desc: `On the left are two head outputs of ${n} rows and ${dV} columns each. Joined side by side they make ${n} rows and ${dModel} columns. Multiplying by the ${dModel} × ${dModel} matrix W_O gives a result that is again ${n} × ${dModel}. The row count stays at the token count, ${n}, throughout.`,
+    };
+
+const grid = (x: number, rows: number, cols: number, cls: string) =>
+  Array.from({ length: rows }, (_, i) => Array.from({ length: cols }, (_, j) => ({ x: x + j * CELL, y: y0 + i * CELL, cls }))).flat();
+---
+
+<svg viewBox={`0 0 ${W} 170`} width={W} height="170" role="img" aria-labelledby="cs-t cs-d">
+  <title id="cs-t">{L.title}</title>
+  <desc id="cs-d">{L.desc}</desc>
+  <defs>
+    <marker id="cs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path>
+    </marker>
+  </defs>
+
+  {[...grid(xO1, n, dV, 'walk__cell'), ...grid(xO2, n, dV, 'walk__cell walk__cell--pos')].map((c) => (
+    <rect class={c.cls} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__note" x={xO1} y={y0 - 10}>{L.heads[0]}</text>
+  <text class="tmap__note" x={xO2} y={y0 + n * CELL + 16}>{L.heads[1]}</text>
+
+  <path class="tmap__line" d={`M ${xO2 + dV * CELL + 10} ${y0 + (n * CELL) / 2} H ${xConcat - 8}`} marker-end="url(#cs-arrow)"></path>
+
+  {[...grid(xConcat, n, dV, 'walk__cell'), ...grid(xConcat + dV * CELL, n, dV, 'walk__cell walk__cell--pos')].map((c) => (
+    <rect class={c.cls} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__note" x={xConcat} y={y0 - 10}>{L.concat}</text>
+
+  <text class="tmap__op" x={xConcat + dModel * CELL + 14} y={y0 + (n * CELL) / 2 + 6}>×</text>
+  {grid(xWO, dModel, dModel, 'walk__cell walk__cell--sum').map((c) => (
+    <rect class={c.cls} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__note" x={xWO} y={y0 - 10}>{L.wo}</text>
+
+  <text class="tmap__op" x={xWO + dModel * CELL + 14} y={y0 + (n * CELL) / 2 + 6}>=</text>
+  {grid(xOut, n, dModel, 'walk__cell walk__cell--out').map((c) => (
+    <rect class={c.cls} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__note" x={xOut} y={y0 - 10}>{L.out}</text>
+
+  <text class="tmap__note" x={xO1} y="160">{L.note}</text>
+</svg>

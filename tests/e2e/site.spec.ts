@@ -205,14 +205,28 @@ test.describe('the single-page structure', () => {
 });
 
 test.describe('learning path on the left, contents on the right', () => {
-  test('the left rail is the whole route, and only readable documents are links', async ({ page }) => {
+  test('the left rail lists only what can be read, and says the rest is in preparation', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const nav = page.locator('#course-nav');
     await expect(nav).toContainText('Attention Is All You Need');
-    // Entries that are not written yet must not be links
     await expect(nav.locator('a')).toHaveCount(READY_COUNT);
-    expect(await nav.locator('.sidebar__pending').count()).toBeGreaterThan(0);
     await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
+
+    // The follow-up topics were never scoped, ordered or scheduled, so they are
+    // not listed. The group says it is in preparation instead.
+    await expect(nav.locator('.sidebar__flag')).toHaveText(['준비중']);
+    for (const title of ['자기회귀 언어 모델', '규모와 일반화', '최신 모델 해부']) {
+      await expect(nav, `"${title}" must not be listed as if it were coming`).not.toContainText(title);
+    }
+    await expect(nav).not.toContainText('예정');
+
+    await page.goto(ARTICLE_EN);
+    const chip = page.locator('#course-nav .sidebar__flag');
+    await expect(chip).toHaveText(['in preparation']);
+    // The English label is long enough to split inside the chip; it must not.
+    expect(await chip.evaluate((el) => el.getClientRects().length), 'the chip is one line').toBe(1);
+    // A real space separates it from the heading, so it is not read as one word.
+    expect(await page.locator('#course-nav').innerText()).toContain('WHERE IT GOES in preparation');
   });
 
   test('the contents opens the sub-headings of the section being read', async ({ page }) => {
@@ -266,23 +280,20 @@ test.describe('learning path on the left, contents on the right', () => {
 const FIGURES = [
   { id: 'aa', section: 'problem' },
   { id: 'pld', section: 'problem' },
-  { id: 'tp', section: 'big-picture' },
+  { id: 'sw', section: 'problem' },
   { id: 'tmap', section: 'big-picture' },
   { id: 'sf', section: 'numbers' },
+  { id: 'tf', section: 'numbers' },
   { id: 'qkv', section: 'attention' },
   { id: 'as', section: 'attention' },
   { id: 'mhs', section: 'multi-head' },
-  { id: 'hp', section: 'multi-head' },
-  { id: 'pw', section: 'positions' },
-  { id: 'pg', section: 'positions' },
+  { id: 'cs', section: 'multi-head' },
+  { id: 'hb', section: 'multi-head' },
   { id: 'ffs', section: 'blocks' },
   { id: 'rp', section: 'blocks' },
-  { id: 'lns', section: 'blocks' },
-  { id: 'lp', section: 'training' },
   { id: 'lrc', section: 'training' },
   { id: 'gl', section: 'generation' },
-  { id: 'bt', section: 'generation' },
-  { id: 'bc', section: 'results' },
+  { id: 'be', section: 'results' },
 ];
 
 /**
@@ -473,23 +484,18 @@ test.describe('figures', () => {
     await page.goto(ARTICLE_KO);
 
     // The two heads must really differ, or the multi-head section makes no point.
-    const headCells = await page.locator('#hp-d').textContent();
-    expect(headCells).toBeTruthy();
-    const weights = await page
-      .locator('svg[aria-labelledby="hp-t hp-d"] .hp__value')
-      .allTextContents();
+    const weights = await page.locator('.lab--heads .hp__value').allTextContents();
     expect(weights.length, 'two 3x3 grids').toBe(18);
     expect(weights.slice(0, 9).join(' '), 'the heads must not be identical').not.toBe(
       weights.slice(9).join(' '),
     );
 
     // Position 0 of the sinusoids is exactly 0, 1, 0, 1.
-    const pe = await page.locator('svg[aria-labelledby="pg-t pg-d"] .hp__value').allTextContents();
-    expect(pe.slice(0, 4)).toEqual(['0.000', '1.000', '0.000', '1.000']);
+    const pe = await page.locator('.lab--position .hp__value').allTextContents();
+    expect(pe.slice(0, 4)).toEqual(['0.00', '1.00', '0.00', '1.00']);
 
     // The BLEU scatter is the paper's own table, not a redrawing of it.
-    const bleu = await page.locator('#bc-d').textContent();
-    expect(bleu).toContain('28.4');
+    await expect(page.locator('.lab--bleucost')).toContainText('28.4');
   });
 
   test('the dimensions in the figures match the worked example', async ({ page }) => {
@@ -549,6 +555,58 @@ test.describe('switching between Korean and English', () => {
     };
     expect(await ids(ARTICLE_KO)).toEqual(await ids(ARTICLE_EN));
   });
+});
+
+test.describe('the masthead star', () => {
+  for (const path of ALL_PAGES) {
+    test(`${path}: links to the repository in a new tab`, async ({ page }) => {
+      await page.goto(path);
+      const star = page.locator('.star-link');
+      await expect(star).toBeVisible();
+      await expect(star).toHaveAttribute('href', /^https:\/\/github\.com\//);
+      await expect(star).toHaveAttribute('target', '_blank');
+      await expect(star).toHaveAttribute('aria-label', /GitHub/);
+    });
+  }
+});
+
+test.describe('the big-picture walk', () => {
+  // The walk is a stepped figure, not a calculation: what it must get right is
+  // that the reader can move through all seven frames and that the last frame
+  // shows the two kinds of probability side by side.
+  const WALK = '.lab--walk';
+
+  for (const path of ALL_PAGES) {
+    test(`${path}: moves through the seven frames and ends on the two charts`, async ({ page }) => {
+      await page.goto(path);
+      const walk = page.locator(WALK);
+      await expect(walk).toHaveCount(1);
+      const chips = walk.locator('.stepper__chip');
+      await expect(chips).toHaveCount(7);
+      await expect(chips.nth(0)).toHaveAttribute('aria-current', 'step');
+
+      const frameOn = walk.locator('.walk__frame[data-on="true"]');
+      await expect(frameOn).toHaveCount(1);
+
+      const next = walk.getByRole('button', { name: /다음 단계|Next step/ });
+      for (let i = 1; i < 7; i++) {
+        await next.click();
+        await expect(chips.nth(i)).toHaveAttribute('aria-current', 'step');
+      }
+      await expect(next).toBeDisabled();
+
+      // Frame 7: the vocabulary chart and the attention chart, both visible
+      await expect(frameOn.locator('.walk__chart')).toHaveCount(2);
+      await expect(frameOn.locator('.walk__chart[data-kind="vocab"]')).toHaveCount(1);
+      await expect(frameOn.locator('.walk__chart[data-kind="attention"]')).toHaveCount(1);
+
+      // The map lights exactly one part per frame
+      await expect(walk.locator('.walk__map .walk__lit')).toHaveCount(1);
+
+      await walk.getByRole('button', { name: /이전 단계|Previous step/ }).click();
+      await expect(chips.nth(5)).toHaveAttribute('aria-current', 'step');
+    });
+  }
 });
 
 test.describe('the attention lab', () => {
@@ -963,5 +1021,75 @@ test.describe('the labs inside the article', () => {
 
     await lab.getByRole('button', { name: '처음 값으로 되돌리기' }).click();
     await expect(lab.locator('.softmax__shiftval')).toHaveText('+0');
+  });
+
+  test('positions: moving the position moves the marked cell and the readout', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--position');
+    await expect(lab.locator('.explorer__line').first()).toContainText('3:');
+    await lab.locator('#pe-pos').fill('0');
+    await lab.locator('#pe-pos').dispatchEvent('input');
+    await expect(lab.locator('.explorer__line').first()).toContainText('0: (0.000, 1.000, 0.000, 1.000)');
+    await lab.getByRole('button', { name: /느린 쪽/ }).click();
+    await expect(lab.locator('.explorer__line').nth(1)).toContainText('느린 쪽');
+  });
+
+  test('layer norm: adding the same number to every value leaves the output alone', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--layernorm');
+    const out = () => lab.locator('.terms__running').textContent();
+    const before = await out();
+    await lab.locator('#ln-shift').fill('5');
+    await lab.locator('#ln-shift').dispatchEvent('input');
+    expect(await out()).toBe(before);
+    await lab.locator('#ln-gamma').fill('2');
+    await lab.locator('#ln-gamma').dispatchEvent('input');
+    expect(await out()).not.toBe(before);
+  });
+
+  test('residual: switching the bypass off changes the last layer', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--residual');
+    const last = () => lab.locator('tr.is-active .terms__running').textContent();
+    const withSkip = await last();
+    await lab.getByRole('button', { name: /^끔/ }).click();
+    expect(await last()).not.toBe(withSkip);
+  });
+
+  test('loss: lowering the probability on the right word raises the loss', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--loss');
+    await expect(lab).toContainText('0.511');
+    await lab.locator('#loss-p').fill('0.1');
+    await lab.locator('#loss-p').dispatchEvent('input');
+    await expect(lab).toContainText('2.303');
+    await lab.locator('#loss-eps').fill('0');
+    await lab.locator('#loss-eps').dispatchEvent('input');
+    const losses = await lab.locator('.tmap__note').filter({ hasText: '틀린 정도' }).allTextContents();
+    expect(losses[0]).toBe(losses[1]);
+  });
+
+  test('beam: carrying two candidates finds the better sentence', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--beam');
+    await expect(lab.locator('.explorer__line').nth(1)).toContainText('0.200');
+    await lab.getByRole('button', { name: '2개' }).click();
+    await expect(lab.locator('.explorer__line').nth(1)).toContainText('0.342');
+  });
+
+  test('bleu against cost: the language pair switches', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--bleucost');
+    await expect(lab).toContainText('28.4');
+    await lab.getByRole('button', { name: /프랑스어/ }).click();
+    await expect(lab).toContainText('41.8');
+  });
+
+  test('heads: choosing a token moves the highlighted row in both grids', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
+    const lab = page.locator('.lab--heads');
+    await expect(lab.locator('.explorer__line')).toContainText('1번 토큰');
+    await lab.getByRole('button', { name: '토큰 3' }).click();
+    await expect(lab.locator('.explorer__line')).toContainText('3번 토큰');
   });
 });

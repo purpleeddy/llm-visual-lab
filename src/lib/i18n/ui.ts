@@ -24,7 +24,8 @@ export interface UIStrings {
     onThisPage: string;
     contents: string;
     course: string;
-    later: string;
+    /** Shown beside a learning-path group that has no documents yet */
+    inPreparation: string;
     previous: string;
     next: string;
     sectionPaper: string;
@@ -32,6 +33,7 @@ export interface UIStrings {
   };
   theme: { label: string; light: string; dark: string; system: string };
   language: { label: string; ko: string; en: string };
+  repo: { star: string; label: string };
   status: {
     complete: string;
     partial: string;
@@ -127,7 +129,7 @@ const ko: UIStrings = {
     onThisPage: '이 문서의 차례',
     contents: '차례',
     course: '학습 과정',
-    later: '예정',
+    inPreparation: '준비중',
     previous: '이전',
     next: '다음',
     sectionPaper: '논문 해설',
@@ -135,6 +137,7 @@ const ko: UIStrings = {
   },
   theme: { label: '테마', light: '밝게', dark: '어둡게', system: '시스템' },
   language: { label: '언어', ko: '한국어', en: 'English' },
+  repo: { star: 'Star', label: 'GitHub 저장소에 별 주기 (새 창)' },
   status: {
     complete: '작성 완료',
     partial: '일부 작성',
@@ -276,7 +279,7 @@ const en: UIStrings = {
     onThisPage: 'On this page',
     contents: 'Contents',
     course: 'Learning path',
-    later: 'later',
+    inPreparation: 'in preparation',
     previous: 'Previous',
     next: 'Next',
     sectionPaper: 'Paper walkthrough',
@@ -284,6 +287,7 @@ const en: UIStrings = {
   },
   theme: { label: 'Theme', light: 'Light', dark: 'Dark', system: 'System' },
   language: { label: 'Language', ko: '한국어', en: 'English' },
+  repo: { star: 'Star', label: 'Star the repository on GitHub (opens in a new tab)' },
   status: {
     complete: 'Written',
     partial: 'Partly written',

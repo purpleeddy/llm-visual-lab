@@ -1,0 +1,105 @@
+---
+/**
+ * How BLEU counts, on one sentence pair.
+ *
+ * This shows the *counting* — which n-grams of the candidate also appear in
+ * the reference — not the paper's exact corpus-level BLEU with 4-grams and
+ * its smoothing. The counts are computed here from the two sentences.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const candidate = ['the', 'cat', 'sat', 'on', 'the', 'mat'];
+const reference = ['the', 'cat', 'is', 'on', 'the', 'mat'];
+
+function ngrams(words: string[], k: number): string[] {
+  return Array.from({ length: words.length - k + 1 }, (_, i) => words.slice(i, i + k).join(' '));
+}
+/** Clipped matches: a candidate n-gram counts at most as often as it appears in the reference. */
+function matches(k: number) {
+  const ref = new Map<string, number>();
+  for (const g of ngrams(reference, k)) ref.set(g, (ref.get(g) ?? 0) + 1);
+  const cand = ngrams(candidate, k);
+  const hit: boolean[] = [];
+  for (const g of cand) {
+    const left = ref.get(g) ?? 0;
+    hit.push(left > 0);
+    if (left > 0) ref.set(g, left - 1);
+  }
+  return { cand, hit, matched: hit.filter(Boolean).length };
+}
+const uni = matches(1);
+const bi = matches(2);
+const brevity = candidate.length >= reference.length ? 1 : Math.exp(1 - reference.length / candidate.length);
+
+const CELL_W = 58;
+const x0 = 110;
+const W = x0 + candidate.length * CELL_W + 40;
+
+const L = ko
+  ? {
+      cand: '번역 결과',
+      ref: '사람의 번역',
+      uni: `한 단어씩 겹침: ${uni.matched} / ${uni.cand.length}`,
+      bi: `두 단어씩 겹침: ${bi.matched} / ${bi.cand.length}`,
+      brevity: `길이 벌점: 결과가 ${candidate.length} 단어, 정답이 ${reference.length} 단어라 ${brevity.toFixed(2)} (짧으면 1 보다 작아짐)`,
+      note: '실제 BLEU 는 네 단어 묶음까지 세고, 문장 하나가 아니라 시험 문장 전체를 모아서 계산합니다.',
+      title: 'BLEU 가 세는 것',
+      desc: `번역 결과 "${candidate.join(' ')}" 와 사람의 번역 "${reference.join(' ')}" 를 나란히 놓았습니다. 한 단어씩 보면 ${uni.cand.length} 개 중 ${uni.matched} 개가 정답에도 있고, 두 단어씩 붙여 보면 ${bi.cand.length} 개 중 ${bi.matched} 개가 정답에도 있습니다. 결과가 정답보다 짧으면 길이 벌점이 붙는데 여기서는 길이가 같아 ${brevity.toFixed(2)} 입니다. 실제 BLEU 는 네 단어 묶음까지 세고 시험 문장 전체를 모아서 계산합니다.`,
+    }
+  : {
+      cand: 'the translation',
+      ref: 'a human translation',
+      uni: `single words that also appear: ${uni.matched} / ${uni.cand.length}`,
+      bi: `word pairs that also appear: ${bi.matched} / ${bi.cand.length}`,
+      brevity: `brevity penalty: ${candidate.length} words against ${reference.length}, so ${brevity.toFixed(2)} (below 1 when the output is shorter)`,
+      note: 'Real BLEU counts runs of up to four words, over the whole test set at once rather than one sentence.',
+      title: 'What BLEU counts',
+      desc: `The translation "${candidate.join(' ')}" is set against the human translation "${reference.join(' ')}". Word by word, ${uni.matched} of ${uni.cand.length} also appear in the reference; as pairs of adjacent words, ${bi.matched} of ${bi.cand.length} do. A shorter output is penalised; here the lengths are equal, so the penalty is ${brevity.toFixed(2)}. Real BLEU counts runs of up to four words and pools the whole test set.`,
+    };
+---
+
+<svg viewBox={`0 0 ${W} 250`} width={W} height="250" role="img" aria-labelledby="be-t be-d">
+  <title id="be-t">{L.title}</title>
+  <desc id="be-d">{L.desc}</desc>
+
+  <text class="tmap__note" x="12" y="42">{L.cand}</text>
+  {
+    candidate.map((w, i) => (
+      <g>
+        <rect class={uni.hit[i] ? 'walk__cell walk__cell--sum' : 'walk__cell walk__cell--masked'} x={x0 + i * CELL_W} y="26" width={CELL_W - 4} height="24" rx="3" />
+        <text class="tmap__label" x={x0 + i * CELL_W + (CELL_W - 4) / 2} y="42" text-anchor="middle">{w}</text>
+      </g>
+    ))
+  }
+  <text class="tmap__note" x="12" y="80">{L.ref}</text>
+  {
+    reference.map((w, i) => (
+      <g>
+        <rect class="walk__cell" x={x0 + i * CELL_W} y="64" width={CELL_W - 4} height="24" rx="3" />
+        <text class="tmap__label" x={x0 + i * CELL_W + (CELL_W - 4) / 2} y="80" text-anchor="middle">{w}</text>
+      </g>
+    ))
+  }
+
+  {
+    bi.cand.map((g, i) => (
+      <g>
+        <rect class={bi.hit[i] ? 'walk__cell walk__cell--sum' : 'walk__cell walk__cell--masked'} x={x0 + i * CELL_W + CELL_W / 2} y="108" width={CELL_W - 4} height="18" rx="3" />
+        <text class="hp__value" x={x0 + i * CELL_W + CELL_W / 2 + (CELL_W - 4) / 2} y="121" text-anchor="middle" style="fill: var(--ink-1);">
+          {g}
+        </text>
+      </g>
+    ))
+  }
+
+  <text class="tmap__label" x="12" y="160">{L.uni}</text>
+  <text class="tmap__label" x="12" y="182">{L.bi}</text>
+  <text class="tmap__label" x="12" y="204">{L.brevity}</text>
+  <text class="tmap__note" x="12" y="236">{L.note}</text>
+</svg>
