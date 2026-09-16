@@ -203,6 +203,11 @@ function MiniMap({ step, locale }: { step: WalkStep; locale: Locale }) {
         <text className="tmap__label--sm" x={DX} y={8} textAnchor="middle">
           {L.probs}
         </text>
+        {/* the chosen word goes back to the bottom of the decoder column */}
+        <path className="tmap__line tmap__line--cross" d={`M ${dx + W + 4} 27 H 314 V 312 H ${DX + 6}`} markerEnd="url(#bpw-arrow)" />
+        <text className="tmap__label--sm" x={318} y={176} textAnchor="end">
+          {L.loop}
+        </text>
       </g>
     </svg>
   );
@@ -628,8 +633,14 @@ function DecoderFrame({ F, locale }: { F: Fig; locale: Locale }) {
       <text className="tmap__label--sm" x={xRows + bw + 8} y={yRows + 10} style={{ fill: 'var(--ink-1)' }}>
         {F.outputSoFar}
       </text>
-      <text className="tmap__note" x={xRows + bw + 8} y={yRows + out.length * rowH + rowH}>
+      <text className="tmap__note walk__same-text" x={xRows + bw + 8} y={yRows + 23}>
+        {F.outputSoFarFrom}
+      </text>
+      <text className="tmap__note" x={xRows + bw + 8} y={yRows + out.length * rowH + rowH + 4}>
         {F.notYet}
+      </text>
+      <text className="tmap__note walk__same-text" x={xRows - 6} y={yRows - 6} textAnchor="end">
+        {F.roundN}
       </text>
       <path className="tmap__line" d={`M ${cx} ${yRows - 4} V ${ys[0] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
 
@@ -646,32 +657,39 @@ function DecoderFrame({ F, locale }: { F: Fig; locale: Locale }) {
 
 function ProbsFrame({ F, locale }: { F: Fig; locale: Locale }) {
   const vocab = locale === 'ko' ? VOCAB_KO : VOCAB_EN;
+  const out = locale === 'ko' ? OUT_SO_FAR_KO : OUT_SO_FAR_EN;
   const chart = (
     x: number,
     title: string,
+    sub: string | null,
     note: string,
     labels: string[],
     values: number[],
     labelW: number,
     barMax: number,
     kind: string,
+    rowH: number,
   ) => {
-    const rowH = 26;
-    const y0 = 44;
+    const y0 = 42;
     return (
       <g className="walk__chart" data-kind={kind}>
-        <text className="walk__title" x={x} y={20}>
+        <text className="walk__title" x={x} y={18}>
           {title}
         </text>
+        {sub ? (
+          <text className="tmap__note walk__same-text" x={x} y={32}>
+            {sub}
+          </text>
+        ) : null}
         {labels.map((lb, r) => {
           const y = y0 + r * rowH;
           return (
             <g key={lb}>
-              <text className="tmap__label--sm" x={x + labelW - 6} y={y + 12} textAnchor="end" style={{ fill: 'var(--ink-1)' }}>
+              <text className="tmap__label--sm" x={x + labelW - 6} y={y + 11} textAnchor="end" style={{ fill: 'var(--ink-1)' }}>
                 {lb}
               </text>
-              <rect className="walk__bar" x={x + labelW} y={y} width={Math.max(2, values[r] * barMax)} height={16} rx="2" />
-              <text className="tp__num" x={x + labelW + values[r] * barMax + 6} y={y + 12}>
+              <rect className="walk__bar" x={x + labelW} y={y} width={Math.max(2, values[r] * barMax)} height={14} rx="2" />
+              <text className="tp__num" x={x + labelW + values[r] * barMax + 6} y={y + 11}>
                 {values[r].toFixed(2)}
               </text>
             </g>
@@ -683,11 +701,72 @@ function ProbsFrame({ F, locale }: { F: Fig; locale: Locale }) {
       </g>
     );
   };
+
+  // The one row both charts come from: the decoder's row at the position being written.
+  const bw = COLS * CELL;
+  const xRows = 70;
+  const yRows = 244;
+  const rowH = 10;
+  const yLast = yRows + (out.length - 1) * rowH;
+  const xUp = 200; // the line from that row up through Linear · Softmax into the chart
+  const xNext = 352; // the output so far with this round's word appended
+  const yNext = 222;
+  const nextH = 13;
+  const boxX = 90;
+  const boxW = 140;
+  const boxY = 200;
+  const boxH = 22;
   return (
     <g>
-      {chart(16, F.nextWordProbs, F.vocabCount, vocab, VOCAB_P, 62, 150, 'vocab')}
-      <line x1="288" y1="10" x2="288" y2="220" className="tmap__stack" />
-      {chart(304, F.attnProbs, F.tokenCount, TOKENS, ATTN_P, 50, 70, 'attention')}
+      {chart(16, F.nextWordProbs, null, F.vocabCount, vocab, VOCAB_P, 62, 150, 'vocab', 19)}
+      <text className="tmap__note walk__same-text" x={16} y={179}>
+        {F.notPerRow}
+      </text>
+      <line x1="288" y1="10" x2="288" y2="200" className="tmap__stack" />
+      {chart(304, F.attnProbs, F.inPartTwo, F.tokenCount, TOKENS, ATTN_P, 50, 70, 'attention', 22)}
+
+      <rect className="tmap__box tmap__box--norm" x={boxX} y={boxY} width={boxW} height={boxH} rx="4" />
+      <text className="tmap__label--sm" x={boxX + boxW / 2} y={boxY + boxH / 2 + 4} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
+        {F.map.head}
+      </text>
+      <path className="tmap__line" d={`M ${xUp} ${boxY} V 160`} markerEnd="url(#bpw-arrow2)" />
+
+      {out.map((tk, r) => {
+        const y = yRows + r * rowH;
+        const last = r === out.length - 1;
+        return (
+          <g key={tk} style={{ opacity: last ? 1 : 0.45 }}>
+            <text className="tmap__label--sm" x={xRows - 6} y={y + 9} textAnchor="end" style={{ fill: 'var(--ink-1)' }}>
+              {tk}
+            </text>
+            <Cells x={xRows} y={y} rows={1} h={rowH} />
+          </g>
+        );
+      })}
+      <rect className="walk__same" x={xRows - 1} y={yLast - 1} width={bw + 2} height={rowH + 2} rx="2" fill="none" />
+      <text className="tmap__note walk__same-text" x={xRows} y={yRows + out.length * rowH + 16}>
+        {F.thisRow}
+      </text>
+      <path className="tmap__line" d={`M ${xRows + bw + 2} ${yLast + rowH / 2} H ${xUp} V ${boxY + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <path className="tmap__line tmap__line--cross" d={`M ${xUp} ${yLast + rowH / 2} H 296 V 100 H 300`} markerEnd="url(#bpw-arrow2)" />
+
+      {/* the top candidate is appended to the output so far and goes back to frame 6 */}
+      <path className="walk__same-line" d={`M 238 50 H 262 V 206 H ${xNext + bw / 2} V ${yNext - 4}`} markerEnd="url(#bpw-arrow2)" />
+      <text className="tmap__note walk__same-text" x={xNext + bw} y={yNext + (out.length + 1) * nextH + 14} textAnchor="end">
+        {F.appended}
+      </text>
+      {[...out, vocab[0]].map((tk, r) => {
+        const y = yNext + r * nextH;
+        const isNew = r === out.length;
+        return (
+          <g key={tk}>
+            <text className="tmap__label--sm" x={xNext - 6} y={y + 10} textAnchor="end" style={{ fill: isNew ? 'var(--accent)' : 'var(--ink-1)' }}>
+              {tk}
+            </text>
+            <Cells x={xNext} y={y} rows={1} h={nextH} kind={isNew ? 'sum' : ''} />
+          </g>
+        );
+      })}
     </g>
   );
 }

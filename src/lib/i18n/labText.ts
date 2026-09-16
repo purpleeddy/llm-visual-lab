@@ -135,7 +135,13 @@ export interface WalkText {
     toNextLayer: string;
     oneOfSix: [string, string];
     everyLayer: string;
+    thisRow: string;
+    notPerRow: string;
+    inPartTwo: string;
     outputSoFar: string;
+    outputSoFarFrom: string;
+    roundN: string;
+    appended: string;
     notYet: string;
     fromEncoder: string;
     nextWordProbs: string;
@@ -153,6 +159,7 @@ export interface WalkText {
       head: string;
       probs: string;
       now: string;
+      loop: string;
     };
   };
   steps: Record<WalkStep, WalkStepText>;
@@ -183,7 +190,13 @@ const walkKo: WalkText = {
     toNextLayer: '다음 층으로',
     oneOfSix: ['이 중 하나를', '크게 그린 것'],
     everyLayer: '매 층마다 원문을 봄',
+    thisRow: '지금 쓰는 자리의 줄',
+    notPerRow: '줄마다 하나씩이 아니라, 이 줄 하나에서',
+    inPartTwo: '② 에서, 이 줄이 원문을 보는 비율',
     outputSoFar: '지금까지 만든 출력',
+    outputSoFarFrom: '앞 회들의 확률 장면(7) 결과',
+    roundN: '3회째',
+    appended: '뒤에 붙여 Decoder 장면(6)으로',
     notYet: '아직 없음 → 가림',
     fromEncoder: 'encoder 의 줄 5개',
     nextWordProbs: '다음 단어의 확률',
@@ -201,6 +214,7 @@ const walkKo: WalkText = {
       head: 'Linear · Softmax',
       probs: '다음 단어 확률',
       now: '지금 여기',
+      loop: '되풀이',
     },
   },
   steps: {
@@ -231,13 +245,13 @@ const walkKo: WalkText = {
     },
     decoder: {
       name: 'Decoder',
-      what: '이제 번역문을 만드는 쪽입니다. decoder 는 한 번에 한 단어씩 씁니다. 그림은 아래에서 위로 읽으세요. 맨 아래가 지금까지 쓴 단어들(시작 표시, 그, 동물은)이고, 입력 쪽과 똑같이 줄이 되어 위로 올라갑니다. ① 가려진 attention: 쓴 단어들끼리 서로 봅니다. 배울 때는 정답 문장이 통째로 들어와 있어서 뒷단어를 미리 보면 답을 베끼는 셈이라, 아직 안 쓴 뒷자리는 빗금으로 막아요. ② encoder 를 보는 attention: 원문이 들어오는 자리입니다. 왼쪽에서 점선으로 들어오는 encoder 의 줄 5개, 즉 원문 전체를 단어 하나 쓸 때마다 다시 봐요. 번역은 여기서 일어납니다. ③ feed forward: encoder 와 같습니다. 오른쪽처럼 이 층도 여섯 개가 이어져 있고, 점선이 보여 주듯 여섯 층 모두가 원문을 봅니다.',
+      what: '이제 번역문을 만드는 쪽입니다. decoder 는 한 번에 한 단어씩 씁니다. 그림은 아래에서 위로 읽으세요. 맨 아래가 지금까지 쓴 단어들(시작 표시, 그, 동물은)이고, 입력 쪽과 똑같이 줄이 되어 위로 올라갑니다. 이 중 "그" 와 "동물은" 은 앞의 두 회에서 다음 장면(확률, 7번 장면)이 고른 단어들이에요. 지금은 세 번째 회입니다. 첫 회에는 아직 쓴 단어가 없어서 시작 표시 하나만 들어가요. ① 가려진 attention: 쓴 단어들끼리 서로 봅니다. 배울 때는 정답 문장이 통째로 들어와 있어서 뒷단어를 미리 보면 답을 베끼는 셈이라, 아직 안 쓴 뒷자리는 빗금으로 막아요. ② encoder 를 보는 attention: 원문이 들어오는 자리입니다. 왼쪽에서 점선으로 들어오는 encoder 의 줄 5개, 즉 원문 전체를 단어 하나 쓸 때마다 다시 봐요. 번역은 여기서 일어납니다. ③ feed forward: encoder 와 같습니다. 오른쪽처럼 이 층도 여섯 개가 이어져 있고, 점선이 보여 주듯 여섯 층 모두가 원문을 봅니다.',
       watch: '①은 뒤를 못 보게 막고, ②는 원문을 봅니다. 이 둘이 encoder 와 다른 점이에요.',
     },
     probs: {
       name: '확률',
-      what: 'decoder 의 마지막 줄을 어휘 개수만큼의 점수로 바꾸고, 합이 1 인 확률로 만듭니다. 가장 높은 후보가 다음 단어가 돼요.',
-      watch: '확률이 두 군데 있어요. 오른쪽 작은 그래프는 attention 안에서 "어느 토큰을 얼마나 볼지" 이고 후보가 토큰 5개입니다. 왼쪽은 "다음 단어가 무엇일지" 이고 후보가 어휘 전체예요.',
+      what: 'decoder 를 다 지나면 줄이 여러 개 나옵니다. 그중 맨 마지막 줄, 즉 지금 쓰고 있는 자리의 줄 하나만 꺼내요. 그림 아래에 강조된 줄이 그것입니다. 이 줄을 Linear · Softmax 에 넣으면 어휘에 있는 단어마다 "다음 단어가 이것일 확률" 이 하나씩 나오고, 왼쪽 그래프가 그 결과예요. 여기서는 "길을" 이 0.62 로 가장 높아서 다음 단어가 됩니다. 이 단어를 지금까지 만든 출력 뒤에 붙이고 Decoder 장면으로 돌아가서 다음 단어를 또 만들어요. 앞의 "그", "동물은" 도 이렇게 나온 것입니다.',
+      watch: '오른쪽의 작은 그래프는 다른 것입니다. Decoder 장면의 ② 에서 "동물은" 줄이 원문의 다섯 토큰을 각각 얼마나 봤는지예요. 이것도 합이 1 인 확률이지만, 밖으로 나오는 결과가 아니라 계산 중간의 값입니다. "확률" 이라는 말이 두 군데 쓰이니 둘을 섞지 마세요.',
     },
   },
 };
@@ -267,7 +281,13 @@ const walkEn: WalkText = {
     toNextLayer: 'to the next layer',
     oneOfSix: ['one of these,', 'drawn large'],
     everyLayer: 'every layer reads it',
+    thisRow: 'the row being written',
+    notPerRow: 'from this one row, not one per row',
+    inPartTwo: 'one row of ②, over the source',
     outputSoFar: 'output so far',
+    outputSoFarFrom: 'earlier rounds of the Probabilities frame (7)',
+    roundN: 'round 3',
+    appended: 'appended → Decoder frame (6)',
     notYet: 'not yet → masked',
     fromEncoder: 'the encoder\'s 5 rows',
     nextWordProbs: 'probability of the next word',
@@ -285,6 +305,7 @@ const walkEn: WalkText = {
       head: 'Linear · Softmax',
       probs: 'next-word probabilities',
       now: 'you are here',
+      loop: 'again',
     },
   },
   steps: {
@@ -315,13 +336,13 @@ const walkEn: WalkText = {
     },
     decoder: {
       name: 'Decoder',
-      what: 'Now the side that writes the translation. The decoder writes one word at a time. Read the picture from the bottom up. At the bottom are the words written so far (a start marker, then two words); they become rows exactly as the input did and travel upward. ① Masked attention: the written words look at each other. While learning, the whole correct sentence is in the input, and peeking at a later word would be copying the answer, so the positions not yet written are hatched out. ② Attention over the encoder: this is where the source enters. The encoder\'s 5 rows arrive on the dashed line from the left, and the decoder re-reads that whole source for every word it writes. This is where translating happens. ③ Feed forward: as in the encoder. As on the right, six of these layers follow one another too, and the dashed line shows that every one of them reads the source.',
+      what: 'Now the side that writes the translation. The decoder writes one word at a time. Read the picture from the bottom up. At the bottom are the words written so far (a start mark, then two words); they become rows exactly as the input did and travel upward. Those two words were chosen by the next frame (Probabilities, frame 7) in the two earlier rounds; this is round three. In the first round nothing has been written yet, so only the start mark goes in. ① Masked attention: the written words look at each other. While learning, the whole correct sentence is in the input, and peeking at a later word would be copying the answer, so the positions not yet written are hatched out. ② Attention over the encoder: this is where the source enters. The encoder\'s 5 rows arrive on the dashed line from the left, and the decoder re-reads that whole source for every word it writes. This is where translating happens. ③ Feed forward: as in the encoder. As on the right, six of these layers follow one another too, and the dashed line shows that every one of them reads the source.',
       watch: '① blocks the view forward; ② reads the source. Those two are what make the decoder differ from the encoder.',
     },
     probs: {
       name: 'Probabilities',
-      what: 'The decoder\'s last row is turned into one score per vocabulary entry, then into probabilities that sum to 1. The highest candidate is the next word.',
-      watch: 'There are probabilities in two places. The small chart on the right is "how much to look at each token" inside attention, with 5 candidates. The left one is "which word comes next", with the whole vocabulary as candidates.',
+      what: 'Once the decoder is done, several rows come out. Only the last one is taken, the row at the position being written; it is the highlighted row at the bottom of the picture. Put through Linear · Softmax, that row gives one number per word in the vocabulary, "the probability that the next word is this one"; the left chart is that result. Here "street" is highest at 0.62, so it becomes the next word. It is appended to the output so far, and we go back to the Decoder frame to make the next word. "Das" and "Tier" earlier came out the same way.',
+      watch: 'The small chart on the right is a different thing. It is how much the "Tier" row looked at each of the five source tokens in part ② of the Decoder frame. It also sums to 1, but it is a value in the middle of the calculation, not an output. The word "probability" is used in both places; keep them apart.',
     },
   },
 };

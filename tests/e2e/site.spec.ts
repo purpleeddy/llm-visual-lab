@@ -293,6 +293,9 @@ const FIGURES = [
   { id: 'rp', section: 'blocks' },
   { id: 'lrc', section: 'training' },
   { id: 'gl', section: 'generation' },
+  { id: 'gs', section: 'generation' },
+  { id: 'pr', section: 'positions' },
+  { id: 'xs', section: 'attention' },
   { id: 'be', section: 'results' },
 ];
 

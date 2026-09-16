@@ -1,0 +1,73 @@
+---
+/**
+ * The first few position vectors of the worked example, as numbers.
+ *
+ * Computed from the same `positionalEncoding` the explorer uses: four positions,
+ * d_model = 4. The fast pair (slots 0, 1) changes a lot from row to row; the
+ * slow pair (slots 2, 3) barely moves, and that contrast is the point.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { positionalEncoding } from '../../lib/math/positional';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const N = 4;
+const D = 4;
+const pe = positionalEncoding(N, D);
+const fmt = (v: number) => (Math.abs(v) < 0.0005 ? '0' : v.toFixed(3));
+
+const CELL_W = 84;
+const CELL_H = 30;
+const x0 = 96;
+const y0 = 40;
+const W = x0 + D * CELL_W + 24;
+const H = y0 + N * CELL_H + 44;
+
+const L = ko
+  ? {
+      pos: (p: number) => `${p}번 위치`,
+      slot: (i: number) => `자리 ${i}`,
+      fast: '빠른 짝',
+      slow: '느린 짝',
+      note: '오른쪽 두 자리는 거의 그대로입니다. 한 바퀴가 628 위치라서요.',
+      title: '위치 0 부터 3 까지의 위치 벡터',
+      desc: `네 줄이 위치 0, 1, 2, 3 의 벡터이고, 각 줄은 숫자 네 개입니다. 왼쪽 두 자리(빠른 짝)는 ${pe.matrix.map((r) => `(${fmt(r[0])}, ${fmt(r[1])})`).join(', ')} 로 줄마다 크게 움직입니다. 오른쫂 두 자리(느린 짝)는 ${pe.matrix.map((r) => `(${fmt(r[2])}, ${fmt(r[3])})`).join(', ')} 로 거의 그대로입니다. 한 바퀴가 628 위치라 3번 위치까지 가도 조금밖에 못 갔기 때문이에요.`.replace('오른쫂', '오른쪽'),
+    }
+  : {
+      pos: (p: number) => `position ${p}`,
+      slot: (i: number) => `slot ${i}`,
+      fast: 'fast pair',
+      slow: 'slow pair',
+      note: 'The two right-hand slots barely move: one turn takes 628 positions.',
+      title: 'The position vectors for positions 0 to 3',
+      desc: `Four rows are the vectors for positions 0, 1, 2 and 3, four numbers each. The two left-hand slots (the fast pair) are ${pe.matrix.map((r) => `(${fmt(r[0])}, ${fmt(r[1])})`).join(', ')}, changing a lot from row to row. The two right-hand slots (the slow pair) are ${pe.matrix.map((r) => `(${fmt(r[2])}, ${fmt(r[3])})`).join(', ')}, almost unchanged, because one turn of that pair takes 628 positions.`,
+    };
+---
+<svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="pr-t pr-d">
+  <title id="pr-t">{L.title}</title>
+  <desc id="pr-d">{L.desc}</desc>
+
+  <text class="tmap__note" x={x0 + CELL_W} y="16" text-anchor="middle">{L.fast}</text>
+  <text class="tmap__note" x={x0 + 3 * CELL_W} y="16" text-anchor="middle">{L.slow}</text>
+  {Array.from({ length: D }, (_, i) => (
+    <text class="tmap__label--sm" x={x0 + i * CELL_W + CELL_W / 2} y={y0 - 8} text-anchor="middle">{L.slot(i)}</text>
+  ))}
+
+  {pe.matrix.map((row, p) => (
+    <g>
+      <text class="tmap__label--sm" x={x0 - 10} y={y0 + p * CELL_H + CELL_H / 2 + 4} text-anchor="end" style="fill: var(--ink-1)">{L.pos(p)}</text>
+      {row.map((v, i) => (
+        <g>
+          <rect class={`walk__cell${i < 2 ? ' walk__cell--sum' : ''}`} x={x0 + i * CELL_W} y={y0 + p * CELL_H} width={CELL_W - 4} height={CELL_H - 4} rx="3" />
+          <text class="tp__num" x={x0 + i * CELL_W + (CELL_W - 4) / 2} y={y0 + p * CELL_H + CELL_H / 2 + 3} text-anchor="middle">{fmt(v)}</text>
+        </g>
+      ))}
+    </g>
+  ))}
+
+  <text class="tmap__note" x={x0} y={y0 + N * CELL_H + 24}>{L.note}</text>
+</svg>

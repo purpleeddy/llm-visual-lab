@@ -27,6 +27,9 @@ import SerialWait from '../../../components/site/SerialWait.astro';
 import FeedForwardShape from '../../../components/site/FeedForwardShape.astro';
 import LearningRateCurve from '../../../components/site/LearningRateCurve.astro';
 import TrainAndGenerate from '../../../components/site/TrainAndGenerate.astro';
+import GenerateSteps from '../../../components/site/GenerateSteps.astro';
+import PositionRows from '../../../components/site/PositionRows.astro';
+import CrossShape from '../../../components/site/CrossShape.astro';
 import { MatrixProductExplorer } from '../../../components/lab/MatrixProductExplorer';
 import { DotProductExplorer } from '../../../components/lab/DotProductExplorer';
 import { SoftmaxExplorer } from '../../../components/lab/SoftmaxExplorer';
@@ -197,8 +200,7 @@ frame at a time, and read steps 1 to 5 below alongside it. Each step says which 
 Computers do not read letters, so the sentence has to become numbers. Two steps.
 
 **First the sentence is cut into tokens.** A token is generally smaller than a word.
-Cutting at word boundaries would stall on every word the model has never seen; cutting
-into pieces lets an unknown word be written with known pieces.
+Pieces let a word the model has never seen be written with pieces it knows.
 
 ```text
 "The animal didn't cross"
@@ -211,6 +213,8 @@ This sentence has **five** tokens. That count follows us to the very end, so hol
 **Then each token becomes several numbers.** Why several rather than one? Because a single
 number can only say "big" or "small"; several can carry far more. Every token has an index,
 and that index looks up 512 numbers in a big table. The table is called an **embedding**.
+Which pieces count as tokens, the **vocabulary**, is a list fixed before training and shared
+by both languages.
 
 ```text
 "animal" → index 8123 → (0.21, −0.07, 0.55, …)  ← 512 numbers
@@ -239,8 +243,8 @@ on the block, not row by row. (frame 3)
 Then a different row of 512 numbers is generated for each position and **added**, cell by
 cell, to the row in that position: the first position's row to the first row, the second to
 the second. That is the ⊕ in the diagram. It is added rather than stuck on the end so the
-row stays 512 cells long; a longer row would make every later step bigger.
-After adding, the block is still five rows of 512. (frame 4)
+row stays 512 cells long. After adding, the block is still five rows of 512. What numbers
+fill the position row is worked out in the positions section. (frame 4)
 
 ### 3. The encoder reads, six times over
 
@@ -249,14 +253,14 @@ depends on its neighbours: what "it" refers to can only be settled by looking at
 So every row has to look at the other rows and take what it needs. That is the encoder's job.
 
 That block, five rows tall, now enters the encoder, which is **six identical layers**
-stacked. Each layer has two parts, passed through **in order**:
+stacked. "Identical" means the same shape and order; the numbers inside differ from layer
+to layer. Each layer has two parts, passed through **in order**:
 
 1. **attention** — every row looks at every other row in the block and mixes in what it needs to settle its own meaning
 2. **feed forward** — each row sorts through what it gathered, separately per row
 
 One round of mixing is not enough, so the same layer is applied six times: the block one
-layer puts out goes straight into the next and through the same two parts again. The first
-layer captures direct relationships; later layers capture relationships built on those.
+layer puts out goes straight into the next.
 
 Six layers later, five rows come out. The count and the shape are unchanged.
 What changed is the values: each row now **carries the context of the whole sentence**. (frame 5)
@@ -264,11 +268,12 @@ What changed is the values: each row now **carries the context of the whole sent
 ### 4. The decoder writes, one word at a time
 
 The decoder also stacks six layers, but each has **three** parts rather than two.
-What goes in is the output words produced so far, turned into rows and given positions the
-same way the input was.
+What goes in is the output words produced so far (the words step 5 chose in earlier rounds), turned into rows and given positions the
+same way the input was. At the very start nothing has been produced, so only a **start
+mark** goes in, and that one row makes the first word.
 
 1. **masked attention** — the output words produced so far mix among themselves
-2. **attention over the encoder** — where the source sentence enters the output side. For every word it writes, the decoder re-reads the encoder's five rows, that is, the whole source. This is where translating happens
+2. **attention over the encoder** — where the source sentence enters the output side. For every word it writes, the decoder re-reads the encoder's five rows, that is, the whole source. The asking side is the decoder's rows and the answering side is the encoder's five, so the two counts need not match. This is where translating happens
 3. **feed forward** — as in the encoder
 
 "Masked" means this: the decoder is the half producing text, so while making the third word
@@ -278,15 +283,20 @@ forward is called the **mask**, and later on this page you can switch it on and 
 ### 5. Producing probabilities for the next word
 
 To pick one next word, every entry in the vocabulary needs a comparable score. So the
-single row leaving the decoder's last layer is turned into one number per vocabulary
+row at the position being written, one row and not one per row, is taken from the decoder's
+last layer and turned into one number per vocabulary
 entry, and those become probabilities that sum to 1 — the probability that the next word is
-each candidate. The highest candidate is the next word. How numbers are made to sum to 1 is its own section, later. (frame 7)
+each candidate. The highest candidate is the next word; it is appended to the output and we
+go back to step 4, until the end mark comes out. Taking the top one is not always best; the
+generation section has that. How numbers are made to sum to 1 is its own
+section, later. (frame 7)
 
 <Note variant="limit" title="Probabilities show up in two places">
 This is easy to conflate, so it is worth separating now. The two charts in frame 7 are these two.
 
 **The probabilities inside attention** say how much this word draws from each position in the
-sentence. There are as many as there are tokens — three, in the example coming up.
+sentence. There are as many as there are tokens — three, in the example coming up. They are
+not an output but a value inside the calculation, one such row per row.
 
 **The probabilities at the top** say which word comes next. There are as many as there are
 vocabulary entries, typically tens of thousands.
@@ -306,6 +316,9 @@ These keep coming back. Values are for the original base model.
 | $h$ | how many separate views attention runs (the *heads*, later) | 8 |
 | $d_k$, $d_v$ | numbers one view works with | 64 each |
 
+These are not learned but **chosen** by the designers; why $64 = 512 \div 8$ is worked out
+in the heads section.
+
 <Note variant="scope" title="Learning and using are different passes">
 The decoder input at the bottom of the diagram reads "Outputs (shifted right)". Shifted right
 means a start marker is put in front of the correct sentence, so that the input at each
@@ -314,8 +327,11 @@ position is the correct answer up to just before that position.
 **While learning**, the correct sentence is already known, so it goes in whole and every
 position computes at once. The mask is what stops it copying the answer.
 
-**While actually translating**, there is no correct sentence. The model produces the first
-word, appends it to its own input, produces the second, and so on.
+So while learning, probabilities are taken from **every row** and each position is scored;
+while using it, only from the row being written.
+
+**While actually translating**, there is no correct sentence. The model makes the first
+word from the start mark alone, appends it to its own input, produces the second, and so on.
 
 So: **all at once while learning, one at a time while using.**
 </Note>
@@ -344,7 +360,9 @@ In a real model it would be 512.
 ### A matrix — vectors stacked
 
 Several tokens need several vectors. Stack them and you get a **matrix**.
-Here is the example this whole page uses: three tokens, four numbers each.
+Here is the example this whole page uses. The five-token sentence is set aside for a while
+in favour of something small enough to follow by hand: **three tokens, four numbers each**.
+5 × 512 has become 3 × 4; the structure is the same.
 
 $$
 X = \begin{pmatrix} 1 & 0 & 1 & 0 \\ 0 & 1 & 0 & 1 \\ 1 & 1 & 0 & 0 \end{pmatrix}
@@ -417,6 +435,9 @@ Attention asks three things of each token: what it is looking for, what it has t
 and what it will actually hand over. One row cannot say all three at once, so $X$ is
 multiplied by **three weight matrices** to produce three separate things. What each is for
 is worked out in the attention section; here they are, written out, so the whole thread stays verifiable by hand later.
+The three matrices are **one set**, not one per row: all three rows are multiplied by the
+same ones. In a real model they are learned; here they are small integers chosen by hand so
+the arithmetic can be checked. Two columns each, so the result has two numbers: $d_k = 2$.
 
 $$
 W_Q = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 0 \\ 0 & 1 \end{pmatrix}, \quad
@@ -609,8 +630,10 @@ has mean 0 and **spread $d_k$**, which means its values scatter across roughly $
 With $d_k = 64$ that is $\sqrt{64} = 8$, so the scores scatter across roughly ±8.
 
 A spread that wide makes the softmax coming next hand nearly everything to one position
-and leave the rest near 0, with nothing left to learn from. That is why a division comes
-in to shrink it. The next section shows it.
+and leave the rest near 0, with nothing left to learn from. Learning means nudging the
+weights by however wrong the answer was, and when a probability has already frozen at 0 or
+1 there is almost nothing to nudge with; the training section covers it. That is why a
+division comes in to shrink it. The next section shows it.
 
 </Section>
 
@@ -728,7 +751,8 @@ in the table above.
 Now this connects back to the end of the previous section, since the **spacing** of the
 scores is what decides the outcome.
 
-Take the same $0, 4, 2$ and divide by $\sqrt{2} \approx 1.414$.
+Take the same $0, 4, 2$ and divide by $\sqrt{2} \approx 1.414$. It is $\sqrt{2}$ because
+our example has $d_k = 2$; a real model divides by $\sqrt{64} = 8$.
 
 | Score | Before | After dividing by $\sqrt{2}$ |
 | --- | --- | --- |
@@ -789,7 +813,9 @@ The shape holds still for the first three steps and only changes on the last one
 The formula presents them as though they already exist, but they are made. One row of a
 token cannot say at once what it seeks, what it holds and what it hands over; those are
 different jobs, so they need different blends, and three are made separately. All three
-come from **the same input**, using the three $W$ matrices fixed earlier.
+come from **the same input**, using the three $W$ matrices fixed earlier. One exception: in
+the decoder's attention over the encoder only $Q$ comes from the decoder side; the end of
+this section shows it.
 
 $$
 Q = XW_Q, \qquad K = XW_K, \qquad V = XW_V
@@ -906,7 +932,9 @@ on and the upper-right triangle of the score matrix fills with $-\infty$.
 The first row can then see only itself, so its probabilities are $(1, 0, 0)$ and its output
 is exactly $V$'s first row, $(3, 0)$ — there is nothing to blend. The second row sees the
 first two positions and comes out $(0.944,\ 0.056,\ 0)$. The third row could already see
-everything, so masking changes nothing for it.
+everything, so masking changes nothing for it. The first token gains nothing in this layer;
+the later tokens look at it instead. When sentences of different lengths are computed
+together, the short ones are padded with empty cells masked the same way.
 
 <Note variant="why" title="Why add rather than multiply">
 There are two conceivable ways to block a position: multiply its probability by zero after
@@ -930,10 +958,19 @@ That is all of one attention step. A few things differ from a real model.
 **There is one view.** Real models run 8 in parallel. The next section is about that.
 
 **The score matrix is square.** That is because everything here looks within one sentence.
-In the decoder's attention over the encoder there is one query per output token and one key
-per input token, so the counts differ and the matrix is rectangular.
+The decoder's attention over the encoder makes $Q$ from the decoder's rows and $K$, $V$ from
+the encoder's. The score matrix is (output tokens × input tokens), a rectangle, and softmax
+still runs **per row**.
 
-**There is one layer.** Real models stack this block six times.
+<Figure
+  caption="Three decoder rows ask, five encoder rows answer. The scores are 3 × 5 and the output is three rows again."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <CrossShape locale="en" />
+</Figure>
+
+**There is one layer.** Real models stack this block six times, with different $W$ in each.
 
 **The score matrix is the square of the token count.** With $n$ tokens there are $n \times n$
 scores, so doubling the sentence length quadruples this part of the work. The paper's own
@@ -1043,7 +1080,8 @@ $$
 $$
 
 Then that is multiplied by $W_O$. Joining alone only parks the two heads next to each
-other; nothing mixes. $W_O$ is what does the mixing.
+other; nothing mixes. $W_O$ is what does the mixing. It is learned too; its values are not
+printed here.
 
 $$
 \mathrm{MultiHead}(Q, K, V) = \mathrm{Concat}(\text{head}_1, \dots, \text{head}_h) \, W^O
@@ -1077,7 +1115,9 @@ $$
 
 Instead of one head working in 512 dimensions, eight heads work in 64. Since
 64 × 8 = 512, the total is about the same — but now there are eight things to watch
-instead of one.
+instead of one. Not eight times in turn but eight **at once**: the eight $512 \times 64$
+$W_Q$ matrices laid side by side are one $512 \times 512$ matrix, so in practice it is one
+large product.
 
 | Symbol | Meaning | The paper's model | This example |
 | --- | --- | --- | --- |
@@ -1098,7 +1138,8 @@ finely leaves each head with a $d_k$ of 16, which is not much to work with.
 <Note variant="limit" title="Nobody assigns the heads their jobs">
 There is no instruction anywhere saying "head 1 finds the subject, head 2 watches
 tense". It is all learned, and there is no guarantee the result is anything a person
-would have a name for.
+would have a name for. The eight still end up different because each starts from different
+random numbers, and two heads looking at the same thing do not lower the loss any further.
 
 The paper is careful about this too. Of the figures in the appendix it says only that
 heads **appear** to exhibit such behaviour; it does not claim that attention weights
@@ -1183,7 +1224,13 @@ Same here. A real model has $d_{\text{model}} = 512$, so 256 pairs — a clock w
 
 At the size of our example the first few positions come out like this.
 
+<Figure
+  caption="Each row is the vector for one position. The two left-hand slots move a lot from row to row; the two right-hand slots barely move."
+  describe="The full description is in the diagram's alternative text."
 
+  wide>
+  <PositionRows locale="en" />
+</Figure>
 
 Position 0 is exactly $(0, 1, 0, 1)$, because $\sin 0 = 0$ and $\cos 0 = 1$.
 Position 1 is $(0.841, 0.540, 0.010, 1.000)$.
@@ -1203,7 +1250,9 @@ Not multiplied, and not stuck on the end. Concatenating would make the vector lo
 and every later calculation larger; multiplying would leave any embedding slot that
 happens to be 0 at 0 regardless of position.
 
-Adding keeps the length and lays the two pieces of information over each other. Sharing
+Adding keeps the length and lays the two pieces of information over each other. So that
+neither drowns the other, the paper scales the embedding by $\sqrt{d_{\text{model}}}$ to
+bring the two to a similar size. Sharing
 one slot between two things sounds lossy, but the layers above multiply by $W$ and can
 pull out whichever they need.
 
@@ -1239,6 +1288,8 @@ $$
 $$
 
 Three steps: **widen, cut the negatives, narrow again.**
+$b_1$ and $b_2$ are rows of numbers simply added after the product: a "baseline" that
+mixing alone cannot produce, learned like the $W$.
 
 $\max(0, \cdot)$ is called **ReLU**. It sets negatives to zero and leaves positives
 alone, and that is all it does: $\max(0, -3) = 0$ and $\max(0, 5) = 5$.
@@ -1307,6 +1358,9 @@ $$
 x + \mathrm{Sublayer}(x)
 $$
 
+Adding alone would let the values grow at every layer, which is exactly why the
+normalization coming next sits right after the addition.
+
 With a path that bypasses the work, each layer no longer has to rebuild its input from
 scratch — it only has to decide **what to add**. When there is nothing worth adding,
 $\mathrm{Sublayer}(x)$ tends to zero and the input passes through nearly untouched.
@@ -1330,6 +1384,13 @@ Two steps.
 1. **Subtract the mean.** It is 5, so $(2, 8, 4, 6) - 5 = (-3, 3, -1, 1)$.
 2. **Divide by the spread.** The variance is 5 and its square root about 2.236, so
    $(-3, 3, -1, 1) \div 2.236 = (-1.342, 1.342, -0.447, 0.447)$.
+
+After normalizing, two learned numbers $\gamma$ and $\beta$ scale the width and shift the
+position again. Pinning every row to mean 0 and variance 1 would fix the one shape a layer
+can use; how wide and where is left for the model to learn. The $\varepsilon$ under the
+square root is a tiny number that stops a division by zero when a row has no spread. And
+only what was added **equally** to all slots is erased: the position vector adds a
+different value to each slot, and that survives normalization.
 
 <Expand summary="What is variance?">
 One number saying how far the values sit from their mean.
@@ -1378,7 +1439,10 @@ out    the same size it arrived
 ```
 
 This block is stacked six times. The size is unchanged each time, which is what makes
-stacking possible.
+stacking possible. The six layers share only their shape; the $W$ differ in every one, so
+this is six separately learned layers in turn, not one computation repeated. One pass
+through the encoder is attention 6 times and feed forward 6 times; the decoder, with two
+attentions per layer, 12 and 6.
 
 A decoder layer has one more piece: attention among the outputs so far, attention onto
 the encoder, and then the feed-forward network — each of the three wrapped in the same
@@ -1403,6 +1467,10 @@ The last thing the model produces is a probability for each candidate next word.
 small vocabulary of four words; the right answer is the second one, `b`.
 
 <LossExplorer client:load locale="en" />
+
+This is one position. A translated sentence has many, each giving a value like this; they
+are averaged into one loss per sentence, and the sentences processed together are combined
+into the single number that training pushes down.
 
 The model gave the correct word 0.6. Not bad, but not certain either. That shortfall has
 to become one number, and the number should behave like this: 0 when the right word was
@@ -1447,7 +1515,8 @@ $$
 \text{the answer} = (0.025,\; 0.925,\; 0.025,\; 0.025)
 $$
 
-$\varepsilon_{ls} = 0.1$ has been removed and shared evenly across the four words. This
+$\varepsilon_{ls} = 0.1$ has been removed and shared evenly across **all four** words, 0.025
+each. The right word is one of the four, so it gets 0.025 back: $0.9 + 0.025 = 0.925$. This
 is **label smoothing**.
 
 Doing it raises the loss from 0.511 to 0.628 — it gets **worse**. The paper says as
@@ -1469,6 +1538,11 @@ With the loss in hand, the next question is which direction reduces it.
 If nudging one entry of $W_Q$ upwards makes the loss larger, that entry should come
 down; if the loss falls, it should go up. Working out, for every entry, which way the
 loss moves when it changes slightly, gives the **gradient**.
+
+Not just $W_Q$. Every head's $W_Q$, $W_K$, $W_V$, the $W_O$ that joins them, the two
+feed-forward matrices, the $\gamma$ and $\beta$ of every normalization, all six layers'
+worth, and the embedding table too: every number this page has called a "table" or a "$W$"
+is corrected the same way at the same time. The base model has about 65 million of them.
 
 Every entry is then moved a little in the opposite direction. How much "a little" is
 comes from the **learning rate**.
@@ -1515,6 +1589,14 @@ The highest point is at exactly 4000 steps, about $7.0 \times 10^{-4}$.
 The conditions the paper records. When the last section compares this model as "better
 and cheaper", the cost figures come from the hardware and hours listed here.
 
+Two words in the table first. The model does not correct itself after every sentence; many
+sentences are bundled, their loss measured together, and $W$ corrected once. The bundle is a
+**batch**, and processing one batch and correcting $W$ once is one **step**, the $step$ in
+the learning-rate formula. The sentence pairs are not the model's own: they are text people
+had already translated (parliamentary proceedings, news), paired sentence by sentence, in the
+standard sets released each year by the **WMT** translation competition, which is what lets
+papers compare on equal terms. The newstest sets later are that competition's test sets.
+
 | | |
 | --- | --- |
 | Data (En→De) | 4.5M sentence pairs, vocabulary 37 000 |
@@ -1525,7 +1607,13 @@ and cheaper", the cost figures come from the hardware and hours listed here.
 | Big model | 1.0 s per step × 300K steps ≈ 3.5 days |
 | Adam (the update rule; it sets a separate step size per weight from its recent gradients; not covered here) | $\beta_1 = 0.9$, $\beta_2 = 0.98$, $\varepsilon = 10^{-9}$ |
 | Warm-up | 4000 steps |
-| Dropout | 0.1 |
+| Dropout | 0.1 (10% of the values zeroed at random) |
+
+Training does not end when the loss reaches 0; the loss only keeps shrinking a little and
+never gets there. Sentences held aside are scored now and then, training stops where that
+score stops improving, and the paper records the count it settled on. Once trained, the $W$
+are frozen and dropout is switched off. Nothing changes while translating, so the same
+sentence gives the same translation every time.
 
 <Note variant="limit" title="Dropout is not covered here">
 A model that starts leaning on a few routes through itself memorises the training data
@@ -1558,6 +1646,23 @@ off in the attention experiment.
 
 **While using it**, there is no answer. Making the third word needs the second, and
 making the second needs the first. There is no way around going in order.
+
+So how is the first one made? Nothing has been written yet, so the decoder is given only a
+**start mark**. That single row reads the source in the attention over the encoder and
+produces the probabilities for the first word. The word that comes out is appended after
+the start mark, the same decoder runs again, and it stops when the **end mark** comes out.
+The start and end marks are not words with a meaning but special tokens slipped into the
+vocabulary; each takes a slot there and draws its own row from the embedding table like any
+other. The source does not change, so the encoder runs **once**, at the start, and every
+step the decoder reads that same result; what runs again and again is the decoder.
+
+<Figure
+  caption="Steps 1, 2, 3 and the last step of generation. Step 1 gets only the start mark; each time, the word that came out is appended to the next step's input. It stops at the end mark."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <GenerateSteps locale="en" />
+</Figure>
 
 <Note variant="limit" title="Queueing comes back here">
 This article opened with recurrent networks being slow because everything has to queue,
@@ -1602,7 +1707,9 @@ With a beam of 2:
    `a .` has already finished at 0.2.
 3. Extending `b a` gives `b a .` at 0.342, the best of the finished sentences.
 
-It found what greedy missed.
+It found what greedy missed. A candidate that has produced the end mark is set aside as
+finished and not extended; only the live ones grow. When no live candidate can still beat
+the finished ones, the search stops and the best finished sentence is the answer.
 
 <Note variant="why" title="So is a bigger beam always better?">
 Carrying more candidates does raise the chance of finding a better sentence, at
@@ -1645,7 +1752,10 @@ better.
 
 It is not a perfect measure. A correct translation using different words scores low, and
 an awkward one reusing the right words can score high. But for comparing models under
-the same conditions it is serviceable, which is why it is used.
+the same conditions it is serviceable, which is why it is used. So 100 is not the target to
+read it against: a human translation also loses points wherever its word choice differs
+from the reference and comes nowhere near 100. What matters is the gap between models scored
+on the same data, where 1 point is a real gain and 2 is a large one.
 
 <Figure
   caption="Only the counting, on one sentence. The blue pieces are the ones that also appear in the reference."
@@ -1663,16 +1773,22 @@ alongside them, because that is the argument being made.
 <BleuCostExplorer client:load locale="en" />
 
 On English to German, Transformer (big) leads at **28.4**. The previous best was 26.36,
-from an ensemble of several models, so this is more than 2 ahead.
+from an ensemble of several models, so this is more than 2 ahead. An ensemble runs several
+separately trained models at once and averages their next-word probabilities; it gains a
+little and costs that many times more to train and to run. The point is that one
+Transformer beat it.
 
 The base model is the more striking row. At **27.3** it passes every previously published
 single model and ensemble, while costing $3.3 \times 10^{18}$ — two orders of magnitude
 less than the ensembles.
 
 <Note variant="limit" title="The horizontal axis is an estimate, not a measurement">
-The authors did not measure FLOPs. A footnote says they computed **training time × number
+A FLOP is one addition or multiplication; $3.3 \times 10^{18}$ means about that many
+arithmetic operations over the whole of training. The authors did not measure FLOPs. A
+footnote says they computed **training time × number
 of GPUs × an assumed sustained rate per GPU**, listing those assumed rates as 2.8, 3.7,
-6.0 and 9.5 TFLOPS for the K80, K40, M40 and P100.
+6.0 and 9.5 TFLOPS for the K80, K40, M40 and P100. TFLOPS is not a total but a speed, how
+many trillion operations one GPU does per second, so the total is speed × time × GPUs.
 
 Good enough to compare orders of magnitude between models; not a precise figure.
 </Note>
@@ -1709,7 +1825,7 @@ thing. So the paper retrained the base model changing one thing at a time. That 
 Some things fall out of that.
 
 - **Depth matters most.** Going from six layers to two costs 2.1.
-- **One head is clearly bad, and too many is also bad.** Around eight was best.
+- **One head is clearly bad, and too many is also bad.** Around eight was best. More heads means a smaller $d_k$ per head, the same reason the "$d_k$ to 16" row gets worse.
 - **Dropout matters more than you might expect.** Turning it off costs 1.2.
 - **Sinusoids or learned positions make almost no difference.** 0.1 apart.
 
@@ -1724,7 +1840,10 @@ different data, and the paper says so in the caption.
 ### And on something other than translation
 
 To show this was not a translation-only architecture, the paper tried one more task:
-working out the **grammatical structure** of English sentences.
+working out the **grammatical structure** of English sentences: the tree that groups a
+sentence into phrases ("this chunk is a noun phrase, that one a verb phrase"). Written with
+brackets, that tree is a single line like `(S (NP the cat) (VP sat))`, which makes
+"English sentence → bracketed line" the same kind of job as translation.
 
 A small four-layer model, trained on about 40 000 sentences — not much data. It scored
 an F1 of **91.3** (F1 combines precision and recall into one score, 100 being perfect), in line with models built specifically for that task over many years.

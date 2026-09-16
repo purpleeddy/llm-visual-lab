@@ -126,7 +126,7 @@ const ko: ExplorerText = {
   residual: {
     title: '건너뛰는 길을 껐다 켜 보기',
     kind: '실제 계산',
-    note: '건너뛰는 길이 없으면 몇 층 만에 입력의 흔적이 사라진다는 것을 확인하는 실험입니다. 예제의 첫 토큰을 같은 feed forward 층에 여섯 번 통과시켜요. 건너뛰는 길이 있으면 각 층은 LayerNorm(x + FFN(x)) 이고, 없으면 LayerNorm(FFN(x)) 입니다. W 는 앞에서 쓴 손으로 고른 값 그대로예요.',
+    note: '건너뛰는 길이 없으면 몇 층 만에 입력의 흔적이 사라진다는 것을 확인하는 실험입니다. 예제의 첫 토큰을 같은 feed forward 층에 여섯 번 통과시켜요(실제 모델은 층마다 W 가 다른데, 여기서는 간단히 한 층을 되풀이합니다). 건너뛰는 길이 있으면 각 층은 LayerNorm(x + FFN(x)) 이고, 없으면 LayerNorm(FFN(x)) 입니다. W 는 앞에서 쓴 손으로 고른 값 그대로예요.',
     skip: '건너뛰는 길',
     skipOn: '켬 (논문의 방식)',
     skipOff: '끔',
@@ -211,7 +211,7 @@ const en: ExplorerText = {
   residual: {
     title: 'Switch the bypass off and on',
     kind: 'Actually computed',
-    note: 'This checks that without the bypass, the input is lost within a few layers. The first token of the example passes through the same feed-forward layer six times. With the bypass each layer is LayerNorm(x + FFN(x)); without it, LayerNorm(FFN(x)). The W are the hand-chosen values used earlier.',
+    note: 'This checks that without the bypass, the input is lost within a few layers. The first token of the example passes through the same feed-forward layer six times (a real model has different W per layer; this keeps one layer for simplicity). With the bypass each layer is LayerNorm(x + FFN(x)); without it, LayerNorm(FFN(x)). The W are the hand-chosen values used earlier.',
     skip: 'bypass',
     skipOn: 'on (as in the paper)',
     skipOff: 'off',
