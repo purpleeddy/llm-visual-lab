@@ -1,7 +1,23 @@
-# Current scope — the walkthrough is easy to follow: no seams, a picture at every key point
+# Current scope — the intent comes before the mechanism
+
+- Started: 2026-09-16
+- Earlier scopes are recorded in `docs/progress.md`
+
+## Why
+
+A reader stopped at big-picture step 3 because "attention — 각 줄이 … 정보를 섞습니다"
+never says why mixing is wanted, and asked that the whole page be checked for the same
+defect. The audit found the reason almost always present but placed after the mechanism,
+and a few places with no reason at all. The rule for this scope, already in
+`docs/plan.md` §7 ("수식 전에는 계산의 목적"): every mechanism is introduced by the
+problem it solves, in the sentence before it. Details and the list of passages are in
+`docs/progress.md`.
+
+---
+
+# Previous scope — the walkthrough is easy to follow: no seams, a picture at every key point
 
 - Started: 2026-09-15
-- Earlier scopes are recorded in `docs/progress.md`
 
 ## Why
 

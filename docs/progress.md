@@ -1,6 +1,6 @@
 # Progress log
 
-- Updated: 2026-09-15
+- Updated: 2026-09-16
 - Scope document: `docs/current-task.md`
 - Coverage map: `docs/papers/attention-is-all-you-need-coverage.md`
 - Status: **P0 + P1 → design rebuild → single-page rebuild and full rewrite of the
@@ -1124,3 +1124,42 @@ effect unlike a real model, and the text says so.
   values at all (and says so); the explorer computes real ones for d_model = 4.
 - The English `BleuExample` and `SerialWait` copy was written alongside the Korean and
   has not had a separate editing pass.
+
+## The intent before the mechanism (2026-09-16)
+
+A reader stopped at big-picture step 3: "attention — 각 줄이 … 모든 줄을 보고 정보를
+섞습니다" says what happens but not why mixing is wanted. A read-through of the Korean
+page, the walk copy and the explorer copy found the same shape in about twenty-five
+places: the reason usually existed, but landed after the mechanism (sometimes in a
+different file, sometimes behind "왜 필요한지는 곧 나옵니다"). A few had no reason anywhere
+(Adam, the one-at-a-time ablation, the 4× widening, the order of a layer, sub-word tokens,
+three projections at first use).
+
+- **Rule applied**: every mechanism is introduced by the problem it solves in the sentence
+  before it. Reasons that already existed later in the same subsection were moved up, not
+  duplicated; deferrals were replaced with the one-line reason in place.
+- **Where**: `src/content/docs/{ko,en}/index.mdx` (big picture §1–5, three W at first use,
+  transpose, score spread, the four steps, Q/K/V, the divide step, the mask, second head,
+  concat, sin/cos vs the three conditions, pair speeds, feed forward, residual, layer
+  norm, layer order, loss, learning rate, training table + Adam + dropout, BLEU, ablation);
+  `src/lib/i18n/labText.ts` (walk frames tokens, row, block, decoder now carry the why in
+  `what`); `src/lib/i18n/explorers.ts` (every `note` opens with the question the widget
+  answers).
+
+| | Result |
+| --- | --- |
+| Types | `npx tsc --noEmit` — clean |
+| Build | `npm run build` — 3 routes |
+| Maths | `npm test` — 147 passing (untouched) |
+| Browser | `npm run test:e2e` — 134 passing |
+| Screens | walk frames 2, 3 (390), 6 at 1440; heads explorer at 1440; loss explorer at 390 — longer copy wraps cleanly |
+
+Follow-up the same day: walk frames 5 and 6 redrawn. Frame 5 had drawn six rows of
+`attention | feed forward` side by side, which read as two parallel columns; the paper's
+Figure 1 draws one layer vertically with "N×" beside it. Both frames now draw one layer
+large (the block passing attention → feed forward bottom-up, with the block itself drawn
+between the parts) and, beside it, the six layers in series as a small chain
+(`SixInSeries` in `BigPictureWalk.tsx`), layer 1 highlighted and tied to the big drawing.
+The decoder's chain also carries the dashed source line into every layer. The "× 6" label
+stays but is no longer what the reader has to count from. Checks re-run: types, build,
+147 unit, 134 e2e; frames 5 and 6 screened at 1440/390, light/dark, ko/en.

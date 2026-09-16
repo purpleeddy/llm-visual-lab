@@ -132,6 +132,9 @@ export interface WalkText {
     rowsIn: string;
     rowsOut: string;
     valuesChanged: string;
+    toNextLayer: string;
+    oneOfSix: [string, string];
+    everyLayer: string;
     outputSoFar: string;
     notYet: string;
     fromEncoder: string;
@@ -177,6 +180,9 @@ const walkKo: WalkText = {
     rowsIn: '줄 5개 들어감',
     rowsOut: '줄 5개 나옴',
     valuesChanged: '값만 달라짐',
+    toNextLayer: '다음 층으로',
+    oneOfSix: ['이 중 하나를', '크게 그린 것'],
+    everyLayer: '매 층마다 원문을 봄',
     outputSoFar: '지금까지 만든 출력',
     notYet: '아직 없음 → 가림',
     fromEncoder: 'encoder 의 줄 5개',
@@ -200,17 +206,17 @@ const walkKo: WalkText = {
   steps: {
     tokens: {
       name: '토큰',
-      what: '문장을 토큰으로 자릅니다. 예문 "The animal didn\'t cross" 는 다섯 조각이 돼요. didn\'t 가 did 와 n\'t 로 나뉜 것을 보세요.',
+      what: '컴퓨터는 글자를 모르니 먼저 문장을 조각으로 잘라야 합니다. 단어보다 작은 조각으로 자르는 건, 처음 보는 단어도 아는 조각들로 쓸 수 있게 하려는 거예요. 예문 "The animal didn\'t cross" 는 다섯 조각이 됩니다. didn\'t 가 did 와 n\'t 로 나뉜 것을 보세요.',
       watch: '토큰 수를 세어 두세요. 이 숫자 5 가 마지막 단계까지 그대로 따라다닙니다.',
     },
     row: {
       name: '한 줄',
-      what: '토큰마다 고유 번호가 있고, 그 번호로 표에서 숫자 512개를 꺼냅니다. 이 512개를 옆으로 나란히 적은 것을 이 글에서는 "한 줄" 이라고 부릅니다.',
+      what: '토큰을 숫자로 바꿔야 계산할 수 있는데, 숫자 하나로는 "크다, 작다"밖에 말할 수 없어요. 그래서 토큰 하나를 숫자 512개로 나타냅니다. 토큰마다 고유 번호가 있고, 그 번호로 표에서 512개를 꺼내요. 이 512개를 옆으로 나란히 적은 것을 이 글에서는 "한 줄" 이라고 부릅니다.',
       watch: '토큰 하나에 줄 하나. 그림은 일곱 칸만 그렸지만 실제로는 512칸이에요.',
     },
     block: {
       name: '덩어리',
-      what: '다섯 줄을 위아래로 붙여 쌓으면 5 × 512 크기의 덩어리 하나가 됩니다. 앞으로는 이 덩어리 단위로 계산이 진행돼요.',
+      what: '이 모델은 다섯 단어를 차례로가 아니라 한꺼번에 계산하기로 했지요. 그러려면 다섯 줄을 한 묶음으로 다뤄야 합니다. 그래서 다섯 줄을 위아래로 붙여 쌓아 5 × 512 크기의 덩어리 하나로 만들고, 앞으로는 이 덩어리 단위로 계산을 진행해요.',
       watch: '줄의 수 5 는 토큰의 수이고, 칸의 수 512 는 토큰 하나를 나타내는 숫자의 개수입니다.',
     },
     position: {
@@ -220,13 +226,13 @@ const walkKo: WalkText = {
     },
     encoder: {
       name: 'Encoder',
-      what: '지금 각 줄에는 자기 단어와 자기 위치만 들어 있어요. 그런데 "it" 이 무엇인지는 "animal" 을 봐야 알 수 있듯, 단어의 뜻은 주변 단어에 달려 있습니다. 그래서 덩어리를 encoder 에 넣습니다. encoder 의 한 층은 두 부분이에요. attention 에서 각 줄이 다른 모든 줄을 보고 필요한 정보를 섞어 오고, feed forward 에서 그 결과를 줄마다 따로 한 번 더 다듬습니다. 한 번 섞는 것으로는 부족해서 똑같은 층을 여섯 번 거칩니다. 층을 지날수록 더 멀리, 더 여러 단계 건너의 관계까지 담기게 돼요.',
+      what: '지금 각 줄에는 자기 단어와 자기 위치만 들어 있어요. 그런데 "it" 이 무엇인지는 "animal" 을 봐야 알 수 있듯, 단어의 뜻은 주변 단어에 달려 있습니다. 그래서 덩어리를 encoder 에 넣습니다. 그림 왼쪽이 encoder 의 층 하나를 크게 그린 거예요. 덩어리가 아래에서 들어와 attention 을 먼저 지나고(각 줄이 다른 모든 줄을 보고 필요한 정보를 섞어 옴), 그 결과가 feed forward 로 들어갑니다(줄마다 따로 한 번 더 다듬음). 한 번 섞는 것으로는 부족해서, 오른쪽처럼 똑같은 층이 여섯 개 이어져 있어요. 앞 층이 낸 덩어리가 그대로 다음 층에 들어갑니다. 층을 지날수록 더 멀리, 더 여러 단계 건너의 관계까지 담기게 돼요.',
       watch: '들어갈 때 줄 5개, 나올 때도 줄 5개입니다. 달라지는 건 각 줄의 값이에요. 들어갈 때는 "자기 단어" 만 담고 있던 줄이, 나올 때는 문장 전체를 본 뒤의 값이 됩니다.',
     },
     decoder: {
       name: 'Decoder',
-      what: '이제 번역문을 만드는 쪽입니다. decoder 는 한 번에 한 단어씩 씁니다. 그림은 아래에서 위로 읽으세요. 맨 아래가 지금까지 쓴 단어들(시작 표시, 그, 동물은)이고, 입력 쪽과 똑같이 줄이 되어 위로 올라갑니다. ① 가려진 attention: 쓴 단어들끼리 서로 봅니다. 아직 안 쓴 뒷자리는 빗금으로 막혀 있어요. ② encoder 를 보는 attention: 왼쪽에서 점선으로 들어오는 encoder 의 줄 5개, 즉 원문을 봅니다. ③ feed forward: encoder 와 같습니다. 이 층도 여섯 번 반복돼요.',
-      watch: '왜 가리느냐면, 배울 때는 정답 문장이 통째로 들어와 있어서 뒷단어를 미리 보면 답을 베끼는 셈이기 때문이에요. ② 가 있어서 decoder 는 매 단어마다 원문 전체를 다시 봅니다. 번역은 여기서 일어납니다.',
+      what: '이제 번역문을 만드는 쪽입니다. decoder 는 한 번에 한 단어씩 씁니다. 그림은 아래에서 위로 읽으세요. 맨 아래가 지금까지 쓴 단어들(시작 표시, 그, 동물은)이고, 입력 쪽과 똑같이 줄이 되어 위로 올라갑니다. ① 가려진 attention: 쓴 단어들끼리 서로 봅니다. 배울 때는 정답 문장이 통째로 들어와 있어서 뒷단어를 미리 보면 답을 베끼는 셈이라, 아직 안 쓴 뒷자리는 빗금으로 막아요. ② encoder 를 보는 attention: 원문이 들어오는 자리입니다. 왼쪽에서 점선으로 들어오는 encoder 의 줄 5개, 즉 원문 전체를 단어 하나 쓸 때마다 다시 봐요. 번역은 여기서 일어납니다. ③ feed forward: encoder 와 같습니다. 오른쪽처럼 이 층도 여섯 개가 이어져 있고, 점선이 보여 주듯 여섯 층 모두가 원문을 봅니다.',
+      watch: '①은 뒤를 못 보게 막고, ②는 원문을 봅니다. 이 둘이 encoder 와 다른 점이에요.',
     },
     probs: {
       name: '확률',
@@ -258,6 +264,9 @@ const walkEn: WalkText = {
     rowsIn: '5 rows in',
     rowsOut: '5 rows out',
     valuesChanged: 'only the values changed',
+    toNextLayer: 'to the next layer',
+    oneOfSix: ['one of these,', 'drawn large'],
+    everyLayer: 'every layer reads it',
     outputSoFar: 'output so far',
     notYet: 'not yet → masked',
     fromEncoder: 'the encoder\'s 5 rows',
@@ -281,17 +290,17 @@ const walkEn: WalkText = {
   steps: {
     tokens: {
       name: 'Tokens',
-      what: 'The sentence is cut into tokens. "The animal didn\'t cross" becomes five pieces. Notice that didn\'t splits into did and n\'t.',
+      what: 'A computer cannot read letters, so the sentence is cut into pieces first. The pieces are smaller than words so that a word never seen before can still be written with known pieces. "The animal didn\'t cross" becomes five pieces. Notice that didn\'t splits into did and n\'t.',
       watch: 'Count the tokens. That number, 5, follows us all the way to the last step.',
     },
     row: {
       name: 'A row',
-      what: 'Every token has an id, and the id looks up 512 numbers in a table. Written side by side, those 512 numbers are what this page calls "a row".',
+      what: 'A token has to become numbers before anything can be computed, and one number can only say "big" or "small". So each token becomes 512 numbers. Every token has an id, and the id looks up those 512 in a table. Written side by side, they are what this page calls "a row".',
       watch: 'One token, one row. Seven cells are drawn; a real model has 512.',
     },
     block: {
       name: 'A block',
-      what: 'Stack the five rows on top of each other and you have one block, 5 × 512. From here on the calculation works on this block.',
+      what: 'This model handles the five words at once rather than in turn, so the five rows have to travel as one bundle. Stack them on top of each other and you have one block, 5 × 512. From here on the calculation works on this block.',
       watch: 'The number of rows, 5, is the number of tokens. The number of cells, 512, is how many numbers describe one token.',
     },
     position: {
@@ -301,13 +310,13 @@ const walkEn: WalkText = {
     },
     encoder: {
       name: 'Encoder',
-      what: 'Right now each row holds only its own word and its own position. But a word\'s meaning depends on its neighbours, the way "it" can only be resolved by looking at "animal". So the block goes into the encoder. One encoder layer has two parts: in attention every row looks at every other row and mixes in what it needs; in feed forward that result is worked over once more, one row at a time. One round of mixing is not enough, so the same layer is applied six times. Each pass reaches further, to relationships several hops away.',
+      what: 'Right now each row holds only its own word and its own position. But a word\'s meaning depends on its neighbours, the way "it" can only be resolved by looking at "animal". So the block goes into the encoder. The left of the picture is one encoder layer, drawn large. The block enters at the bottom and goes through attention first (every row looks at every other row and mixes in what it needs), and that result goes into feed forward (worked over once more, one row at a time). One round of mixing is not enough, so, as on the right, six identical layers follow one another. The block one layer puts out goes straight into the next. Each pass reaches further, to relationships several hops away.',
       watch: '5 rows go in and 5 rows come out. What changes is the values: a row that went in holding only "its own word" comes out holding what it found by looking at the whole sentence.',
     },
     decoder: {
       name: 'Decoder',
-      what: 'Now the side that writes the translation. The decoder writes one word at a time. Read the picture from the bottom up. At the bottom are the words written so far (a start marker, then two words); they become rows exactly as the input did and travel upward. ① Masked attention: the written words look at each other, and the positions not yet written are hatched out. ② Attention over the encoder: this looks at the encoder\'s 5 rows arriving on the dashed line from the left, that is, the source sentence. ③ Feed forward: as in the encoder. This layer, too, repeats six times.',
-      watch: 'Why mask? Because while learning, the whole correct sentence is in the input, and peeking at a later word would be copying the answer. Part ② is why the decoder re-reads the whole source for every word. This is where translating happens.',
+      what: 'Now the side that writes the translation. The decoder writes one word at a time. Read the picture from the bottom up. At the bottom are the words written so far (a start marker, then two words); they become rows exactly as the input did and travel upward. ① Masked attention: the written words look at each other. While learning, the whole correct sentence is in the input, and peeking at a later word would be copying the answer, so the positions not yet written are hatched out. ② Attention over the encoder: this is where the source enters. The encoder\'s 5 rows arrive on the dashed line from the left, and the decoder re-reads that whole source for every word it writes. This is where translating happens. ③ Feed forward: as in the encoder. As on the right, six of these layers follow one another too, and the dashed line shows that every one of them reads the source.',
+      watch: '① blocks the view forward; ② reads the source. Those two are what make the decoder differ from the encoder.',
     },
     probs: {
       name: 'Probabilities',

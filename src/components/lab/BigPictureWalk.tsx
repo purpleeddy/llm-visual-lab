@@ -419,41 +419,142 @@ function Block({ x, y, kind = '', label, sub }: { x: number; y: number; kind?: s
   );
 }
 
-function EncoderFrame({ F }: { F: Fig }) {
-  const bw = COLS * CELL;
-  const xIn = 16;
-  const yBlock = 118;
-  const xStack = 140;
-  const wStack = 180;
-  const layerH = 34;
-  const layerGap = 6;
-  const yTop = 22;
-  const xOut = 360;
+/**
+ * The six layers in series, drawn small: one thin strip per part, arrows
+ * between the layers, a block going in at the bottom and coming out at the top.
+ * Both the encoder and the decoder frame put this beside the one layer they draw
+ * large, so "the same layer, six times over" is counted from the picture and
+ * not read off a "× 6".
+ */
+const CHAIN_X = 322;
+const CHAIN_W = 88;
+const CHAIN_STRIP = 6;
+const CHAIN_GAP = 1;
+const CHAIN_LAYER_GAP = 10;
+const CHAIN_TOP = 52;
+
+function chainLayerY(k: number, strips: number) {
+  // k = 0 is layer 1, at the bottom
+  const layerH = strips * CHAIN_STRIP + (strips - 1) * CHAIN_GAP;
+  return CHAIN_TOP + (5 - k) * (layerH + CHAIN_LAYER_GAP);
+}
+
+function SixInSeries({ strips, F, input = true, feedFromY }: { strips: Array<'attn' | 'ffn'>; F: Fig; input?: boolean; feedFromY?: number }) {
+  const layerH = strips.length * CHAIN_STRIP + (strips.length - 1) * CHAIN_GAP;
+  const cx = CHAIN_X + CHAIN_W / 2;
+  const bx = cx - (COLS * CELL) / 2;
+  const yBottom = chainLayerY(0, strips.length) + layerH;
+  const yIn = yBottom + 9;
+  const yOut = CHAIN_TOP - 9 - 25;
   return (
     <g>
-      <Block x={xIn} y={yBlock} label={F.rowsIn} />
-      <path className="tmap__line" d={`M ${xIn + bw + 6} ${yBlock + 25} H ${xStack - 10}`} markerEnd="url(#bpw-arrow2)" />
-      <rect className="tmap__stack" x={xStack - 8} y={yTop - 8} width={wStack + 16} height={6 * layerH + 5 * layerGap + 16} rx="6" />
+      <text className="tmap__label--sm" x={cx} y={yOut - 6} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
+        {F.rowsOut} · {F.valuesChanged}
+      </text>
+      <Cells x={bx} y={yOut} rows={TOKENS.length} h={5} kind="out" />
+      <path className="tmap__line" d={`M ${cx} ${CHAIN_TOP} V ${yOut + 25 + 3}`} markerEnd="url(#bpw-arrow2)" />
       {Array.from({ length: 6 }, (_, k) => {
-        const y = yTop + (5 - k) * (layerH + layerGap);
+        const y = chainLayerY(k, strips.length);
         return (
           <g key={k}>
-            <text className="tmap__label--sm" x={xStack - 14} y={y + layerH / 2 + 4} textAnchor="end">
+            {strips.map((kind, i) => (
+              <rect
+                key={i}
+                className={`tmap__box tmap__box--${kind}${k === 0 ? ' walk__same' : ''}`}
+                x={CHAIN_X}
+                y={y + (strips.length - 1 - i) * (CHAIN_STRIP + CHAIN_GAP)}
+                width={CHAIN_W}
+                height={CHAIN_STRIP}
+                rx="1.5"
+              />
+            ))}
+            <text className={`tmap__label--sm${k === 0 ? ' walk__same-text' : ''}`} x={CHAIN_X + CHAIN_W + 6} y={y + layerH / 2 + 4}>
               {F.layer} {k + 1}
             </text>
-            <rect className="tmap__box tmap__box--attn" x={xStack} y={y} width={wStack / 2 - 3} height={layerH} rx="4" />
-            <text className="tmap__label--sm" x={xStack + wStack / 4 - 1} y={y + layerH / 2 + 4} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
-              {F.attention}
-            </text>
-            <rect className="tmap__box tmap__box--ffn" x={xStack + wStack / 2 + 3} y={y} width={wStack / 2 - 3} height={layerH} rx="4" />
-            <text className="tmap__label--sm" x={xStack + (3 * wStack) / 4 + 1} y={y + layerH / 2 + 4} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
-              {F.feedForward}
-            </text>
+            {k > 0 ? <path className="tmap__line" d={`M ${cx} ${y + layerH + CHAIN_LAYER_GAP} V ${y + layerH + 3}`} markerEnd="url(#bpw-arrow2)" /> : null}
           </g>
         );
       })}
-      <path className="tmap__line" d={`M ${xStack + wStack + 10} ${yBlock + 25} H ${xOut - 6}`} markerEnd="url(#bpw-arrow2)" />
-      <Block x={xOut} y={yBlock} kind="out" label={F.rowsOut} sub={F.valuesChanged} />
+      <path className="tmap__line" d={`M ${cx} ${yIn} V ${yBottom + 3}`} markerEnd="url(#bpw-arrow2)" />
+      {input ? <Cells x={bx} y={yIn} rows={TOKENS.length} h={5} /> : null}
+      {feedFromY !== undefined ? (
+        <g>
+          {/* the encoder's rows reach every layer's second part */}
+          <path
+            className="tmap__line tmap__line--cross"
+            d={`M ${CHAIN_X - 8} ${feedFromY} V ${chainLayerY(5, strips.length) + CHAIN_STRIP + CHAIN_GAP + CHAIN_STRIP / 2}`}
+          />
+          {Array.from({ length: 6 }, (_, k) => {
+            const y = chainLayerY(k, strips.length) + CHAIN_STRIP + CHAIN_GAP + CHAIN_STRIP / 2;
+            return <path key={k} className="tmap__line tmap__line--cross" d={`M ${CHAIN_X - 8} ${y} H ${CHAIN_X - 3}`} markerEnd="url(#bpw-arrow2)" />;
+          })}
+        </g>
+      ) : null}
+    </g>
+  );
+}
+
+function OneOfSix({ from, to, F, label }: { from: [number, number]; to: [number, number]; F: Fig; label: boolean }) {
+  const mx = (from[0] + to[0]) / 2;
+  return (
+    <g>
+      <path className="walk__same-line" d={`M ${from[0]} ${from[1]} C ${mx} ${from[1]}, ${mx} ${to[1]}, ${to[0]} ${to[1]}`} />
+      {label ? (
+        <text className="tmap__note walk__same-text" x={mx} y={Math.max(from[1], to[1]) + 22} textAnchor="middle">
+          <tspan x={mx}>{F.oneOfSix[0]}</tspan>
+          <tspan x={mx} dy="13">
+            {F.oneOfSix[1]}
+          </tspan>
+        </text>
+      ) : null}
+    </g>
+  );
+}
+
+function EncoderFrame({ F }: { F: Fig }) {
+  const bw = COLS * CELL;
+  const xBox = 62;
+  const wBox = 150;
+  const cx = xBox + wBox / 2;
+  const bx = cx - bw / 2;
+  const boxH = 28;
+  const yIn = 228; // the block going in, 5 rows × 10
+  const yAttn = 186;
+  const yMid = 146; // the block between the two parts, 5 rows × 6
+  const yFfn = 104;
+  const yLayerOut = 60;
+  const stackTop = yFfn - 8;
+  const stackBottom = yAttn + boxH + 8;
+  return (
+    <g>
+      <Block x={bx} y={yIn} label={F.rowsIn} />
+      <path className="tmap__line" d={`M ${cx} ${yIn - 4} V ${yAttn + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <rect className="tmap__stack walk__same" x={xBox - 10} y={stackTop} width={wBox + 20} height={stackBottom - stackTop} rx="6" />
+      <text className="tmap__label--sm walk__same-text" x={xBox - 10} y={stackTop - 6}>
+        {F.layer} 1
+      </text>
+      <text className="walk__times" x={xBox + wBox + 10} y={stackTop - 6} textAnchor="end">
+        × 6
+      </text>
+      <rect className="tmap__box tmap__box--attn" x={xBox} y={yAttn} width={wBox} height={boxH} rx="4" />
+      <text className="tmap__label" x={cx} y={yAttn + boxH / 2 + 4} textAnchor="middle">
+        {F.attention}
+      </text>
+      <path className="tmap__line" d={`M ${cx} ${yAttn} V ${yMid + 30 + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <Cells x={bx} y={yMid} rows={TOKENS.length} h={6} kind="mid" />
+      <path className="tmap__line" d={`M ${cx} ${yMid} V ${yFfn + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <rect className="tmap__box tmap__box--ffn" x={xBox} y={yFfn} width={wBox} height={boxH} rx="4" />
+      <text className="tmap__label" x={cx} y={yFfn + boxH / 2 + 4} textAnchor="middle">
+        {F.feedForward}
+      </text>
+      <path className="tmap__line" d={`M ${cx} ${yFfn} V ${yLayerOut + 30 + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <Cells x={bx} y={yLayerOut} rows={TOKENS.length} h={6} kind="out" />
+      <text className="tmap__note" x={cx} y={yLayerOut - 8} textAnchor="middle">
+        {F.toNextLayer}
+      </text>
+
+      <OneOfSix from={[xBox + wBox + 10, yAttn + boxH / 2]} to={[CHAIN_X - 3, chainLayerY(0, 2) + 6]} F={F} label />
+      <SixInSeries strips={['attn', 'ffn']} F={F} />
     </g>
   );
 }
@@ -461,25 +562,32 @@ function EncoderFrame({ F }: { F: Fig }) {
 function DecoderFrame({ F, locale }: { F: Fig; locale: Locale }) {
   const out = locale === 'ko' ? OUT_SO_FAR_KO : OUT_SO_FAR_EN;
   const bw = COLS * CELL;
-  const xEnc = 16;
-  const yEnc = 60;
-  const xStack = 170;
-  const wStack = 170;
-  const boxH = 30;
-  const ys = [140, 96, 52]; // masked, cross, ffn (bottom up)
-  const xRows = 200;
-  const yRows = 214;
-  const rowH = 16;
+  const xEnc = 8;
+  const yEnc = 114;
+  const xBox = 118;
+  const wBox = 150;
+  const cx = xBox + wBox / 2;
+  const boxH = 26;
+  const ys = [170, 126, 82]; // masked, cross, ffn (bottom up)
+  const stackTop = ys[2] - 8;
+  const stackBottom = ys[0] + boxH + 8;
+  const xRows = cx - bw / 2;
+  const yRows = 238;
+  const rowH = 12;
+  const yFeed = 220;
   return (
     <g>
-      <Block x={xEnc} y={yEnc} kind="out" label={F.fromEncoder} />
-      <path
-        className="tmap__line tmap__line--cross"
-        d={`M ${xEnc + bw + 6} ${yEnc + 25} C ${xEnc + bw + 60} ${yEnc + 25}, ${xStack - 50} ${ys[1] + boxH / 2}, ${xStack - 4} ${ys[1] + boxH / 2}`}
-        markerEnd="url(#bpw-arrow2)"
-      />
-      <rect className="tmap__stack" x={xStack - 8} y={ys[2] - 10} width={wStack + 16} height={ys[0] + boxH - ys[2] + 20} rx="6" />
-      <text className="tmap__label--sm" x={xStack + wStack + 14} y={ys[1] + boxH / 2 + 4}>
+      <Cells x={xEnc} y={yEnc} rows={TOKENS.length} h={10} kind="out" />
+      <text className="tmap__label--sm" x={xEnc + bw / 2} y={yEnc + 50 + 14} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
+        {F.fromEncoder}
+      </text>
+      <path className="tmap__line tmap__line--cross" d={`M ${xEnc + bw + 4} ${ys[1] + boxH / 2} H ${xBox - 4}`} markerEnd="url(#bpw-arrow2)" />
+
+      <rect className="tmap__stack walk__same" x={xBox - 10} y={stackTop} width={wBox + 20} height={stackBottom - stackTop} rx="6" />
+      <text className="tmap__label--sm walk__same-text" x={xBox - 10} y={stackTop - 6}>
+        {F.layer} 1
+      </text>
+      <text className="walk__times" x={xBox + wBox + 10} y={stackTop - 6} textAnchor="end">
         × 6
       </text>
       {[
@@ -488,39 +596,50 @@ function DecoderFrame({ F, locale }: { F: Fig; locale: Locale }) {
         { y: ys[2], label: `③ ${F.feedForward}`, kind: 'ffn' },
       ].map((b) => (
         <g key={b.label}>
-          <rect className={`tmap__box tmap__box--${b.kind}`} x={xStack} y={b.y} width={wStack} height={boxH} rx="4" />
-          <text className="tmap__label" x={xStack + wStack / 2} y={b.y + boxH / 2 + 4} textAnchor="middle">
+          <rect className={`tmap__box tmap__box--${b.kind}`} x={xBox} y={b.y} width={wBox} height={boxH} rx="4" />
+          <text className="tmap__label--sm" x={cx} y={b.y + boxH / 2 + 4} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
             {b.label}
           </text>
         </g>
       ))}
-      <path className="tmap__line" d={`M ${xStack + wStack / 2} ${ys[0]} V ${ys[1] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
-      <path className="tmap__line" d={`M ${xStack + wStack / 2} ${ys[1]} V ${ys[2] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
-      <path className="tmap__line" d={`M ${xStack + wStack / 2} ${ys[2]} V ${ys[2] - 14}`} markerEnd="url(#bpw-arrow2)" />
+      <path className="tmap__line" d={`M ${cx} ${ys[0]} V ${ys[1] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <path className="tmap__line" d={`M ${cx} ${ys[1]} V ${ys[2] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <path className="tmap__line" d={`M ${cx} ${ys[2]} V ${ys[2] - 22}`} markerEnd="url(#bpw-arrow2)" />
+      <text className="tmap__note" x={cx} y={ys[2] - 28} textAnchor="middle">
+        {F.toNextLayer}
+      </text>
 
       {/* The output so far: three rows written, two not yet */}
-      <text className="walk__title" x={xRows - 70} y={yRows - 8}>
-        {F.outputSoFar}
-      </text>
       {Array.from({ length: 5 }, (_, r) => {
         const y = yRows + r * rowH;
         const written = r < out.length;
         return (
           <g key={r}>
-            <text className="tmap__label--sm" x={xRows - 6} y={y + 11} textAnchor="end" style={{ fill: written ? 'var(--ink-1)' : 'var(--blocked-ink)' }}>
+            <text className="tmap__label--sm" x={xRows - 6} y={y + 10} textAnchor="end" style={{ fill: written ? 'var(--ink-1)' : 'var(--blocked-ink)' }}>
               {written ? out[r] : '·'}
             </text>
             {Array.from({ length: COLS }, (_, c) => (
-              <rect key={c} className={`walk__cell${written ? '' : ' walk__cell--masked'}`} x={xRows + c * CELL} y={y + 2} width={CELL} height={rowH - 4} />
+              <rect key={c} className={`walk__cell${written ? '' : ' walk__cell--masked'}`} x={xRows + c * CELL} y={y + 1} width={CELL} height={rowH - 2} />
             ))}
           </g>
         );
       })}
-      <rect x={xRows - 2} y={yRows + out.length * rowH} width={COLS * CELL + 4} height={(5 - out.length) * rowH} fill="url(#bpw-hatch)" opacity="0.7" />
-      <text className="tmap__note" x={xRows + COLS * CELL + 10} y={yRows + out.length * rowH + rowH + 2}>
+      <rect x={xRows - 2} y={yRows + out.length * rowH} width={bw + 4} height={(5 - out.length) * rowH} fill="url(#bpw-hatch)" opacity="0.7" />
+      <text className="tmap__label--sm" x={xRows + bw + 8} y={yRows + 10} style={{ fill: 'var(--ink-1)' }}>
+        {F.outputSoFar}
+      </text>
+      <text className="tmap__note" x={xRows + bw + 8} y={yRows + out.length * rowH + rowH}>
         {F.notYet}
       </text>
-      <path className="tmap__line" d={`M ${xStack + wStack / 2} ${yRows - 14} V ${ys[0] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <path className="tmap__line" d={`M ${cx} ${yRows - 4} V ${ys[0] + boxH + 3}`} markerEnd="url(#bpw-arrow2)" />
+
+      {/* the encoder's rows also run along the bottom and up into every layer of the chain */}
+      <path className="tmap__line tmap__line--cross" d={`M ${xEnc + bw} ${yEnc + 44} H ${xEnc + bw + 10} V ${yFeed} H ${CHAIN_X - 8}`} />
+      <text className="tmap__note" x={CHAIN_X - 14} y={yFeed + 13} textAnchor="end">
+        {F.everyLayer}
+      </text>
+      <OneOfSix from={[xBox + wBox + 10, ys[0] + boxH / 2]} to={[CHAIN_X - 12, chainLayerY(0, 3) + 10]} F={F} label={false} />
+      <SixInSeries strips={['attn', 'attn', 'ffn']} F={F} input={false} feedFromY={yFeed} />
     </g>
   );
 }

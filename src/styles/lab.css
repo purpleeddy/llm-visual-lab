@@ -765,7 +765,13 @@ button.mgrid__cell:hover { background: var(--surface-inset); }
 }
 .walk__cell--pos { fill: var(--status-warn-wash); stroke: var(--status-warn); }
 .walk__cell--sum { fill: var(--accent-wash); stroke: var(--accent); }
+.walk__cell--mid { fill: var(--seq-2); stroke: var(--seq-4); }
 .walk__cell--out { fill: var(--seq-3); stroke: var(--seq-5); }
+/* The one layer drawn large and its copy in the chain share the accent. */
+.walk__same { stroke: var(--accent); stroke-width: var(--stroke-regular); stroke-dasharray: none; }
+.walk__same-text { fill: var(--accent); font-weight: var(--fw-bold); }
+.walk__same-line { fill: none; stroke: var(--accent); stroke-width: var(--stroke-hairline); stroke-dasharray: 2 3; }
+.walk__times { fill: var(--ink-1); font-size: 13px; font-weight: var(--fw-bold); }
 .walk__cell--masked { fill: var(--blocked-surface); stroke: var(--line-2); }
 .walk__bar { fill: var(--seq-5); }
 
