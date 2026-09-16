@@ -1,0 +1,132 @@
+---
+/**
+ * How generation starts, and how it goes on.
+ *
+ * Step 1 has nothing written yet, so the only thing the decoder gets is the
+ * start mark. Its output is appended and the same decoder runs again, until
+ * the end mark comes out. The words are the walk's example translation.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const START = ko ? '<시작>' : '<start>';
+const END = ko ? '<끝>' : '<end>';
+const words = ko ? ['그', '동물은', '길을', '건너지', '못했다'] : ['Das', 'Tier', 'hat', 'die', 'Straße'];
+
+// Four rows: steps 1, 2, 3 and the last one.
+const rows = [
+  { step: '1', input: [START], out: words[0] },
+  { step: '2', input: [START, words[0]], out: words[1] },
+  { step: '3', input: [START, words[0], words[1]], out: words[2] },
+  { step: '…', input: [START, words[0], words[1], words[2], '…', words[4]], out: END },
+];
+
+const CELL_W = 60;
+const CELL_H = 24;
+const ROW_H = 54;
+const xStep = 16;
+const xIn = 60;
+const xBox = xIn + 6 * CELL_W + 26;
+const BOX_W = 118;
+const xOut = xBox + BOX_W + 34;
+const W = xOut + 150;
+const y0 = 72;
+const H = y0 + rows.length * ROW_H + 8;
+
+const L = ko
+  ? {
+      step: '회',
+      enc: 'encoder',
+      once: '한 번만 돌고, 매 회 다시 읽힘',
+      input: 'decoder 에 들어가는 것',
+      box: 'decoder (같은 것)',
+      out: '다음 단어',
+      first: '아직 쓴 단어가 없으니 시작 표시 하나만',
+      append: '나온 단어를 뒤에 붙임',
+      stop: '끝 표시가 나오면 멈춤',
+      title: '첫 단어는 시작 표시 하나로 만듭니다',
+      desc: `네 줄이 위에서 아래로 생성의 1회, 2회, 3회, 마지막 회입니다. 1회에는 decoder 에 시작 표시 ${START} 하나만 들어가고 첫 단어 "${words[0]}" 가 나옵니다. 2회에는 시작 표시와 "${words[0]}" 가 들어가고 "${words[1]}" 가 나옵니다. 3회에는 세 개가 들어가고 "${words[2]}" 가 나옵니다. 매번 나온 단어가 다음 회의 입력 끝에 붙고, 같은 decoder 를 다시 지납니다. 마지막 회에 끝 표시 ${END} 가 나오면 멈춥니다.`,
+    }
+  : {
+      step: 'step',
+      enc: 'encoder',
+      once: 'runs once, read every step',
+      input: 'what the decoder gets',
+      box: 'decoder (the same one)',
+      out: 'next word',
+      first: 'nothing written yet, so only the start mark',
+      append: 'the word is appended',
+      stop: 'stop at the end mark',
+      title: 'The first word comes from the start mark alone',
+      desc: `Four rows, top to bottom, are steps 1, 2, 3 and the last step of generation. At step 1 the decoder gets only the start mark ${START} and the first word "${words[0]}" comes out. At step 2 it gets the start mark and "${words[0]}" and produces "${words[1]}". At step 3 it gets three and produces "${words[2]}". Each time the word that came out is appended to the next step's input and the same decoder runs again. At the last step the end mark ${END} comes out and it stops.`,
+    };
+---
+<svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="gs-t gs-d">
+  <title id="gs-t">{L.title}</title>
+  <desc id="gs-d">{L.desc}</desc>
+  <defs>
+    <marker id="gs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-1)"></path>
+    </marker>
+    <marker id="gs-arrow-acc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+    </marker>
+  </defs>
+
+  <text class="tmap__note" x={xIn} y="22">{L.input}</text>
+  {/* the encoder's rows: computed once, above the decoder column, read by every step */}
+  <rect class="tmap__box tmap__box--ffn" x={xBox} y={y0 - 50} width={BOX_W} height={CELL_H} rx="4"></rect>
+  <text class="tmap__label--sm" x={xBox + BOX_W / 2} y={y0 - 50 + CELL_H / 2 + 4} text-anchor="middle" style="fill: var(--ink-1)">{L.enc}</text>
+  <text class="tmap__note" x={xBox + BOX_W + 8} y={y0 - 50 + CELL_H / 2 + 4}>{L.once}</text>
+  <path class="tmap__line tmap__line--cross" d={`M ${xBox + BOX_W / 2} ${y0 - 50 + CELL_H + 2} V ${y0 + (rows.length - 1) * ROW_H - 4}`} marker-end="url(#gs-arrow)"></path>
+  <text class="tmap__note" x={xOut} y="22">{L.out}</text>
+
+  {rows.map((r, i) => {
+    const y = y0 + i * ROW_H;
+    const last = i === rows.length - 1;
+    return (
+      <g>
+        <text class="tmap__label--sm" x={xStep} y={y + CELL_H / 2 + 4}>{r.step}{ko && r.step !== '…' ? L.step : ''}</text>
+        {r.input.map((w, c) => {
+          const newest = c === r.input.length - 1 && i > 0;
+          const gap = w === '…';
+          return (
+            <g>
+              {gap ? null : (
+                <rect
+                  class={`walk__cell${newest ? ' walk__same' : ''}`}
+                  x={xIn + c * CELL_W}
+                  y={y}
+                  width={CELL_W - 6}
+                  height={CELL_H}
+                  rx="3"
+                />
+              )}
+              <text class="tmap__label--sm" x={xIn + c * CELL_W + (CELL_W - 6) / 2} y={y + CELL_H / 2 + 4} text-anchor="middle" style="fill: var(--ink-1)">{w}</text>
+            </g>
+          );
+        })}
+        <path class="tmap__line" d={`M ${xIn + r.input.length * CELL_W - 2 + (i === 0 ? (ko ? 250 : 290) : 0)} ${y + CELL_H / 2} H ${xBox - 4}`} marker-end="url(#gs-arrow)"></path>
+        <rect class="tmap__box tmap__box--attn" x={xBox} y={y} width={BOX_W} height={CELL_H} rx="4"></rect>
+        <text class="tmap__label--sm" x={xBox + BOX_W / 2} y={y + CELL_H / 2 + 4} text-anchor="middle" style="fill: var(--ink-1)">{L.box}</text>
+        <path class="tmap__line" d={`M ${xBox + BOX_W + 2} ${y + CELL_H / 2} H ${xOut - 4}`} marker-end="url(#gs-arrow)"></path>
+        <text class={`tmap__label${last ? '' : ' walk__same-text'}`} x={xOut} y={y + CELL_H / 2 + 4}>{r.out}</text>
+        {i === 0 ? <text class="tmap__note" x={xIn + CELL_W + 2} y={y + CELL_H / 2 + 4}>{L.first}</text> : null}
+        {last ? <text class="tmap__note" x={xOut} y={y + CELL_H + 16}>{L.stop}</text> : null}
+        {!last && i < 2 ? (
+          <path
+            class="walk__same-line"
+            d={`M ${xOut - 6} ${y + CELL_H + 2} V ${y + ROW_H - 8} H ${xIn + (r.input.length + 1) * CELL_W - 3 - 6} V ${y + ROW_H - 3}`}
+            marker-end="url(#gs-arrow-acc)"
+          ></path>
+        ) : null}
+        {i === 0 ? <text class="tmap__note walk__same-text" x={xOut + 8} y={y + ROW_H - 10}>{L.append}</text> : null}
+      </g>
+    );
+  })}
+</svg>

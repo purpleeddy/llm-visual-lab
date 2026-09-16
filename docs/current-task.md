@@ -1,7 +1,39 @@
-# Current scope — the walkthrough is easy to follow: no seams, a picture at every key point
+# Current scope — the reader's questions, answered ahead of time
+
+- Started: 2026-09-16
+- Earlier scopes are recorded in `docs/progress.md`
+
+## Rule
+
+Before a section is called done, read it as a curious first-time reader who stops at
+every "그럼 X는?", "처음/마지막은?", "누가 정하나?", "학습되나?", "실제로는 몇 개?" and list
+what is not answered within ~30 lines. Answer what blocks the next paragraph, in the
+section that owns the topic. In the heaviest sections (big-picture, attention) add only a
+clause or a pointer. Measure prose per `<Section>` before and after and keep the heaviest
+from growing; never state a fact twice. The list of what was added is in
+`docs/progress.md`.
+
+---
+
+# Previous scope — the intent comes before the mechanism
+
+- Started: 2026-09-16
+
+## Why
+
+A reader stopped at big-picture step 3 because "attention — 각 줄이 … 정보를 섞습니다"
+never says why mixing is wanted, and asked that the whole page be checked for the same
+defect. The audit found the reason almost always present but placed after the mechanism,
+and a few places with no reason at all. The rule for this scope, already in
+`docs/plan.md` §7 ("수식 전에는 계산의 목적"): every mechanism is introduced by the
+problem it solves, in the sentence before it. Details and the list of passages are in
+`docs/progress.md`.
+
+---
+
+# Previous scope — the walkthrough is easy to follow: no seams, a picture at every key point
 
 - Started: 2026-09-15
-- Earlier scopes are recorded in `docs/progress.md`
 
 ## Why
 

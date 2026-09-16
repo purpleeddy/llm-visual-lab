@@ -97,7 +97,7 @@ const ko: ExplorerText = {
   position: {
     title: '위치 벡터 만들어 보기',
     kind: '실제 계산',
-    note: '위치와 짝을 고르면 그 자리의 sin, cos 값이 실제로 계산되어 표의 칸과 곡선 위의 점에 같이 표시됩니다. d_model = 4 로 줄인 예제라 짝은 둘뿐이에요.',
+    note: '속도가 다른 두 짝이 있어야 모든 위치를 구분할 수 있다는 것을 확인하는 실험입니다. 위치와 짝을 고르면 그 자리의 sin, cos 값이 실제로 계산되어 표의 칸과 곡선 위의 점에 같이 표시돼요. d_model = 4 로 줄인 예제라 짝은 둘뿐입니다.',
     position: '위치',
     pair: '짝',
     pairs: ['빠른 쪽 (자리 0·1)', '느린 쪽 (자리 2·3)'],
@@ -110,7 +110,7 @@ const ko: ExplorerText = {
   layerNorm: {
     title: '한 줄을 직접 정규화해 보기',
     kind: '실제 계산',
-    note: '네 값을 바꾸면 평균, 분산, 결과가 그 자리에서 다시 계산됩니다. γ 와 β 는 논문에서 자리마다 따로 학습되지만, 여기서는 네 자리에 같은 값을 씁니다.',
+    note: '정규화가 값의 크기는 지우고 서로의 관계만 남긴다는 것을 확인하는 실험입니다. 네 값을 바꾸면 평균, 분산, 결과가 그 자리에서 다시 계산돼요. γ 와 β 는 논문에서 자리마다 따로 학습되지만, 여기서는 네 자리에 같은 값을 씁니다.',
     values: '한 토큰의 값 네 개',
     addToAll: '네 값 모두에 더하기',
     multiplyAll: '네 값 모두에 곱하기',
@@ -126,7 +126,7 @@ const ko: ExplorerText = {
   residual: {
     title: '건너뛰는 길을 껐다 켜 보기',
     kind: '실제 계산',
-    note: '예제의 첫 토큰을 같은 feed forward 층에 여섯 번 통과시킵니다. 건너뛰는 길이 있으면 각 층은 LayerNorm(x + FFN(x)) 이고, 없으면 LayerNorm(FFN(x)) 이에요. W 는 앞에서 쓴 손으로 고른 값 그대로입니다.',
+    note: '건너뛰는 길이 없으면 몇 층 만에 입력의 흔적이 사라진다는 것을 확인하는 실험입니다. 예제의 첫 토큰을 같은 feed forward 층에 여섯 번 통과시켜요(실제 모델은 층마다 W 가 다른데, 여기서는 간단히 한 층을 되풀이합니다). 건너뛰는 길이 있으면 각 층은 LayerNorm(x + FFN(x)) 이고, 없으면 LayerNorm(FFN(x)) 입니다. W 는 앞에서 쓴 손으로 고른 값 그대로예요.',
     skip: '건너뛰는 길',
     skipOn: '켬 (논문의 방식)',
     skipOff: '끔',
@@ -138,7 +138,7 @@ const ko: ExplorerText = {
   loss: {
     title: '틀린 정도를 직접 움직여 보기',
     kind: '실제 계산',
-    note: '정답에 준 확률을 움직이면 나머지 세 확률은 비율을 유지한 채 합이 1 이 되도록 따라 움직입니다. 손실은 둘 다 그 자리에서 계산해요.',
+    note: '−ln 이 확신에 찬 오답을 얼마나 세게 벌주는지, 그리고 누그러뜨리기가 그걸 어떻게 바꾸는지 보는 실험입니다. 정답에 준 확률을 움직이면 나머지 세 확률은 비율을 유지한 채 합이 1 이 되도록 따라 움직여요. 손실은 둘 다 그 자리에서 계산합니다.',
     pCorrect: '정답에 준 확률',
     epsilon: 'ε (누그러뜨리는 정도)',
     guess: '모델의 짐작',
@@ -151,7 +151,7 @@ const ko: ExplorerText = {
   beam: {
     title: '후보를 몇 개 들고 갈지 바꿔 보기',
     kind: '실제 계산',
-    note: '장난감 모델에서 후보 수만 바꿔 가며 실제로 탐색합니다. 굵은 선이 그 설정에서 찾아낸 문장이에요.',
+    note: '첫 걸음에서 진 후보가 전체로는 이길 수 있다는 것을 확인하는 실험입니다. 장난감 모델에서 후보 수만 바꿔 가며 실제로 탐색해요. 굵은 선이 그 설정에서 찾아낸 문장입니다.',
     width: '들고 가는 후보 수',
     widths: ['1개 (greedy)', '2개', '3개'],
     result: '찾은 문장',
@@ -163,7 +163,7 @@ const ko: ExplorerText = {
   bleuCost: {
     title: '언어 쌍을 바꿔 보기',
     kind: '논문의 표 2',
-    note: '점은 논문 표 2 의 값이고, 가로축은 저자들이 추산한 학습 계산량입니다. 이 페이지에서 계산한 값이 아니라 옮겨 적은 값이에요.',
+    note: '논문의 주장은 "더 좋은데 더 싸다" 라서 점수와 비용을 한 그림에 놓았습니다. 점은 논문 표 2 의 값이고, 가로축은 저자들이 추산한 학습 계산량이에요. 이 페이지에서 계산한 값이 아니라 옮겨 적은 값입니다.',
     pair: '언어 쌍',
     pairs: ['영어 → 독일어', '영어 → 프랑스어'],
     tryThis: '프랑스어로 바꿔 보세요. 기본 모델은 점수가 다른 모델들보다 낮고, 큰 모델만 앞섭니다. 독일어에서는 둘 다 앞서요. 같은 구조라도 언어 쌍에 따라 결과가 다르다는 뜻입니다.',
@@ -171,7 +171,7 @@ const ko: ExplorerText = {
   heads: {
     title: '두 갈래가 보는 곳 비교하기',
     kind: '실제 계산',
-    note: '보는 쪽 토큰을 고르면 두 갈래에서 그 토큰의 가중치 행이 함께 표시됩니다. 값은 앞의 예제를 그대로 계산한 것이에요.',
+    note: '갈래 하나의 비율은 합이 1 이라 두 곳을 동시에 크게 볼 수 없습니다. 갈래가 둘이면 되는지 확인하는 실험이에요. 보는 쪽 토큰을 고르면 두 갈래에서 그 토큰의 가중치 행이 함께 표시됩니다. 값은 앞의 예제를 그대로 계산한 것입니다.',
     query: '보는 쪽 토큰',
     sentence: (q, h1, h2) => `${q}번 토큰은 갈래 1 에서 ${h1} 을 보고, 갈래 2 에서는 ${h2} 을 봅니다.`,
     tryThis: '세 토큰을 차례로 골라 보세요. 갈래 1 은 항상 한 곳에 몰아주고, 갈래 2 는 두 곳에 나눠 줍니다. 두 갈래가 같은 곳을 보는 토큰은 하나도 없어요.',
@@ -182,7 +182,7 @@ const en: ExplorerText = {
   position: {
     title: 'Build a position vector',
     kind: 'Actually computed',
-    note: 'Pick a position and a pair and the sine and cosine for that slot are computed on the spot, shown both as a cell in the table and as a dot on the curve. The example is cut down to d_model = 4, so there are only two pairs.',
+    note: 'This checks that two pairs turning at different speeds are what make every position distinguishable. Pick a position and a pair and the sine and cosine for that slot are computed on the spot, shown both as a cell in the table and as a dot on the curve. The example is cut down to d_model = 4, so there are only two pairs.',
     position: 'position',
     pair: 'pair',
     pairs: ['fast pair (slots 0·1)', 'slow pair (slots 2·3)'],
@@ -195,7 +195,7 @@ const en: ExplorerText = {
   layerNorm: {
     title: 'Normalize a row yourself',
     kind: 'Actually computed',
-    note: 'Change the four values and the mean, variance and result are recomputed here. In the paper γ and β are learned per slot; here one value applies to all four.',
+    note: 'This checks that normalization erases the size of the values and keeps only how they relate. Change the four values and the mean, variance and result are recomputed here. In the paper γ and β are learned per slot; here one value applies to all four.',
     values: 'one token, four values',
     addToAll: 'add to all four',
     multiplyAll: 'multiply all four by',
@@ -211,7 +211,7 @@ const en: ExplorerText = {
   residual: {
     title: 'Switch the bypass off and on',
     kind: 'Actually computed',
-    note: 'The first token of the example passes through the same feed-forward layer six times. With the bypass each layer is LayerNorm(x + FFN(x)); without it, LayerNorm(FFN(x)). The W are the hand-chosen values used earlier.',
+    note: 'This checks that without the bypass, the input is lost within a few layers. The first token of the example passes through the same feed-forward layer six times (a real model has different W per layer; this keeps one layer for simplicity). With the bypass each layer is LayerNorm(x + FFN(x)); without it, LayerNorm(FFN(x)). The W are the hand-chosen values used earlier.',
     skip: 'bypass',
     skipOn: 'on (as in the paper)',
     skipOff: 'off',
@@ -223,7 +223,7 @@ const en: ExplorerText = {
   loss: {
     title: 'Move the loss yourself',
     kind: 'Actually computed',
-    note: 'Move the probability on the right word and the other three follow, keeping their proportions so the total stays 1. Both losses are computed here.',
+    note: 'This shows how hard −ln punishes a confident wrong answer, and what softening does to that. Move the probability on the right word and the other three follow, keeping their proportions so the total stays 1. Both losses are computed here.',
     pCorrect: 'probability on the right word',
     epsilon: 'ε (how much to soften)',
     guess: 'what the model guessed',
@@ -236,7 +236,7 @@ const en: ExplorerText = {
   beam: {
     title: 'Change how many candidates to carry',
     kind: 'Actually computed',
-    note: 'The toy model is searched for real with each setting. The solid path is the sentence that setting finds.',
+    note: 'This checks that a candidate which loses the first step can still win overall. The toy model is searched for real with each setting. The solid path is the sentence that setting finds.',
     width: 'candidates carried',
     widths: ['1 (greedy)', '2', '3'],
     result: 'sentence found',
@@ -248,7 +248,7 @@ const en: ExplorerText = {
   bleuCost: {
     title: 'Switch the language pair',
     kind: 'Table 2 of the paper',
-    note: 'The points are Table 2 of the paper and the horizontal axis is the authors\' estimate of training cost. These are transcribed, not computed on this page.',
+    note: 'The paper\'s claim is "better and cheaper", so score and cost sit on one chart. The points are Table 2 of the paper and the horizontal axis is the authors\' estimate of training cost. These are transcribed, not computed on this page.',
     pair: 'language pair',
     pairs: ['English → German', 'English → French'],
     tryThis: 'Switch to French. The base model scores below the earlier models there; only the big model is ahead. For German both are ahead. The same architecture, and a different picture per language pair.',
@@ -256,7 +256,7 @@ const en: ExplorerText = {
   heads: {
     title: 'Compare where the two heads look',
     kind: 'Actually computed',
-    note: 'Pick the looking token and its row of weights lights up in both heads. The values are the worked example, computed as before.',
+    note: 'One head\'s row sums to 1, so it cannot look hard at two places at once. This checks whether two heads can. Pick the looking token and its row of weights lights up in both heads. The values are the worked example, computed as before.',
     query: 'looking token',
     sentence: (q, h1, h2) => `Token ${q} looks at ${h1} in head 1 and at ${h2} in head 2.`,
     tryThis: 'Pick the three tokens in turn. Head 1 always piles onto one place; head 2 splits between two. No token has both heads looking at the same place.',

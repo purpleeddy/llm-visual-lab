@@ -1,6 +1,6 @@
 # Progress log
 
-- Updated: 2026-09-15
+- Updated: 2026-09-16
 - Scope document: `docs/current-task.md`
 - Coverage map: `docs/papers/attention-is-all-you-need-coverage.md`
 - Status: **P0 + P1 → design rebuild → single-page rebuild and full rewrite of the
@@ -1124,3 +1124,101 @@ effect unlike a real model, and the text says so.
   values at all (and says so); the explorer computes real ones for d_model = 4.
 - The English `BleuExample` and `SerialWait` copy was written alongside the Korean and
   has not had a separate editing pass.
+
+## The intent before the mechanism (2026-09-16)
+
+A reader stopped at big-picture step 3: "attention — 각 줄이 … 모든 줄을 보고 정보를
+섞습니다" says what happens but not why mixing is wanted. A read-through of the Korean
+page, the walk copy and the explorer copy found the same shape in about twenty-five
+places: the reason usually existed, but landed after the mechanism (sometimes in a
+different file, sometimes behind "왜 필요한지는 곧 나옵니다"). A few had no reason anywhere
+(Adam, the one-at-a-time ablation, the 4× widening, the order of a layer, sub-word tokens,
+three projections at first use).
+
+- **Rule applied**: every mechanism is introduced by the problem it solves in the sentence
+  before it. Reasons that already existed later in the same subsection were moved up, not
+  duplicated; deferrals were replaced with the one-line reason in place.
+- **Where**: `src/content/docs/{ko,en}/index.mdx` (big picture §1–5, three W at first use,
+  transpose, score spread, the four steps, Q/K/V, the divide step, the mask, second head,
+  concat, sin/cos vs the three conditions, pair speeds, feed forward, residual, layer
+  norm, layer order, loss, learning rate, training table + Adam + dropout, BLEU, ablation);
+  `src/lib/i18n/labText.ts` (walk frames tokens, row, block, decoder now carry the why in
+  `what`); `src/lib/i18n/explorers.ts` (every `note` opens with the question the widget
+  answers).
+
+| | Result |
+| --- | --- |
+| Types | `npx tsc --noEmit` — clean |
+| Build | `npm run build` — 3 routes |
+| Maths | `npm test` — 147 passing (untouched) |
+| Browser | `npm run test:e2e` — 134 passing |
+| Screens | walk frames 2, 3 (390), 6 at 1440; heads explorer at 1440; loss explorer at 390 — longer copy wraps cleanly |
+
+Follow-up the same day: walk frames 5 and 6 redrawn. Frame 5 had drawn six rows of
+`attention | feed forward` side by side, which read as two parallel columns; the paper's
+Figure 1 draws one layer vertically with "N×" beside it. Both frames now draw one layer
+large (the block passing attention → feed forward bottom-up, with the block itself drawn
+between the parts) and, beside it, the six layers in series as a small chain
+(`SixInSeries` in `BigPictureWalk.tsx`), layer 1 highlighted and tied to the big drawing.
+The decoder's chain also carries the dashed source line into every layer. The "× 6" label
+stays but is no longer what the reader has to count from. Checks re-run: types, build,
+147 unit, 134 e2e; frames 5 and 6 screened at 1440/390, light/dark, ko/en.
+
+Frame 7 as well: the two probability charts had no drawn origin, and a reader asked whether
+each of the five rows gets one. The frame now draws the decoder's output rows with the row
+being written highlighted, an arrow from that one row through Linear · Softmax into the
+vocabulary chart ("줄마다 하나씩이 아니라, 이 줄 하나에서"), and a dashed line from the same
+row into the attention chart, labelled as one row of part ②. Checks: types, build, 147
+unit, 134 e2e; frame 7 screened at 1440 (ko) and 390 dark (en).
+
+And the first step: a reader asked how the "next word" is made when nothing has been
+written. The answer (the decoder starts from a start mark alone, appends what comes out,
+and stops at the end mark) is now drawn as `GenerateSteps.astro` (id `gs`, in
+`#generation`: steps 1, 2, 3 and the last, the appended cell in the accent) and said in one
+sentence each at big-picture §4, its "배울 때와 쓸 때" Note, walk frame 6 and the generation
+prose. The train-and-generate figure's input box reads "시작 표시 + 지금까지의 단어" instead
+of "1 … k". Checks: types, build, 147 unit, 134 e2e (the figure list gained `gs`).
+
+## The reader's questions, answered ahead of time (2026-09-16)
+
+Three read-throughs of the Korean page as a first-time reader (one per third) listed ~45
+stopping points of the kind the test reader had been hitting one at a time ("왜 섞지?",
+"줄마다 확률?", "처음은?", "6번 따로?"). Kept: what blocks the next paragraph or nearly
+every reader asks; dropped: what the page already answers nearby. One was a bug: the
+"실제 값" table under positional encoding was empty since `PositionGrid` was removed.
+
+- **Pictures**: `PositionRows.astro` (`pr`, positions 0–3 computed from
+  `positionalEncoding`), `CrossShape.astro` (`xs`, Q from 3 decoder rows, K·V from 5
+  encoder rows, a 3 × 5 score matrix, 3 rows out), and an encoder box above the decoder
+  column in `GenerateSteps.astro` (runs once, read every step).
+- **Answers, by owning section** (ko, mirrored in en): vocabulary fixed before training;
+  the sizes 512/6/8/64 are chosen, not learned; "똑같이 생긴 층" = same shape, different
+  numbers; learning defined where "배울 거리" first appears; the 5-token → 3 × 4 switch
+  announced; one W set per layer shared by all rows, learned, d_k = 2 here; √2 because
+  d_k = 2; Q from the decoder and K, V from the encoder (pointer at Q/K/V, full answer with
+  the figure at "보여 주지 않는 것"); first masked row gains nothing; padding for unequal
+  lengths; why 8 heads diverge; 8 heads as one product; W_O learned; embedding × √d_model;
+  b₁, b₂; adding grows → normalize after; γ, β, ε; normalization keeps position info; six
+  different layers, attention 6 + ffn 6 (decoder 12 + 6); loss per position averaged;
+  which W are updated (all, ~65M); 0.9 + 0.025 = 0.925; batch and step; WMT data; when
+  training stops; W frozen and dropout off after training; start/end marks are vocabulary
+  tokens; encoder once; beam's finished candidates; BLEU scale; FLOP/TFLOPS; ensemble;
+  parsing as bracketed lines; too many heads → small d_k.
+- **Balance**: prose per section was measured before and after. Big-picture and
+  attention, the heaviest, got only clauses and pointers and were trimmed elsewhere to
+  offset (+6.6% and +6.1%, target was ≤ 5%); the lighter sections that own the topics
+  absorbed the full answers (training +30%, results +26%, blocks +18%, generation +15%),
+  and none overtook attention.
+- **Site fix found on the way**: `.figure__caption` now positions its screen-reader-only
+  note; unpositioned, that 1px span sat past a full last line and widened the English
+  page on phones.
+
+Checks: types, build, 147 unit, 134 e2e (figure list gained `pr`, `xs`); `pr`, `xs`, `gs`
+screened at 1440/390, light/dark.
+
+Loop made visible in the walk (same day): a reader asked how "<시작>, 그, 동물은" can be the
+decoder's input when words come out of the probability step. Frame 6 now says its rows are
+earlier rounds' results ("3회째", "앞 회들의 7번 결과"), frame 7 draws the top candidate
+being appended to the output and sent back to frame 6, and the mini map has a dashed
+"되풀이" return path from the probabilities to the decoder's input. Big-picture §4 and §5 got
+one clause each. Checks: types, build, 147 unit, 134 e2e.

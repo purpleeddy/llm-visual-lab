@@ -116,7 +116,7 @@ const L = ko
   <text class="tmap__title" x={xGen} y="34">{L.genHead}</text>
 
   <rect class="tmap__box tmap__box--embed" x={xGen} y={yGen} width={120} height={32} rx="4"></rect>
-  <text class="tmap__note" x={xGen + 60} y={yGen + 21} text-anchor="middle">1 … k</text>
+  <text class="tmap__note" x={xGen + 60} y={yGen + 21} text-anchor="middle">{ko ? '시작 표시 + 지금까지의 단어' : 'start mark + words so far'}</text>
 
   <path class="tmap__line" d={`M ${xGen + 60} ${yGen + 34} V ${yGen + 58}`} marker-end="url(#gl-arrow)"></path>
   <rect class="tmap__box tmap__box--attn" x={xGen} y={yGen + 62} width={120} height={38} rx="4"></rect>

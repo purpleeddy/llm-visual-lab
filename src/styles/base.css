@@ -843,6 +843,10 @@ body {
   max-width: 100%;
   height: auto;
 }
+/* The caption's screen-reader-only note is absolutely positioned; without a positioned
+   caption it sits 1px past the last line and can widen the page when that line is full. */
+.figure__caption { position: relative; }
+.figure__caption .visually-hidden { left: 0; top: 0; }
 .figure__caption {
   margin-top: var(--sp-3);
   font-size: var(--fs-200);

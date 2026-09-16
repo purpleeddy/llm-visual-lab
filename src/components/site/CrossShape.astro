@@ -1,0 +1,98 @@
+---
+/**
+ * The shapes in the decoder's attention over the encoder.
+ *
+ * The asking side (Q) is the decoder's rows, the answering side (K, V) is the
+ * encoder's rows, so the score matrix is (decoder rows × encoder rows) and the
+ * output has as many rows as the asking side. No values are drawn; only counts.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+
+const DEC = 3;
+const ENC = 5;
+const CELL = 14;
+const COLS = 6; // cells drawn per row, standing in for d_model
+const xDec = 40;
+const yDec = 150;
+const xEnc = 40;
+const yEnc = 30;
+const xScore = 260;
+const yScore = 110;
+const SC = 22; // score cell
+const xOut = 470;
+const yOut = 118;
+const W = 620;
+const H = 250;
+
+const L = ko
+  ? {
+      dec: `decoder 의 줄 ${DEC}개 → Q`,
+      enc: `encoder 의 줄 ${ENC}개 → K, V`,
+      score: `점수 ${DEC} × ${ENC}`,
+      row: '행마다 softmax',
+      out: `결과: 줄 ${DEC}개`,
+      title: 'encoder 를 보는 attention 의 크기',
+      desc: `왼쪽 아래에 decoder 의 줄 ${DEC}개가 있고 여기서 Q 가 나옵니다. 왼쪽 위에 encoder 의 줄 ${ENC}개가 있고 여기서 K 와 V 가 나옵니다. 가운데 점수 행렬은 ${DEC}행 ${ENC}열의 직사각형이고, softmax 는 행마다, 즉 decoder 의 줄 하나가 encoder 의 줄 ${ENC}개에 비율을 나눠 주는 방향으로 합니다. 오른쪽 결과는 다시 줄 ${DEC}개로, 묻는 쪽인 decoder 의 줄 수와 같습니다.`,
+    }
+  : {
+      dec: `the decoder's ${DEC} rows → Q`,
+      enc: `the encoder's ${ENC} rows → K, V`,
+      score: `scores ${DEC} × ${ENC}`,
+      row: 'softmax per row',
+      out: `output: ${DEC} rows`,
+      title: 'The shapes in attention over the encoder',
+      desc: `Bottom left are the decoder's ${DEC} rows, which give Q. Top left are the encoder's ${ENC} rows, which give K and V. The score matrix in the middle is a ${DEC} by ${ENC} rectangle, and softmax runs per row, so each decoder row hands out proportions over the ${ENC} encoder rows. The output on the right is ${DEC} rows again, the same count as the asking side.`,
+    };
+
+const rowsSvg = (x: number, y: number, n: number, kind: string) =>
+  Array.from({ length: n }, (_, r) =>
+    Array.from({ length: COLS }, (_, c) => ({ x: x + c * CELL, y: y + r * CELL, kind })),
+  ).flat();
+---
+<svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="xs-t xs-d">
+  <title id="xs-t">{L.title}</title>
+  <desc id="xs-d">{L.desc}</desc>
+  <defs>
+    <marker id="xs-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-1)"></path>
+    </marker>
+  </defs>
+
+  {/* encoder rows (answering side) */}
+  {rowsSvg(xEnc, yEnc, ENC, 'out').map((c) => (
+    <rect class={`walk__cell walk__cell--${c.kind}`} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__label--sm" x={xEnc} y={yEnc + ENC * CELL + 16} style="fill: var(--ink-1)">{L.enc}</text>
+
+  {/* decoder rows (asking side) */}
+  {rowsSvg(xDec, yDec, DEC, '').map((c) => (
+    <rect class="walk__cell" x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__label--sm" x={xDec} y={yDec + DEC * CELL + 16} style="fill: var(--ink-1)">{L.dec}</text>
+
+  {/* arrows into the score matrix: K along the top, Q along the left */}
+  <path class="tmap__line tmap__line--cross" d={`M ${xEnc + COLS * CELL + 6} ${yEnc + (ENC * CELL) / 2} H ${xScore + (ENC * SC) / 2} V ${yScore - 6}`} marker-end="url(#xs-arrow)"></path>
+  <path class="tmap__line" d={`M ${xDec + COLS * CELL + 6} ${yDec + (DEC * CELL) / 2} H ${xScore - 6}`} marker-end="url(#xs-arrow)"></path>
+
+  {/* score matrix, one row highlighted */}
+  {Array.from({ length: DEC }, (_, r) =>
+    Array.from({ length: ENC }, (_, c) => (
+      <rect class={`walk__cell${r === 1 ? ' walk__cell--sum' : ''}`} x={xScore + c * SC} y={yScore + r * SC} width={SC - 2} height={SC - 2} rx="2" />
+    )),
+  )}
+  <text class="tmap__label--sm" x={xScore} y={yScore - 12} style="fill: var(--ink-1)">{L.score}</text>
+  <text class="tmap__note walk__same-text" x={xScore} y={yScore + DEC * SC + 16}>{L.row}</text>
+
+  {/* output rows */}
+  <path class="tmap__line" d={`M ${xScore + ENC * SC + 4} ${yScore + (DEC * SC) / 2} H ${xOut - 6}`} marker-end="url(#xs-arrow)"></path>
+  {rowsSvg(xOut, yOut, DEC, 'out').map((c) => (
+    <rect class={`walk__cell walk__cell--${c.kind}`} x={c.x} y={c.y} width={CELL} height={CELL} />
+  ))}
+  <text class="tmap__label--sm" x={xOut} y={yOut + DEC * CELL + 16} style="fill: var(--ink-1)">{L.out}</text>
+</svg>
