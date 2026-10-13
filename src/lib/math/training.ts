@@ -71,7 +71,7 @@ export function oneHot(size: number, target: number): number[] {
 /**
  * Label smoothing, §5.4, with ε_ls = 0.1 in the paper.
  *
- * The right word gets 1 − ε and the rest share ε. The paper notes this *hurts*
+ * The target is a mixture: (1 − ε) on the right word, plus ε spread over all words. The paper notes this *hurts*
  * perplexity — the model is being told to stay unsure — and improves BLEU and
  * accuracy anyway.
  */

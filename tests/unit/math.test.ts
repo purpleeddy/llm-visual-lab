@@ -626,6 +626,9 @@ describe('producing a sentence', () => {
       const r = beamSearch(TOY_MODEL, c.width);
       expect(r.best.tokens).toEqual(c.best.tokens);
       expectClose(r.best.probability, c.best.probability, `beam ${c.width}`);
+      expect(r.finished.map(candidate => ({
+        tokens: candidate.tokens, probability: candidate.probability,
+      }))).toEqual(c.finished);
     }
   });
 

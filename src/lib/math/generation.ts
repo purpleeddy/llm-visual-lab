@@ -12,6 +12,7 @@
  */
 
 import { ShapeError } from './errors';
+import { softmaxRow } from './softmax';
 
 /** A sentence ends when this is produced. The paper writes it <eos>. */
 export const END = '.';
@@ -78,43 +79,69 @@ function rank(list: Candidate[]): Candidate[] {
 }
 
 /**
- * Beam search. A width of 1 is greedy decoding, which is why the article can use
- * one function for both and let the reader change a single number.
+ * Beam search keeps the highest-probability candidates, including finished ones.
+ * An end token competes for a slot like every other token. With one slot this
+ * chooses exactly the best next token and can never resurrect an unchosen end.
  */
 export function beamSearch(model: ToyModel, beamWidth: number, maxSteps = 6): GenerationRun {
   if (beamWidth < 1) throw new ShapeError('targetOutOfRange', { target: beamWidth, size: 1 });
 
-  let live: Candidate[] = [start()];
-  const finished: Candidate[] = [];
+  let beam: Candidate[] = [start()];
   const steps: GenerationStep[] = [];
 
-  for (let step = 1; step <= maxSteps && live.length > 0; step++) {
-    const before = live;
+  for (let step = 1; step <= maxSteps; step++) {
+    const before = beam;
     const expanded: Candidate[] = [];
-    for (const c of live) {
-      const dist = distributionFor(model, c);
-      for (const [token, p] of Object.entries(dist)) expanded.push(extend(c, token, p));
+    for (const c of beam) {
+      if (c.finished) {
+        expanded.push(c);
+      } else {
+        const dist = distributionFor(model, c);
+        for (const [token, p] of Object.entries(dist)) expanded.push(extend(c, token, p));
+      }
     }
 
     const ranked = rank(expanded);
-    // A finished sequence is put aside; it competes at the end, not for beam slots.
-    const kept = ranked.filter((c) => !c.finished).slice(0, beamWidth);
-    for (const c of ranked) if (c.finished) finished.push(c);
+    beam = ranked.slice(0, beamWidth);
+    steps.push({ step, before, expanded: ranked, kept: beam });
 
-    steps.push({ step, before, expanded: ranked, kept });
-    live = kept;
-
-    // Once every live path is worse than the best finished one, nothing can improve.
-    const bestFinished = rank(finished)[0];
-    if (bestFinished && live.every((c) => c.probability <= bestFinished.probability)) break;
+    // Each future probability is at most 1, so a live path cannot get larger.
+    const finished = beam.filter((c) => c.finished);
+    const live = beam.filter((c) => !c.finished);
+    if (finished[0] && live.every((c) => c.probability <= finished[0].probability)) break;
   }
 
-  const ordered = rank(finished);
-  if (ordered.length === 0) throw new ShapeError('emptyDistribution');
-  return { beamWidth, steps, finished: ordered, best: ordered[0] };
+  const finished = beam.filter((c) => c.finished);
+  if (finished.length === 0) throw new ShapeError('emptyDistribution');
+  return { beamWidth, steps, finished, best: finished[0] };
 }
 
 /** Greedy decoding is beam search with one slot. */
 export function greedy(model: ToyModel, maxSteps = 6): GenerationRun {
   return beamSearch(model, 1, maxSteps);
+}
+
+/** Vocabulary probabilities at temperature T; this is separate from attention scaling. */
+export function temperatureProbabilities(logits: number[], temperature = 1): number[] {
+  if (!Number.isFinite(temperature) || temperature <= 0 || !logits.every(Number.isFinite)) {
+    throw new RangeError('Temperature must be positive and logits must be finite.');
+  }
+  return softmaxRow(logits.map(value => value / temperature)).probabilities;
+}
+
+/** Pick the bin containing a uniform draw u in [0, 1). Zero-width bins are never picked. */
+export function sampleIndex(probabilities: number[], u: number): number {
+  const total = probabilities.reduce((sum, p) => sum + p, 0);
+  if (!Number.isFinite(u) || u < 0 || u >= 1 || probabilities.length === 0 ||
+      probabilities.some(p => !Number.isFinite(p) || p < 0 || p > 1) || Math.abs(total - 1) > 1e-9) {
+    throw new RangeError('Use a probability distribution and a draw in [0, 1).');
+  }
+  let cumulative = 0;
+  let lastPositive = 0;
+  for (let i = 0; i < probabilities.length; i++) {
+    cumulative += probabilities[i];
+    if (probabilities[i] > 0) lastPositive = i;
+    if (u < cumulative) return i;
+  }
+  return lastPositive; // rounding can leave the sum a few ulps below 1
 }

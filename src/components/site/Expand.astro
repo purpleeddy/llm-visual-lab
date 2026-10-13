@@ -1,11 +1,12 @@
 ---
 interface Props {
   summary: string;
+  id?: string;
   open?: boolean;
 }
-const { summary, open = false } = Astro.props;
+const { summary, id, open = false } = Astro.props;
 ---
-<details class="expand" open={open}>
+<details class="expand" id={id} data-local-math={id?.startsWith('math-') ? '' : undefined} open={open}>
   <summary>{summary}</summary>
   <div class="expand__body"><slot /></div>
 </details>

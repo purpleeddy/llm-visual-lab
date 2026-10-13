@@ -842,3 +842,8 @@ button.mgrid__cell:hover { background: var(--surface-inset); }
 /* The beam table lists whole candidates, one per line. */
 .beam__cand { display: block; white-space: nowrap; }
 .lab--beam .terms__table td { text-align: left; }
+
+/* A boolean input stays beside its label rather than using a slider's grid. */
+.layer-trace__position { margin-bottom: var(--sp-4); }
+.layer-trace__position-control { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 2.75rem; max-width: 100%; font-size: var(--fs-200); cursor: pointer; }
+.layer-trace__position-control input { flex: none; width: 1rem; height: 1rem; margin: 0; }

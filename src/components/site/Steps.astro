@@ -1,0 +1,26 @@
+---
+/*
+ * A numbered procedure. The list itself comes from markdown in the slot:
+ *
+ *   <Steps title="...">
+ *
+ *   1. **투영** — 입력 X 에 W_Q, W_K, W_V 를 곱해 Q, K, V 를 만듭니다.
+ *   2. **점수** — Q K^T. 3 × 2 와 2 × 3 → 3 × 3.
+ *
+ *   </Steps>
+ *
+ * The blank line after `<Steps>` is required: MDX only parses the numbered
+ * lines as an `<ol>` when they sit in their own paragraph block. Without it
+ * the lines arrive as raw text and no badges are drawn.
+ *
+ * Styles live in src/styles/base.css under `.steps`.
+ */
+interface Props {
+  title?: string;
+}
+const { title } = Astro.props;
+---
+<div class="steps">
+  {title ? <p class="steps__title">{title}</p> : null}
+  <slot />
+</div>

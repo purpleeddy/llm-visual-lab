@@ -1,4 +1,42 @@
-# Current scope — the reader's questions, answered ahead of time
+# Current scope — learn through a task and its numbers
+
+- Started: 2026-10-13
+- Completed implementation; final verification is recorded in `docs/progress.md`.
+
+The author is studying LLM principles. Engineering experience is not assumed to supply
+linear algebra, probability or calculus prerequisites. This scope covers both languages
+and all twelve units, including the later loss, weight update, generation and evaluation.
+
+## Learning sequence
+
+Next-token task → tokens/IDs/embedding → matrix products/dot products → softmax/weighted
+sums → attention → positions/masks → heads → FFN/residual/norm → integrated route and
+the translation/decoder-only distinction → training → generation → evaluation.
+
+Each unit carries prerequisites, a goal, a reasoned checkpoint and previous/next links.
+Keep examples explicitly hand-chosen and distinguish computed attention shares from learned
+multiplication coefficients. Do not claim the toy vectors contain learned word meanings.
+
+## Explanation and navigation
+
+The latest feedback rejects a front-loaded notation collection, even if optional.
+Calculations are introduced through a task, numbers and a changed input. Native disclosures
+at the relevant passage hold detailed steps and map those steps to notation. They start
+closed, work with keyboard input and support direct links. No symbol dictionary remains.
+The contents shows four coarse stages and the current unit; fine headings expand on request.
+Preserve the existing routes and anchors, including the old problem and similarity anchors.
+
+## Scope limits
+
+Reuse the existing maths and visual language; add no dependency or external service.
+The integrated decoder uses one post-norm block and a hand-chosen identity readout. The
+weight experiment updates one coefficient, including signed/zero inputs. Full Transformer
+backpropagation, a trained language model, Adam arithmetic and additional sampling methods
+remain outside this scope. Existing work is preserved; no commit, push or deployment.
+
+---
+
+# Previous scope — the reader's questions, answered ahead of time
 
 - Started: 2026-09-16
 - Earlier scopes are recorded in `docs/progress.md`

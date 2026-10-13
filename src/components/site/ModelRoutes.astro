@@ -1,0 +1,16 @@
+---
+import type { Locale } from '../../lib/i18n/routing';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const routes = ko ? [
+  { title: '논문의 번역 Transformer', input: '원문 + 지금까지의 번역', steps: ['원문 embedding + 위치 → Encoder', '번역 문맥 → masked self-attention', 'Encoder 출력을 보는 cross-attention', 'FFN → 어휘 점수 → 다음 번역 토큰'], note: '원문은 encoder가 읽고, decoder는 원문과 번역 문맥을 함께 참고합니다.' },
+  { title: 'GPT 방식의 언어모델', input: '지금까지의 토큰열', steps: ['토큰 embedding + 위치', 'masked self-attention', 'FFN과 잔차·정규화 · 여러 층', '어휘 점수 → 다음 토큰 → 입력에 붙이기'], note: '문맥 토큰열에서 다음 토큰을 예측합니다. 별도 번역 원문을 읽는 encoder와 cross-attention은 없습니다.' },
+] : [
+  { title: 'The paper’s translation Transformer', input: 'Source + translation so far', steps: ['Source embedding + position → Encoder', 'Translation prefix → masked self-attention', 'Cross-attention over encoder outputs', 'FFN → vocabulary scores → translation token'], note: 'The encoder reads the source; the decoder uses both the source and the translation prefix.' },
+  { title: 'A GPT-style language model', input: 'Token prefix', steps: ['Token embedding + position', 'Masked self-attention', 'FFN, residual and norm · stacked blocks', 'Vocabulary scores → next token → append'], note: 'The token prefix predicts the next token, without a separate source encoder or cross-attention.' },
+];
+---
+<figure class="model-routes" aria-label={ko ? '번역 구조와 언어모델의 계산 경로 비교' : 'Translation and language-model routes'}>
+  {routes.map(route => <div class="model-routes__route"><h4>{route.title}</h4><p>{route.input}</p><ol>{route.steps.map(step => <li>{step}</li>)}</ol><p>{route.note}</p></div>)}
+</figure>

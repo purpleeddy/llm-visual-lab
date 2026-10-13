@@ -119,7 +119,7 @@ export interface UIStrings {
 
 const ko: UIStrings = {
   siteTitle: 'LLM Visual Lab',
-  siteTagline: '논문을 읽고, 필요한 수학을 배우고, 직접 계산해 보는 언어 모델 위키',
+  siteTagline: '작은 숫자로 계산하고 실험하며 배우는 언어모델 원리',
   skipToContent: '본문으로 건너뛰기',
   nav: {
     paper: 'Attention Is All You Need',
@@ -261,7 +261,7 @@ const ko: UIStrings = {
     position: '위치',
   },
   footer: {
-    sourceNote: '해설의 근거는 논문 원문입니다.',
+    sourceNote: 'Transformer 해설은 논문에, 작은 예제는 직접 계산한 값에 근거합니다.',
     paperLink: 'arXiv:1706.03762 (v7, 2023-08-02)',
     scopeNote: '이 위키는 작성 중입니다. 문서마다 완성 범위를 표시합니다.',
   },
@@ -376,7 +376,7 @@ const en: UIStrings = {
     position: 'Position',
   },
   footer: {
-    sourceNote: 'Every claim here is checked against the paper itself.',
+    sourceNote: 'Transformer explanations follow the original paper; the small examples are computed here.',
     paperLink: 'arXiv:1706.03762 (v7, 2 Aug 2023)',
     scopeNote: 'This wiki is in progress. Each page states how far it has been written.',
   },

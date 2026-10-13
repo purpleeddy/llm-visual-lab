@@ -84,11 +84,30 @@ const statusNote =
     <PageToc locale={locale} />
   </div>
 
+  <script is:inline>
+    (() => {
+      const reveal = () => {
+        let id;
+        try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+        if (!id) return;
+        const target = document.getElementById(id);
+        if (!target) return;
+        for (let node = target; node; node = node.parentElement) {
+          if (node instanceof HTMLDetailsElement) node.open = true;
+        }
+        requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }));
+      };
+      reveal();
+      window.addEventListener('load', reveal, { once: true });
+      window.addEventListener('hashchange', reveal);
+    })();
+  </script>
+
   {/*
     Scroll position.
     Marks the section being read in the contents on the right and opens that
     section's sub-headings underneath it.
-    Without JavaScript the twelve-line contents list stays exactly as it is.
+    Without JavaScript, the four native disclosures still expose all twelve units.
   */}
   <script is:inline>
     (() => {
@@ -119,6 +138,8 @@ const statusNote =
         );
       }
 
+      const stages = [...nav.querySelectorAll('[data-toc-stage]')];
+      const currentLabel = nav.closest('#doc-nav')?.querySelector('[data-current-lesson]');
       let openFor = null;
       let openList = null;
       let subLinks = [];
@@ -149,8 +170,13 @@ const statusNote =
           row.append(a);
           ul.append(row);
         }
-        li.append(ul);
-        openList = ul;
+        const detail = document.createElement('details');
+        detail.className = 'toc__details';
+        const summary = document.createElement('summary');
+        summary.textContent = document.documentElement.lang.startsWith('ko') ? '이 단원의 세부 목차' : 'Subsections of this unit';
+        detail.append(summary, ul);
+        li.append(detail);
+        openList = detail;
         subLinks = list.map((item, i) => ({ ...item, a: ul.children[i].firstElementChild }));
       };
 
@@ -159,6 +185,7 @@ const statusNote =
         if (subLinks.length === 0) return;
         let found = null;
         for (const s of subLinks) {
+          if (s.el.getClientRects().length === 0) continue;
           if (s.el.getBoundingClientRect().top <= 96) found = s;
           else break;
         }
@@ -179,6 +206,7 @@ const statusNote =
           ticking = true;
           requestAnimationFrame(() => {
             ticking = false;
+            markReadingUnit();
             markSub();
           });
         },
@@ -193,30 +221,40 @@ const statusNote =
         if (current) links.get(current)?.removeAttribute('aria-current');
         current = id;
         if (id) links.get(id)?.setAttribute('aria-current', 'true');
+        const stage = items.get(id)?.closest('[data-toc-stage]');
+        if (stage) stages.forEach(s => { s.open = s === stage; });
+        const link = links.get(id);
+        if (currentLabel && link) currentLabel.textContent = `${[...links.keys()].indexOf(id) + 1}/${sections.length} · ${link.dataset.shortTitle}`;
         openSubs(id);
         markSub();
       };
 
-      // The section closest to the top of the viewport counts as the current one.
-      const visible = new Set();
-      const io = new IntersectionObserver(
-        (entries) => {
-          for (const e of entries) {
-            if (e.isIntersecting) visible.add(e.target);
-            else visible.delete(e.target);
-          }
-          if (visible.size === 0) return;
-          const top = [...visible].sort(
-            (a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top,
-          )[0];
-          mark(top.dataset.section);
-        },
-        { rootMargin: '-72px 0px -55% 0px', threshold: 0 },
-      );
-      sections.forEach((el) => io.observe(el));
-
-      // At the very top no section is in view yet, so open the first one.
-      openSubs(sections[0].dataset.section);
+      // A section's end can intersect the viewport while the next heading is
+      // already at the reading line. Use the latest section crossing that line.
+      const markReadingUnit = () => {
+        // The mobile contents sits after the article. Reading its controls must
+        // retain the last unit, rather than count every off-screen unit as read.
+        if (sections[sections.length - 1].getBoundingClientRect().bottom < 96) return;
+        let active = sections[0];
+        for (const section of sections) {
+          if (section.getBoundingClientRect().top <= 96) active = section;
+          else break;
+        }
+        mark(active.dataset.section);
+      };
+      const markHashUnit = () => {
+        let id;
+        try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
+        const section = document.getElementById(id)?.closest('[data-section]');
+        if (section) mark(section.dataset.section);
+        else markReadingUnit();
+      };
+      const io = new IntersectionObserver(markReadingUnit,
+        { rootMargin: '-96px 0px -55% 0px', threshold: 0 });
+      sections.forEach(section => io.observe(section));
+      window.addEventListener('hashchange', markHashUnit);
+      window.addEventListener('load', markHashUnit, { once: true });
+      markHashUnit();
     })();
   </script>
 </BaseLayout>

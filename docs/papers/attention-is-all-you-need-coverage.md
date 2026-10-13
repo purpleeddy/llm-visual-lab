@@ -10,6 +10,12 @@
 > 2026-09-12: the remaining six sections were written, so P2, P3 and P4 are done.
 > The rows still marked partial say what they leave out.
 
+> 2026-10-13: the page now follows a prerequisite-based learning order. The original
+> anchors remain; `#problem` is an optional history within attention and `#similarity`
+> is within numbers. New next-token, token lookup, one-block, weight-update and sampling
+> examples extend the original walkthrough. Calculation details are local disclosures.
+> The GPT bridge cites its original paper §3.1; the toy is not a full GPT implementation.
+
 This document records how each section, equation, figure and table of the paper
 maps onto the commentary in the wiki. It is the coverage map required by section
 4.1 of `docs/plan.md`, and it is updated as the commentary grows.
@@ -51,21 +57,21 @@ unnumbered item, **"Attention Visualizations"**, which holds figures 3, 4 and 5.
 | §1 Introduction | The sequential computation of RNNs, LSTMs and GRUs blocks parallelism | `#problem` | P1 done | none | sequential versus parallel computation | yes |
 | §2 Background | Distance-dependent cost in Extended Neural GPU, ByteNet and ConvS2S; prior work on self-attention | `#problem` | P1 done | O(·) notation introduced | distance between positions against operation count | yes |
 | §3 Model Architecture (opening) | The encoder–decoder structure, auto-regressive generation | `#big-picture` | P1 done | none | map of the whole data flow | yes |
-| §3.1 Encoder and Decoder Stacks | N=6; 2 sub-layers in the encoder, 3 in the decoder; residual + LayerNorm(x + Sublayer(x)); d_model=512 | `#big-picture` for the shape, `#blocks` for the parts | P2 done | mean and variance | `TransformerMap`, `ResidualPath`, `LayerNormSteps` | yes |
+| §3.1 Encoder and Decoder Stacks | N=6; 2 sub-layers in the encoder, 3 in the decoder; residual + LayerNorm(x + Sublayer(x)); d_model=512 | `#big-picture` for the shape, `#blocks` for the parts | P2 done | mean and variance | `TransformerMap`, `ResidualPath`, `LayerNormExplorer`, integrated block trace | yes |
 | §3.2 Attention (opening) | Query, key, value and output are all vectors; the output is a weighted sum of values | `#attention` | P1 done | weighted sums | weighted-sum bars | yes |
 | §3.2.1 Scaled Dot-Product Attention | Equation (1), the √d_k division, masking, comparison with additive attention | `#similarity`, `#proportion`, `#attention` | P1 done | dot product, exponential, softmax, matrix product | the attention lab, every step | yes |
-| §3.2.2 Multi-Head Attention | h=8, d_k=d_v=d_model/h=64, the MultiHead and head_i equations, W_i^Q / W_i^K / W_i^V / W^O | `#multi-head` | P2 done | joining matrices side by side | `MultiHeadSplit`, `HeadPatterns` — the two heads' computed weights | yes |
-| §3.2.3 Applications of Attention | The three uses: encoder–decoder attention, encoder self-attention, decoder masked self-attention | the masking part of `#attention`, the layer summary in `#blocks` | P2 done | none | the decoder layer in `#blocks` | yes |
+| §3.2.2 Multi-Head Attention | h=8, d_k=d_v=d_model/h=64, the MultiHead and head_i equations, W_i^Q / W_i^K / W_i^V / W^O | `#multi-head` | P2 done | joining matrices side by side | `MultiHeadSplit`, `HeadPatternsExplorer`, computed W_O product | yes |
+| §3.2.3 Applications of Attention | The three uses: encoder–decoder attention, encoder self-attention, decoder masked self-attention | the mask in `#positions`, cross-attention in `#attention`, layer summary in `#blocks` | P2 done | none | the decoder layer in `#blocks` | yes |
 | §3.3 Position-wise Feed-Forward Networks | Equation (2), d_ff=2048, applied identically at every position | `#blocks` | P2 done | ReLU | `FeedForwardShape` — the computed hidden row, before and after | yes |
-| §3.4 Embeddings and Softmax | Learned embeddings; the two embedding layers and the pre-softmax linear transform share weights; embeddings multiplied by √d_model | the input path in `#big-picture`; the output distribution in `#training` | P1 partial / P3 partial | none | `TokenPipeline`, `LossPicture` | partial — the shared weights and the √d_model factor are still not covered |
-| §3.5 Positional Encoding | PE(pos,2i)=sin(pos/10000^(2i/d_model)), PE(pos,2i+1)=cos(...); wavelengths form a geometric progression from 2π to 10000·2π | `#positions` | P2 done | sine, cosine, period | `PositionWaves`, `PositionGrid` — computed values | yes |
+| §3.4 Embeddings and Softmax | Learned embeddings; the two embedding layers and the pre-softmax linear transform share weights; embeddings multiplied by √d_model | the lookup in `#tokens`, readout in `#big-picture`, target probabilities in `#training` | P1 partial / P3 partial | none | `EmbeddingLookupExplorer`, `LayerTraceExplorer`, `LossExplorer` | partial — embedding rescaling is described in positions, but weight tying and a learned vocabulary readout are not computed |
+| §3.5 Positional Encoding | PE(pos,2i)=sin(pos/10000^(2i/d_model)), PE(pos,2i+1)=cos(...); wavelengths form a geometric progression from 2π to 10000·2π | `#positions` | P2 done | sine, cosine, period | `PositionExplorer`, `PositionRows` — computed values | yes |
 | §4 Why Self-Attention | Comparison on three counts: cost per layer, number of sequential operations, maximum path length | `#problem`, and the n² cost again in `#results` | P1 partial / P4 partial | O(·) notation | `PathLengthDiagram` | partial — only the self-attention and recurrent rows of Table 1 are used |
 | §5 Training (opening) | How training is done, in outline | `#training` | P3 done | none | `TrainAndGenerate` | yes |
 | §5.1 Training Data and Batching | WMT14 EN-DE, 4.5M sentence pairs, BPE with 37 000 tokens; EN-FR, 36M sentences, word-piece 32 000; about 25 000 source and target tokens per batch | the conditions table in `#training` | P3 done | none | none | yes |
 | §5.2 Hardware and Schedule | 8 P100s; base 0.4 s/step over 100K steps (12 hours), big 1.0 s/step over 300K steps (3.5 days) | the conditions table in `#training` | P3 done | none | none | yes |
-| §5.3 Optimizer | Equation (3); Adam with β1=0.9, β2=0.98, ε=1e-9; warmup_steps=4000 | `#training` | P3 done | exponents, minimum, gradient (named, not derived) | `LearningRateCurve` — computed | yes |
-| §5.4 Regularization | Residual dropout 0.1, dropout on the embedding + PE sum, label smoothing ε_ls=0.1 | `#training` | P3 partial | probability distributions | `LossPicture` — computed | partial — dropout is named and its measured effect given, but its arithmetic is not shown |
-| §6.1 Machine Translation | base 27.3/38.1, big 28.4/41.8 BLEU; checkpoint averaging; beam 4, α=0.6 | `#results`, with beam search in `#generation` | P4 done | none | `BleuCost` — Table 2 as score against cost | yes |
+| §5.3 Optimizer | Equation (3); Adam with β1=0.9, β2=0.98, ε=1e-9; warmup_steps=4000 | `#training` | P3 done | exponents, minimum, gradient (finite difference and an analytic one-weight example; full backpropagation excluded) | `LearningRateCurve` — computed | yes |
+| §5.4 Regularization | Residual dropout 0.1, dropout on the embedding + PE sum, label smoothing ε_ls=0.1 | `#training` | P3 partial | probability distributions | `LossExplorer` — computed | partial — dropout is named and its measured effect given, but its arithmetic is not shown |
+| §6.1 Machine Translation | base 27.3/38.1, big 28.4/41.8 BLEU; checkpoint averaging; beam 4, α=0.6 | `#results`, with beam search in `#generation` | P4 done | none | `BleuCostExplorer` — Table 2 as score against cost | yes |
 | §6.2 Model Variations | The (A)–(E) ablations of Table 3 | `#results` | P4 done | none | a selected table | yes — the selection is stated, not the whole table |
 | §6.3 English Constituency Parsing | 4 layers, d_model=1024, WSJ 40K, F1 91.3 / 92.7 semi-supervised | `#results` | P4 done | none | none | yes |
 | §7 Conclusion | The first transduction model built on attention alone; directions for future work | the opening, and the closing of `#results` | P4 done | none | none | yes |
@@ -104,7 +110,7 @@ accuracy of the commentary and so they follow the theme.
 | Number | In the paper | What it shows | Explained in | Status |
 | --- | --- | --- | --- | --- |
 | Table 1 | p. 6 | Cost, sequential operations and maximum path length by layer type | only the self-attention and recurrent rows, cited in `#problem` | P1 partial — the convolutional and restricted rows are recorded in `src/lib/paper.ts` but not explained |
-| Table 2 | p. 8 | BLEU against training cost | `#results`, as the `BleuCost` scatter | P4 done |
+| Table 2 | p. 8 | BLEU against training cost | `#results`, as the `BleuCostExplorer` scatter | P4 done |
 | Table 3 | p. 9 | Architecture ablations (A)–(E) | `#results`, a selected subset | P4 done |
 | Table 4 | p. 10 | English constituency parsing results | `#results`, in prose | P4 done |
 

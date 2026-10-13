@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { READY_COUNT } from '../../src/lib/curriculum';
+import { GROUPS } from '../../src/lib/nav';
 
 /**
  * Browser checks.
@@ -25,18 +26,8 @@ const BASE = 'http://localhost:4321/llm-visual-lab/';
 
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
-  'problem',
-  'big-picture',
-  'numbers',
-  'similarity',
-  'proportion',
-  'attention',
-  'multi-head',
-  'positions',
-  'blocks',
-  'training',
-  'generation',
-  'results',
+  'language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions',
+  'multi-head', 'blocks', 'big-picture', 'training', 'generation', 'results',
 ];
 // Every section is written now. These stay so that adding a placeholder later
 // only means moving the split, not rewriting the checks.
@@ -70,7 +61,7 @@ test.describe('deployment paths and assets', () => {
   test('the root path sends you to the default language', async ({ page }) => {
     await page.goto('./');
     await page.waitForURL(/\/llm-visual-lab\/ko\/$/, { timeout: 10_000 });
-    await expect(page.locator('main h1')).toContainText('Attention Is All You Need');
+    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
   });
 
   test('the KaTeX fonts and styles all load', async ({ page }) => {
@@ -138,6 +129,36 @@ test.describe('deployment paths and assets', () => {
       expect(found, `#${id} has to exist`).toBe(true);
     }
   });
+
+  test('the contents is grouped by prerequisite-based learning stage', async ({ page }) => {
+    const FIRST_OF_GROUP = ['language-model', 'proportion', 'multi-head', 'training'];
+    for (const [path, locale] of [
+      [ARTICLE_KO, 'ko'],
+      [ARTICLE_EN, 'en'],
+    ] as const) {
+      await page.goto(path, { waitUntil: 'networkidle' });
+      const groups = page.locator('#doc-nav .toc__group');
+      await expect(groups, `${path}: four stages`).toHaveCount(4);
+      expect(await groups.locator('.toc__group-title').allTextContents()).toEqual(
+        GROUPS.map((g) => g.title[locale]),
+      );
+      await expect(groups.locator('.toc__stage > summary')).toHaveCount(4);
+      await expect(groups.locator('.toc__count')).toHaveText(['3 단원', '3 단원', '3 단원', '3 단원'].map(s => locale === 'ko' ? s : '3 units'));
+
+      const sectionIds = await page
+        .locator('#doc-nav [data-section-link]')
+        .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.sectionLink));
+      expect(sectionIds, `${path}: the twelve sections, in order`).toEqual(SECTION_IDS);
+
+      // Each stage contains its own first unit even while closed.
+      const firstAfter = await groups.evaluateAll(els => els.map(li => (li.querySelector('[data-section-item]') as HTMLElement)?.dataset.sectionItem));
+      expect(firstAfter, `${path}: each group owns the expected units`).toEqual(FIRST_OF_GROUP);
+
+      // The visible numbering is still 1–12
+      const nums = await page.locator('#doc-nav [data-section-link] .toc__num').allTextContents();
+      expect(nums).toEqual(SECTION_IDS.map((_, i) => String(i + 1)));
+    }
+  });
 });
 
 test.describe('the single-page structure', () => {
@@ -186,7 +207,7 @@ test.describe('the single-page structure', () => {
   test('there is exactly one page title', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     await expect(page.locator('main h1')).toHaveCount(1);
-    await expect(page.locator('main h1')).toContainText('Attention Is All You Need');
+    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
   });
 
   test('scrolling moves the current-section mark in the contents', async ({ page }) => {
@@ -197,7 +218,7 @@ test.describe('the single-page structure', () => {
         .getAttribute('data-section-link');
 
     await page.locator('#similarity').scrollIntoViewIfNeeded();
-    await expect.poll(marked, { timeout: 6000 }).toBe('similarity');
+    await expect.poll(marked, { timeout: 6000 }).toBe('numbers');
 
     await page.locator('#numbers').scrollIntoViewIfNeeded();
     await expect.poll(marked, { timeout: 6000 }).toBe('numbers');
@@ -208,7 +229,7 @@ test.describe('learning path on the left, contents on the right', () => {
   test('the left rail lists only what can be read, and says the rest is in preparation', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const nav = page.locator('#course-nav');
-    await expect(nav).toContainText('Attention Is All You Need');
+    await expect(nav).toContainText('LLM 원리, 작은 숫자로');
     await expect(nav.locator('a')).toHaveCount(READY_COUNT);
     await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
 
@@ -242,6 +263,10 @@ test.describe('learning path on the left, contents on the right', () => {
       })
       .toBe('numbers');
 
+    const detail = page.locator('#doc-nav .toc__details');
+    await expect(detail).not.toHaveAttribute('open', '');
+    await detail.locator('summary').click();
+    await expect(detail.locator('.toc__sublist')).toBeVisible();
     const subs = await page.locator('#doc-nav .toc__sublist a').allTextContents();
     const inSection = await page
       .locator('#numbers h3[id]')
@@ -258,7 +283,7 @@ test.describe('learning path on the left, contents on the right', () => {
       .poll(() => page.locator('#doc-nav .toc__sublist').getAttribute('data-toc-sublist'), {
         timeout: 6000,
       })
-      .toBe('similarity');
+      .toBe('numbers');
   });
 
   test('without JavaScript the whole contents list remains', async ({ browser }) => {
@@ -278,11 +303,12 @@ test.describe('learning path on the left, contents on the right', () => {
  * aria-labelledby points at somebody else's title and nothing on screen says so.
  */
 const FIGURES = [
-  { id: 'aa', section: 'problem' },
-  { id: 'pld', section: 'problem' },
-  { id: 'sw', section: 'problem' },
+  { id: 'aa', section: 'attention' },
+  { id: 'pld', section: 'attention' },
+  { id: 'sw', section: 'attention' },
   { id: 'tmap', section: 'big-picture' },
   { id: 'sf', section: 'numbers' },
+  { id: 'rc', section: 'numbers' },
   { id: 'tf', section: 'numbers' },
   { id: 'qkv', section: 'attention' },
   { id: 'as', section: 'attention' },
@@ -471,7 +497,7 @@ test.describe('figures', () => {
   }
 
   test('no figure overflows its frame', async ({ page }) => {
-    await page.goto(ARTICLE_KO);
+    await page.goto(ARTICLE_KO + '#problem');
     for (const f of FIGURES) {
       const svg = page.locator(`svg[aria-labelledby="${f.id}-t ${f.id}-d"]`);
       await svg.scrollIntoViewIfNeeded();
@@ -484,7 +510,7 @@ test.describe('figures', () => {
   });
 
   test('the figures read their numbers from the example, not from a copy', async ({ page }) => {
-    await page.goto(ARTICLE_KO);
+    await page.goto(ARTICLE_KO + '#problem');
 
     // The two heads must really differ, or the multi-head section makes no point.
     const weights = await page.locator('.lab--heads .hp__value').allTextContents();
@@ -502,7 +528,7 @@ test.describe('figures', () => {
   });
 
   test('the dimensions in the figures match the worked example', async ({ page }) => {
-    await page.goto(ARTICLE_KO);
+    await page.goto(ARTICLE_KO + '#problem');
     // ShapeFlow takes its dimensions from examples.ts, so they have to agree
     // with the 3 × 4 · 4 × 2 = 3 × 2 in the prose.
     const sf = await page.locator('#sf-d').textContent();
@@ -530,11 +556,11 @@ test.describe('switching between Korean and English', () => {
     await page.goto(ARTICLE_KO);
     await page.locator('.lang-switch').click();
     await page.waitForURL(/\/llm-visual-lab\/en\/$/);
-    await expect(page.locator('#doc-nav')).toContainText('Computing it yourself');
+    await expect(page.locator('#doc-nav')).toContainText('Tokens and vectors');
 
     await page.locator('.lang-switch').click();
     await page.waitForURL(/\/llm-visual-lab\/ko\/$/);
-    await expect(page.locator('#doc-nav')).toContainText('직접 계산해 보기');
+    await expect(page.locator('#doc-nav')).toContainText('토큰과 벡터');
   });
 
   test('both languages compute the same numbers', async ({ page }) => {
@@ -907,7 +933,7 @@ test.describe('responsiveness and reading', () => {
     const page = await ctx.newPage();
     await page.goto(BASE + ARTICLE_KO);
 
-    await expect(page.locator('main h1')).toContainText('Attention Is All You Need');
+    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
     await expect(page.locator('.katex').first()).toBeVisible();
 
     // The sections and the labs have to be in the static HTML already
@@ -923,7 +949,7 @@ test.describe('responsiveness and reading', () => {
 test.describe('the labs inside the article', () => {
   test('matrix product: choosing a cell highlights the row and column and opens the terms', async ({ page }) => {
     await page.goto(ARTICLE_KO);
-    const lab = page.locator('.lab--matmul');
+    const lab = page.locator('#numbers .lab--matmul');
 
     // Q(2,2) = row 2 of X · column 2 of W_Q = 0×0 + 1×1 + 0×0 + 1×1 = 2
     await lab.locator('.mgrid--score button.mgrid__cell').nth(3).click();
@@ -938,7 +964,7 @@ test.describe('the labs inside the article', () => {
 
   test('matrix product: editing the inputs updates the result, and reset works', async ({ page }) => {
     await page.goto(ARTICLE_KO);
-    const lab = page.locator('.lab--matmul');
+    const lab = page.locator('#numbers .lab--matmul');
     const result = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
     expect(await result()).toEqual(['2', '0', '0', '2', '1', '1']);
 
@@ -1095,4 +1121,207 @@ test.describe('the labs inside the article', () => {
     await lab.getByRole('button', { name: '토큰 3' }).click();
     await expect(lab.locator('.explorer__line')).toContainText('3번 토큰');
   });
+});
+
+
+test.describe('the complete learning progression', () => {
+  test('both languages expose twelve goals, prerequisite links and reasoned checkpoints', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      await expect(page.locator('[data-section] .point--goal')).toHaveCount(12);
+      await expect(page.locator('[data-lesson-check]')).toHaveCount(12);
+      await expect(page.locator('.lesson-next a[rel="next"]')).toHaveCount(11);
+      await expect(page.locator('.lesson-next a[rel="prev"]')).toHaveCount(11);
+      for (const id of ['problem', 'similarity', ...SECTION_IDS]) {
+        await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+      }
+      const question = page.locator('#training [data-lesson-check]');
+      await expect(question.locator('details')).not.toHaveAttribute('open', '');
+      await question.locator('summary').click();
+      await expect(question.locator('.expand__body')).toContainText('0.1');
+    }
+  });
+
+  test('embedding lookup retrieves the chosen ID row in both languages', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab=page.locator('.lab--embedding-lookup');
+      await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 0, 1, 0)');
+      await lab.getByRole('button', { name: 'c · ID 2' }).click();
+      await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 1, 0, 0)');
+      await lab.getByRole('button', { name: 'b · ID 1' }).click();
+      await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(0, 1, 0, 1)');
+    }
+  });
+
+  test('the next-token loop appends a token, changes context and stops on the end marker', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path); const lab=page.locator('.lab--next-token');
+      const append=lab.getByRole('button', { name: path==='ko/' ? '가장 큰 확률의 토큰 붙이기' : 'Append the most likely token' });
+      await append.click(); await expect(lab).toHaveAttribute('data-round', '1');
+      await expect(lab.locator('.next-token__prefix')).toContainText('a');
+      await expect(lab.locator('tbody')).toContainText('0.400');
+      await append.click(); await expect(lab).toHaveAttribute('data-round', '2');
+      await expect(lab.locator('.next-token__prefix')).toContainText('a .');
+      await expect(append).toBeDisabled();
+      await expect(lab.locator('.lab__hint')).toContainText('0.200');
+    }
+  });
+
+  test('one actual weight update changes the displayed weight, probability and loss', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path); const lab=page.locator('.lab--learning-update');
+      await expect(lab.locator('.learning-update__weight')).toHaveText('0.000');
+      await expect(lab.locator('.learning-update__loss')).toHaveText('0.693147');
+      await expect(lab.locator('.learning-update__after-loss')).toHaveText('0.644397');
+      await lab.getByRole('button', { name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once' }).click();
+      await expect(lab.locator('.learning-update__weight')).toHaveText('0.100');
+      await expect(lab.locator('.learning-update__loss')).toHaveText('0.644397');
+      await expect(lab.locator('.learning-update__steps')).toContainText('1');
+    }
+  });
+
+  test('the input changes the weight-update direction and zero input gives no update', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab = page.locator('.lab--learning-update');
+      const input = lab.getByRole('slider', {name: path==='ko/' ? '입력 x' : 'Input x', exact:true});
+      await input.focus(); await input.press('Home');
+      await expect(lab.locator('.learning-update__gradient')).toHaveText('0.500000');
+      await lab.getByRole('button', {name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
+      await expect(lab.locator('.learning-update__weight')).toHaveText('−0.100');
+      await expect(lab.locator('.learning-update__loss')).toHaveText('0.644397');
+      await input.focus(); await input.press('ArrowRight');
+      await expect(lab.locator('.learning-update__gradient')).toHaveText('0.000000');
+      await expect(lab.locator('.learning-update__loss')).toHaveText('0.693147');
+      await lab.getByRole('button', {name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
+      await expect(lab.locator('.learning-update__weight')).toHaveText('−0.100');
+      await expect(lab.locator('.learning-update__after-loss')).toHaveText('0.693147');
+    }
+  });
+
+  test('the integrated block reaches vocabulary probabilities and reacts to position input', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path); const lab=page.locator('.lab--layer-trace');
+      await lab.locator('.stepper__chip').last().click();
+      await expect(lab).toHaveAttribute('data-stage','probabilities');
+      const before=await lab.locator('.layer-trace__prediction').innerText();
+      const values=await lab.locator('.mgrid__value').allTextContents();
+      expect(values).toHaveLength(12);
+      for (let i=0;i<3;i++) expect(values.slice(i*4,i*4+4).reduce((sum,v)=>sum+Number(v),0)).toBeCloseTo(1,2);
+      await lab.getByRole('checkbox').uncheck();
+      await expect(lab.locator('.layer-trace__prediction')).not.toHaveText(before);
+    }
+  });
+
+  test('the position checkbox stays beside its label and controls only the toy input calculation', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab = page.locator('.lab--layer-trace');
+      const checkbox = lab.getByRole('checkbox');
+      const alignment = await checkbox.locator('..').evaluate(label => {
+        const input = label.querySelector('input')!.getBoundingClientRect();
+        const text = label.querySelector('span') ?? [...label.childNodes].find(n => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())!;
+        const range = document.createRange(); range.selectNodeContents(text);
+        const box = range.getBoundingClientRect();
+        return { vertical: Math.abs((input.top+input.height/2)-(box.top+box.height/2)), gap: box.left-input.right };
+      });
+      expect(alignment.vertical, 'checkbox and label must share a line').toBeLessThan(4);
+      expect(alignment.gap).toBeGreaterThanOrEqual(0);
+      expect(alignment.gap).toBeLessThan(16);
+      await expect(checkbox).toHaveAccessibleName(path==='ko/' ? '위치 정보 포함하기' : 'Include position information');
+      await expect(checkbox).toBeChecked();
+      await lab.locator('.stepper__chip').nth(1).click();
+      expect((await lab.locator('.mgrid__value').allTextContents()).slice(0,4)).toEqual(['1.000','1.000','1.000','1.000']);
+      await checkbox.focus(); await checkbox.press('Space');
+      await expect(checkbox).not.toBeChecked();
+      expect((await lab.locator('.mgrid__value').allTextContents()).slice(0,4)).toEqual(['1.000','0.000','1.000','0.000']);
+      await page.reload();
+      await expect(checkbox).toBeChecked();
+    }
+  });
+
+  test('sampling can choose different tokens from unchanged logits', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path); const lab=page.locator('.lab--token-choice');
+      await lab.getByRole('button',{name:'sampling',exact:true}).click();
+      const u=lab.getByRole('slider').nth(1);
+      await u.focus(); await u.press('Home');
+      await expect(lab.locator('.token-choice__selected')).toHaveText('a');
+      await u.press('End'); await expect(lab.locator('.token-choice__selected')).toHaveText('.');
+      const before=(await lab.locator('.token-choice__probability').allTextContents()).map(Number);
+      const temperature=lab.getByRole('slider').first(); await temperature.focus(); await temperature.press('End');
+      const after=(await lab.locator('.token-choice__probability').allTextContents()).map(Number);
+      expect(Math.max(...after)).toBeLessThan(Math.max(...before));
+    }
+  });
+
+  test('math help is local, collapsed by default and accessible from the keyboard', async ({ page }) => {
+    const expected = {
+      'language-model':'conditional', tokens:'shape', numbers:'sum', proportion:'softmax',
+      attention:'attention', positions:'position', 'multi-head':'multi-head', blocks:'layernorm',
+      'big-picture':'readout', training:'gradient', generation:'temperature', results:'cost',
+    };
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      await expect(page.locator('#symbols, .math-primer')).toHaveCount(0);
+      await expect(page.locator('[data-local-math][open]')).toHaveCount(0);
+      for (const [unit, help] of Object.entries(expected)) {
+        await expect(page.locator(`[data-section="${unit}"] #math-${help}`)).toHaveCount(1);
+      }
+      const sum = page.locator('#math-sum');
+      const summary = sum.locator(':scope > summary');
+      await summary.focus(); await summary.press('Space');
+      await expect(sum).toHaveAttribute('open','');
+      await expect(sum.locator('.expand__body')).toContainText('2 + 3 + 5');
+      await summary.press('Enter');
+      await expect(sum).not.toHaveAttribute('open','');
+      const gradient = page.locator('#math-gradient');
+      await gradient.locator(':scope > summary').focus();
+      await gradient.locator(':scope > summary').press('Space');
+      await expect(gradient).toHaveAttribute('open','');
+      await expect(gradient.locator('.expand__body')).toContainText('0.693647');
+      await expect(gradient.locator('.expand__body')).toContainText('0.1');
+    }
+  });
+
+  test('a direct link opens the local calculation and marks its owning unit', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path+'#math-gradient');
+      await expect(page.locator('#math-gradient')).toHaveAttribute('open','');
+      await expect(page.locator('#math-gradient')).toBeInViewport();
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('10/12');
+      await expect(page.locator('#doc-nav [data-toc-stage="use"]')).toHaveAttribute('open','');
+    }
+  });
+
+  test('smoothing loss can be lower for a low correct probability', async ({ page }) => {
+    await page.goto(ARTICLE_KO); const lab=page.locator('.lab--loss');
+    const probability=lab.getByRole('slider').first(); await probability.focus(); await probability.press('Home');
+    for (let i=0;i<7;i++) await probability.press('ArrowRight');
+    const labels=await lab.locator('svg').first().locator('text').allTextContents();
+    const losses=labels.filter(s=>s.includes(' = ')).map(s=>Number(s.split('=').at(-1)));
+    expect(losses).toHaveLength(2);
+    expect(losses[0]).toBeCloseTo(2.526,3); expect(losses[1]).toBeCloseTo(2.429,3);
+    expect(losses[1]).toBeLessThan(losses[0]);
+  });
+});
+
+
+test('contents prioritizes the current coarse stage and opens fine headings on demand', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path + '#training');
+    const toc=page.locator('#doc-nav');
+    await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
+    await expect(toc.locator('[data-toc-stage="use"]')).toHaveAttribute('open','');
+    await expect(toc.locator('[data-current-lesson]')).toContainText('10/12');
+    await expect(toc.locator('.toc__details')).not.toHaveAttribute('open','');
+    await toc.locator('.toc__details > summary').click();
+    await expect(toc.locator('.toc__sublist')).toBeVisible();
+    await expect(toc.locator('[data-section-link]')).toHaveCount(12);
+    await toc.locator('[data-toc-stage="start"] > summary').click();
+    await toc.locator('a[href="#tokens"]').click();
+    await expect(toc.locator('[data-current-lesson]')).toContainText('2/12');
+    await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
+  }
 });

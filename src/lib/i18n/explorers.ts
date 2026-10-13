@@ -146,7 +146,7 @@ const ko: ExplorerText = {
     soft: '정답 (누그러뜨린 것)',
     loss: '틀린 정도',
     curve: '정답 확률에 따른 −ln',
-    tryThis: '정답 확률을 0.9 에서 0.1 로 내려 보세요. 손실이 조금씩이 아니라 점점 가파르게 커집니다. 곡선의 왼쪽 끝이 그 모양이에요. 그다음 ε 을 0 으로 두면 두 손실이 같아지고, 키울수록 누그러뜨린 쪽의 손실이 커집니다.',
+    tryThis: '정답 확률을 0.9 에서 0.1 로 내려 보세요. 손실이 조금씩이 아니라 점점 가파르게 커집니다. 곡선의 왼쪽 끝이 그 모양이에요. 그다음 ε 을 0 으로 두면 두 손실이 같습니다. ε 을 키운 뒤 두 값을 비교해 보세요. 어느 쪽이 큰지는 지금의 예측 확률에 따라 달라집니다.',
   },
   beam: {
     title: '후보를 몇 개 들고 갈지 바꿔 보기',
@@ -231,7 +231,7 @@ const en: ExplorerText = {
     soft: 'the answer, softened',
     loss: 'loss',
     curve: '−ln against the probability on the right word',
-    tryThis: 'Take the probability from 0.9 down to 0.1. The loss does not grow evenly; it gets steeper and steeper. That is the left end of the curve. Then set ε to 0 and the two losses coincide; raise it and the softened one grows.',
+    tryThis: 'Take the probability from 0.9 down to 0.1. The loss does not grow evenly; it gets steeper and steeper. That is the left end of the curve. Then set ε to 0 and the two losses coincide. Raise ε and compare them: which loss is larger depends on the current prediction.',
   },
   beam: {
     title: 'Change how many candidates to carry',

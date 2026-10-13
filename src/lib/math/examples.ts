@@ -133,7 +133,7 @@ export function defaultMultiHeadInput(): MultiHeadInput {
 /**
  * A small feed-forward network: d_model = 4, d_ff = 8.
  *
- * The paper uses 512 and 2048 — the same four-to-one ratio. Small integers so
+ * The paper uses 512 and 2048 (fourfold); this smaller example uses 4 and 8 (twofold). Small integers so
  * the reader can check a hidden unit by hand, and negative entries so the ReLU
  * has something to do.
  */

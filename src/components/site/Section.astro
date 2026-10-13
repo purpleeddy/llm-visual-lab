@@ -7,7 +7,9 @@
  * quietly break the contents links and the cross-references in the prose.
  * `data-section` is what the scroll-position script reads.
  */
-import { sectionById } from '../../lib/nav';
+import { SECTIONS, groupById, sectionById } from '../../lib/nav';
+import Point from './Point.astro';
+import Expand from './Expand.astro';
 import type { Locale } from '../../lib/i18n/routing';
 
 interface Props {
@@ -22,11 +24,19 @@ const meta = sectionById(id);
 if (!meta) throw new Error(`no such section id in nav.ts: ${id}`);
 
 const title = meta.title[locale];
+const group = groupById(meta.group);
+if (!group) throw new Error(`no such group id in nav.ts: ${meta.group}`);
+const kicker = group.title[locale];
+const index = SECTIONS.findIndex(s => s.id === id);
+const previous = SECTIONS[index - 1];
+const next = SECTIONS[index + 1];
+const prerequisites = meta.prerequisites.map(key => { const p = sectionById(key); if (!p) throw new Error(`Unknown prerequisite: ${key}`); return p; });
 const planned = meta.status === 'planned';
 const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not written yet';
 ---
 
 <section class={`doc-section${planned ? ' doc-section--planned' : ''}`} id={id} data-section={id}>
+  <p class="doc-section__kicker">{kicker}</p>
   <h2 class="doc-section__title">
     <span>{title}</span>
     {
@@ -39,5 +49,15 @@ const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not wr
     }
   </h2>
   {lead ? <p class="doc-section__lead">{lead}</p> : null}
+  <p class="lesson-prerequisites">{locale === 'ko' ? '먼저 배운 것: ' : 'Builds on: '}{prerequisites.length ? prerequisites.map((p, i) => <span>{i ? ' · ' : ''}<a href={`#${p.id}`}>{p.title[locale]}</a></span>) : (locale === 'ko' ? '사칙연산부터 시작합니다.' : 'Start with arithmetic.')}</p>
+  <Point kind="goal" locale={locale}>{meta.goal[locale]}</Point>
   <slot />
+  <div class="lesson-check" data-lesson-check={id}>
+    <Point kind="check" locale={locale}>{meta.check.question[locale]}</Point>
+    <Expand summary={locale === 'ko' ? '답과 이유 보기' : 'Answer and reasoning'}><p>{meta.check.answer[locale]}</p></Expand>
+  </div>
+  <nav class="lesson-next" aria-label={locale === 'ko' ? '학습 순서로 이동' : 'Move along the learning path'}>
+    {previous && <a href={`#${previous.id}`} rel="prev">← {locale === 'ko' ? '이전' : 'Previous'}: {previous.title[locale]}</a>}
+    {next && <a href={`#${next.id}`} rel="next">{locale === 'ko' ? '다음' : 'Next'}: {next.title[locale]} →</a>}
+  </nav>
 </section>

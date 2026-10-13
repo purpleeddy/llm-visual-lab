@@ -1,48 +1,27 @@
 ---
-/**
- * The contents rail on the right — the sections of the article being read.
- *
- * The twelve sections come from `nav.ts`, so the server renders them directly.
- * Only the sub-headings (h3) **inside** a section are folded in by script,
- * under whichever section is being read. Section headings (h2) are rendered by
- * the Section component, so they never reach Astro's `headings` array; the
- * sub-headings arrive flat, with nothing to say where one section ends.
- *
- * Without JavaScript this stays a twelve-line list, which navigates fine.
- */
-import { SECTIONS } from '../../lib/nav';
+/** Four coarse stages; open the current stage, then request its detailed headings. */
+import { GROUPS, SECTIONS } from '../../lib/nav';
 import { type Locale } from '../../lib/i18n/routing';
 import { t } from '../../lib/i18n/ui';
-
-interface Props {
-  locale: Locale;
-}
+interface Props { locale: Locale; }
 const { locale } = Astro.props;
 const ui = t(locale);
 ---
-
 <nav class="toc" id="doc-nav" aria-label={ui.nav.onThisPage}>
   <p class="toc__title">{ui.nav.contents}</p>
+  <p class="toc__current" aria-live="polite"><span>{locale === 'ko' ? '현재 위치' : 'Current unit'}</span><strong data-current-lesson>1/{SECTIONS.length} · {SECTIONS[0].navTitle[locale]}</strong></p>
   <ol class="toc__list" data-section-nav>
-    {
-      SECTIONS.map((s, i) =>
-        s.status === 'planned' ? (
-          <li>
-            <span class="toc__pending" data-note={s.stage}>
-              <span class="toc__num">{i + 1}</span>
-              {s.title[locale]}
-              <span class="visually-hidden"> — {ui.status.plannedNote}</span>
-            </span>
-          </li>
-        ) : (
-          <li data-section-item={s.id}>
-            <a class="toc__link" href={`#${s.id}`} data-section-link={s.id}>
-              <span class="toc__num">{i + 1}</span>
-              {s.title[locale]}
+    {GROUPS.map((group, gi) => <li class="toc__group">
+      <details class="toc__stage" data-toc-stage={group.id} open={gi === 0}>
+        <summary><span class="toc__group-title">{group.title[locale]}</span><span class="toc__count">{SECTIONS.filter(s => s.group === group.id).length} {locale === 'ko' ? '단원' : 'units'}</span></summary>
+        <ol class="toc__stage-list">
+          {SECTIONS.filter(s => s.group === group.id).map(s => <li data-section-item={s.id}>
+            <a class="toc__link" href={`#${s.id}`} data-section-link={s.id} data-short-title={s.navTitle[locale]}>
+              <span class="toc__num">{SECTIONS.findIndex(x => x.id === s.id) + 1}</span>{s.navTitle[locale]}
             </a>
-          </li>
-        ),
-      )
-    }
+          </li>)}
+        </ol>
+      </details>
+    </li>)}
   </ol>
 </nav>

@@ -1,0 +1,25 @@
+---
+/*
+ * One labelled line: what a section builds (goal) or a fact the reader can
+ * verify (check). The slot stays inline so math and bold flow in the sentence.
+ *
+ *   <Point kind="goal" locale="ko">이 절이 만드는 것은 …</Point>
+ *   <Point kind="check" locale="en">The first row sums to 1.</Point>
+ *
+ * Styles live in src/styles/base.css under `.point`.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  kind: 'goal' | 'check';
+  locale: Locale;
+}
+const { kind, locale } = Astro.props;
+
+const LABELS: Record<Locale, Record<Props['kind'], string>> = {
+  ko: { goal: '목표', check: '확인' },
+  en: { goal: 'Goal', check: 'Check' },
+};
+const label = LABELS[locale][kind];
+---
+<p class={`point point--${kind}`}><strong class="point__label">{label}</strong> <slot /></p>

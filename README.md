@@ -1,19 +1,32 @@
 # LLM Visual Lab
 
-A walkthrough of *Attention Is All You Need* with the math done on the page.
-Small examples, every number computed live, controls where a picture alone is not enough.
-Korean and English.
+A gradual introduction to LLM principles through small numerical experiments, using
+*Attention Is All You Need* and a bridge to decoder-only language models.
+Work a small example, change a value, then open the calculation behind it. Korean and English.
 
 ![Frame 5 of the walkthrough: five rows go through six encoder layers, five rows come out](docs/readme/walk-encoder.png)
 
 ## What's covered
 
-The whole paper, in reading order: the problem with reading one word at a time, the
-overall architecture, vectors and matrix products, dot product, softmax, attention on a
-3-token example, multi-head attention, positional encoding, feed-forward / residual /
-layer norm, training, beam search, results and ablations.
+Twelve units in four learning stages:
 
-Math is introduced where the paper first needs it. No linear algebra is assumed.
+1. **Inputs and numbers**: next-token prediction → tokens, IDs and embeddings → matrix products and dot products.
+2. **Context and order**: softmax and weighted sums → self-attention → positions and causal masks.
+3. **Blocks and models**: multi-head attention → FFN, residual and layer norm → the full route and a computed one-block decoder.
+4. **Learning and generation**: target alignment, loss and one weight update → greedy, sampling and beam search → evaluation and limits.
+
+Every unit states its goal, earlier prerequisites and a checkpoint with folded reasoning.
+Maths help belongs to the calculation that needs it: native, initially closed disclosures
+show actual numbers and connect them to notation. There is no front-loaded symbol dictionary.
+The contents opens the current stage; detailed headings are available on request.
+Old anchors such as `#problem`, `#similarity` and `#attention` still work.
+
+Experiments compute from explicitly hand-chosen inputs. IDs in conceptual illustrations
+and prefix probability tables are illustrative; benchmark values come from the paper.
+The tiny decoder is a one-block, post-norm illustration, not a trained GPT or full translator.
+Its position step adds X+PE without the paper’s embedding rescaling; its vocabulary readout
+is an identity matrix. The training experiment really updates one coefficient and recomputes
+loss; it does not implement backpropagation through an entire LLM.
 
 ## Try it
 
@@ -22,9 +35,13 @@ see which row and column produced it and the products that add up to it.
 
 ![Attention lab, scores step, one cell of QKᵀ selected](docs/readme/attention-lab.png)
 
-Other things you can move: the position and pair in positional encoding, the probability
-on the right word and ε in the loss, γ and β in layer norm, the residual bypass on/off
-across six layers, beam width, the language pair in the results table.
+Other experiments let you retrieve an embedding row by ID, append next tokens, follow one
+input through attention and a complete block, update one coefficient, and compare greedy
+with sampling on the same logits. Existing controls for positions, normalization, residuals,
+loss, beam width and benchmark tables remain.
+
+In the learning experiment input 1, 0 and −1 reveal why a learned weight is a multiplication
+coefficient, rather than an attention share or a fixed label of importance.
 
 ![Positional encoding explorer](docs/readme/position-explorer.png)
 

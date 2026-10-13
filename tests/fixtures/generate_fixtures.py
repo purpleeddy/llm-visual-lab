@@ -232,28 +232,33 @@ def lrate(step, d_model=512, warmup=4000):
 
 
 def beam(model, width, max_steps=6):
-    """Plain breadth-first with a cut, written independently of the TS."""
-    live = [([], 1.0)]
-    done = []
+    """Breadth-first candidates, with completed paths competing for beam slots."""
+    frontier = [([], 1.0)]
     for _ in range(max_steps):
-        if not live:
+        branches = []
+        for toks, p in frontier:
+            if toks and toks[-1] == ".":
+                branches.append((toks, p))
+            else:
+                branches.extend((toks + [tok], p * q)
+                                for tok, q in model[" ".join(toks)].items())
+        frontier = sorted(branches, key=lambda c: (-c[1], " ".join(c[0])))[:width]
+        completed = [c for c in frontier if c[0][-1] == "."]
+        if completed and all(p <= completed[0][1] for t, p in frontier if t[-1] != "."):
             break
-        expanded = []
-        for toks, p in live:
-            for tok, q in model[" ".join(toks)].items():
-                expanded.append((toks + [tok], p * q))
-        expanded.sort(key=lambda c: (-c[1], " ".join(c[0])))
-        done += [c for c in expanded if c[0][-1] == "."]
-        live = [c for c in expanded if c[0][-1] != "."][:width]
-        if done and all(p <= max(d[1] for d in done) for _, p in live):
-            break
-    done.sort(key=lambda c: (-c[1], " ".join(c[0])))
+    completed = [c for c in frontier if c[0][-1] == "."]
     return {"width": width,
-            "best": {"tokens": done[0][0], "probability": done[0][1]},
-            "finished": [{"tokens": t, "probability": p} for t, p in done]}
+            "best": {"tokens": completed[0][0], "probability": completed[0][1]},
+            "finished": [{"tokens": t, "probability": p} for t, p in completed]}
 
 
 def main():
+    # Width 1 must never recover an end token discarded by a greedy choice.
+    counterexample = {"": {"a": 1}, "a": {"b": .6, ".": .4},
+                      "a b": {"c": .6, ".": .4}, "a b c": {".": 1}}
+    result = beam(counterexample, 1)["best"]
+    assert result["tokens"] == ["a", "b", "c", "."]
+    assert abs(result["probability"] - .36) < 1e-12
     n = len(X)
     data = {
         "_comment": (

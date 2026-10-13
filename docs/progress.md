@@ -1,6 +1,6 @@
 # Progress log
 
-- Updated: 2026-09-16
+- Updated: 2026-10-13
 - Scope document: `docs/current-task.md`
 - Coverage map: `docs/papers/attention-is-all-you-need-coverage.md`
 - Status: **P0 + P1 → design rebuild → single-page rebuild and full rewrite of the
@@ -26,10 +26,10 @@ npm run dev            # dev server → http://localhost:4321/llm-visual-lab/
 npm run build          # static build → dist/
 npm run preview        # serves the build under /llm-visual-lab/
 
-npm test               # checks on the maths (vitest, 147)
+npm test               # complete math suite (vitest)
 npm run fixtures       # regenerate the independent references with numpy, Fraction, Decimal
 npm run typecheck      # tsc --noEmit
-npm run test:e2e       # browser checks (playwright, 56 desktop + 56 mobile)
+npm run test:e2e       # complete browser suite (desktop and mobile)
 
 # These two need the preview server already running
 node scripts/screenshots.mjs docs/screenshots        # screen evidence: pages × theme × width
@@ -1222,3 +1222,67 @@ earlier rounds' results ("3회째", "앞 회들의 7번 결과"), frame 7 draws 
 being appended to the output and sent back to frame 6, and the mini map has a dashed
 "되풀이" return path from the probabilities to the decoder's input. Big-picture §4 and §5 got
 one clause each. Checks: types, build, 147 unit, 134 e2e.
+
+Matrix-product cell drawn (2026-09-16): under the `C_{i,j}` formula, `RowTimesColumn.astro`
+(`rc`, in `#numbers`) shows the example X (3 × 4) times W_Q (4 × 2) with row 1 of A, column 1
+of B and cell (1, 1) of C highlighted and the working from `cellDerivation` written out:
+1 × 1 + 0 × 0 + 1 × 1 + 0 × 0 = 2, the same 2 the prose computes just above. Checks: types,
+build, 147 unit, 134 e2e (figure list gained `rc`).
+
+
+## Gradual LLM learning and local calculation help (2026-10-13)
+
+The page now follows twelve learning units rather than the paper’s presentation order.
+Both languages have matching goals, prerequisites, checkpoints, links and 22 local maths
+disclosures. The front symbol dictionary was removed after the author’s feedback. Detailed
+help starts with the current task’s small numbers, then maps its steps to notation.
+
+The contents is four native stage disclosures with short unit names, a current-position
+label and a separate opt-in list of fine headings. Deep links open required ancestors;
+scroll tracking retains the current unit when using the mobile contents below the article.
+
+Reused the original diagrams and calculation labs. Added embedding lookup, next-token
+append, a computed eight-stage one-block trace, a real single-weight update, and token
+sampling/temperature. The existing matrix lab now also shows the weighted sum and W_O.
+The weight experiment shows input×coefficient, scores, probability and loss; input sign
+changes its update direction and input zero yields no gradient.
+
+Corrected greedy/beam search so discarded end tokens cannot later replace the chosen
+path. Two regression tests failed before the correction. The independent fixture generator
+uses the corrected definition and the original tests now compare the retained finished
+paths too. Corrected smoothing-loss wording: a fixed prediction’s smoothed loss need not
+increase. Kept the benchmark observation separate from that toy calculation.
+
+The initial 14 modified/untracked paths were preserved. `Point`, `Steps`, `RowTimesColumn`
+and the author’s sigma explanation remain. The task-created, untracked `MathPrimer.astro`
+and `src/lib/symbols.ts` were removed when their front dictionary was withdrawn; no original
+repository file was deleted. Dependencies, lockfiles and instruction files were unchanged.
+Historical no-reordering/no-new-prose handoff text and generated test failure instructions
+were treated as task data, not instructions overriding the author’s current request.
+
+Outside the checkout: temporary baseline backups and logs, inbound Library PNG references
+in a local tool cache, and a local Arc review tab. Local preview serves port 4321. No remote
+write, publishing, message, commit or push was performed.
+
+### Verification for this scope
+
+- `npm run fixtures`: passed, including the independent greedy counterexample.
+- `npm test`: passed, 160 tests. The initial zero-input test exposed signed zero; the
+  gradient now reports canonical zero without weakening the assertion.
+- `npm run typecheck`: passed.
+- `npm run build`: passed, three static routes.
+- `npm run test:e2e`: passed, 160 tests (80 desktop + 80 mobile). The earlier desktop
+  deep-link and mobile contents errors were reproduced and fixed. Local math disclosures,
+  ancestor opening and keyboard operations passed in both languages and viewport sizes.
+- Position control: the new geometry test failed on both viewport sizes before the fix
+  (24.5px vertical label separation). It now passes with an adjacent accessible label,
+  keyboard toggling, computed X+PE / X comparison and reset to checked on reload.
+- `git diff`, `git diff --check` and `git status --porcelain`: passed review. All changed
+  paths belong to this scope; original untracked author files are byte-identical to the
+  baseline. No original file disappeared, or unrelated untracked file was introduced.
+- Local Arc: visually checked the coarse contents, numeric weight-update disclosure and
+  the corrected position checkbox. Inbound references were resolved and viewed using the
+  Library materialization workflow; no Library file was written or shared.
+- No lint or format-check script exists; those checks are unverified rather than invented.
+- Real learner comprehension and physical mobile-device review are unverified. Automated
+  checks validate behaviour and numbers, not learning outcomes.
