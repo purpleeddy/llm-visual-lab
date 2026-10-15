@@ -1725,11 +1725,25 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
 
 
 test.describe('visible static transpose explanation', () => {
-  test('the prerequisite transpose uses the Y that the preceding multiplication produced', async ({ page }) => {
+  test('one existing Y pair keeps the same values and score when its right row stands up', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const diagram = page.locator('#numbers svg[aria-labelledby="tf-t tf-d"]');
-      await expect(diagram.locator('.hp__value')).toHaveText(['2','0','0','2','1','1','2','0','1','0','2','1']);
+      await expect(diagram.locator('.hp__value')).toHaveText(['1','1','2','0','1','1','2','0','2']);
+      await expect(diagram.locator('[data-pair-row="left"] .hp__value')).toHaveText(['1','1']);
+      await expect(diagram.locator('[data-pair-row="right"] .hp__value')).toHaveText(['2','0']);
+      await expect(diagram.locator('[data-pair-product="left"] .hp__value')).toHaveText(['1','1']);
+      await expect(diagram.locator('[data-pair-product="right"] .hp__value')).toHaveText(['2','0']);
+      await expect(diagram.locator('[data-pair-equation]')).toHaveText(['1 × 2 + 1 × 0 = 2','1 × 2 + 1 × 0 = 2']);
+      await expect(diagram.locator('[data-pair-result]')).toHaveText('2');
+      const row = await diagram.locator('[data-pair-row="right"] rect').evaluateAll(nodes=>nodes.map(el=>({x:el.getAttribute('x'),y:el.getAttribute('y'),fill:el.getAttribute('fill')})));
+      const column = await diagram.locator('[data-pair-product="right"] rect').evaluateAll(nodes=>nodes.map(el=>({x:el.getAttribute('x'),y:el.getAttribute('y'),fill:el.getAttribute('fill')})));
+      expect(row).toHaveLength(2); expect(column).toHaveLength(2);
+      expect(row[0].y).toBe(row[1].y); expect(Number(row[1].x)).toBeGreaterThan(Number(row[0].x));
+      expect(column[0].x).toBe(column[1].x); expect(Number(column[1].y)).toBeGreaterThan(Number(column[0].y));
+      expect(column.map(cell=>cell.fill)).toEqual(row.map(cell=>cell.fill));
+      expect(new Set(row.map(cell=>cell.fill)).size).toBe(2);
+      expect(await diagram.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(560);
       await expect(diagram.locator('#tf-d')).toContainText('Y');
       await expect(diagram.locator('#tf-d')).not.toContainText('Q');
       await expect(diagram.locator('#tf-d')).not.toContainText('K');
@@ -1758,15 +1772,27 @@ test.describe('static Q–K comparisons', () => {
         await expect(walk.locator(`[data-matrix="${id}"] .mgrid__shape`)).toHaveText('2 × 3');
       }
       await expect(walk.locator('[data-matrix="qkw-q"] .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
-      for (const stage of [2,3]) {
-        const step = walk.locator(`[data-step="${stage}"]`);
-        await expect(step.locator('.qkw__scores tbody td')).toHaveText(['0','4','2','4','0','2','2','2','2']);
-        await expect(step.locator('[data-selected="true"]')).toHaveText('2');
-        const future = step.locator('[data-future="true"]');
-        await expect(future).toHaveCount(3);
-        expect(await future.evaluateAll(cells => cells.map(cell => [cell.getAttribute('data-r'),cell.getAttribute('data-c')]))).toEqual([['0','1'],['0','2'],['1','2']]);
-        await expect(step.locator('.qkw__legend')).toContainText(path===ARTICLE_KO ? '가리기 전 점수' : 'raw scores before masking');
-      }
+      await expect(walk.locator('[data-product-value]')).toHaveText(path===ARTICLE_KO ? ['기여: 0','기여: 2'] : ['contribution: 0','contribution: 2']);
+      const one = walk.locator('[data-step="2"]');
+      await expect(one.locator('[data-comparison-shape]')).toHaveAttribute('data-comparison-shape','1 × 3');
+      await expect(one.locator('.qkw__score-value')).toHaveText(['2','2','2']);
+      await expect(one.locator('[data-candidate-calculation]')).toHaveText(['1×0 + 1×2','1×2 + 1×0','1×1 + 1×1']);
+      await expect(one.locator('[data-selected="true"] .qkw__score-value')).toHaveText('2');
+      await expect(one.locator('[data-future="true"]')).toHaveCount(0);
+      const all = walk.locator('[data-step="3"]');
+      await expect(all.locator('[data-comparison-shape]')).toHaveAttribute('data-comparison-shape','3 × 3');
+      await expect(all.locator('.qkw__scores tbody .qkw__score-value')).toHaveText(['0','4','2','4','0','2','2','2','2']);
+      await expect(all.locator('[data-selected="true"] .qkw__score-value')).toHaveText('2');
+      const future = all.locator('[data-future="true"]');
+      await expect(future).toHaveCount(3);
+      expect(await future.evaluateAll(cells => cells.map(cell => [cell.getAttribute('data-r'),cell.getAttribute('data-c')]))).toEqual([['0','1'],['0','2'],['1','2']]);
+      await expect(all.locator('.qkw__legend')).toContainText(path===ARTICLE_KO ? '가리기 전 점수' : 'raw scores before masking');
+      await expect(all.locator('[data-desired-row]')).toHaveText('0, 2');
+      await expect(all.locator('[data-wrong-column]')).toHaveText('0, 2, 1');
+      await expect(all.locator('[data-matching-column]')).toHaveText('0, 2');
+      await expect(all.locator('[data-incompatible-shapes]')).toContainText(path===ARTICLE_KO ? '행렬곱을 할 수 없습니다' : 'cannot be multiplied');
+      await expect(all.locator('[data-square-reason]')).toContainText(path===ARTICLE_KO ? '양쪽 토큰 수가 각각 3' : 'each side has 3 tokens');
+      expect(await all.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-c="0"]').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).outlineStyle))).toEqual(['dashed','dashed','dashed']);
     }
   });
 
@@ -1830,7 +1856,9 @@ test('learning prose omits lab bookkeeping and retains numerical scope and obser
     await expect(page.locator('main')).not.toContainText(ko ? '다른 실습에는 각자의 처음값이 남습니다' : 'other labs keep their own inputs');
     await expect(page.locator('main')).not.toContainText(ko ? '각 단계에 무슨 일이 일어나는지' : 'Each step explains what is happening');
     await expect(page.locator('main')).not.toContainText(ko ? '이 예제 코드도 곱한 확률과 더한 로그를 둘 다 보존합니다' : 'This example’s code retains both');
-    await expect(page.locator('#tokens')).toContainText(ko ? '실제 모델이 학습한 값은 아닙니다' : 'not trained model parameters');
+    await expect(page.locator('#tokens')).toContainText(ko ? '학습으로 벡터와 가중치를 조정합니다' : 'adjust vectors and weights through learning');
+    await expect(page.locator('#tokens')).toContainText(ko ? '손으로 계산할 수 있도록 작은 예시 숫자' : 'small illustrative numbers that can be worked out by hand');
+    await expect(page.locator('#tokens')).not.toContainText(ko ? '학교의 의미를 학습한 것은 아닙니다' : 'Naming a row “school”');
     await expect(page.locator('#language-model')).toContainText(ko ? '정해 놓은 예시 확률표' : 'chosen example probability tables');
     await expect(page.locator('#training')).toContainText(ko ? '실제 LLM의 수많은 가중치·데이터·역전파 전체' : 'all the weights, data or backpropagation of a real LLM');
     await expect(page.locator('#big-picture')).toContainText(ko ? '도식의 ID·확률은 설명용' : 'IDs and probabilities are illustrative');
@@ -2313,5 +2341,26 @@ test.describe('final six diagram regressions', () => {
         expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
       });
     }
+  }
+});
+
+
+test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows the role introduction', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path);
+    const numbers=page.locator('#numbers'); const ko=path===ARTICLE_KO;
+    const headings=await numbers.locator('h3').allTextContents();
+    const dot=headings.indexOf(ko ? '두 숫자 줄을 비교하는 점수 만들기' : 'Build a score for comparing two rows');
+    const transpose=headings.indexOf(ko ? '같은 한 쌍을 행 × 열로 놓아 보기' : 'Arrange the same pair as a row and a column');
+    expect(dot).toBeGreaterThanOrEqual(0); expect(transpose).toBeGreaterThan(dot);
+    await expect(numbers).not.toContainText('Query'); await expect(numbers).not.toContainText('Key');
+    await expect(numbers).toContainText(ko ? '두 경우 모두 4' : '4 in both cases');
+    await expect(numbers).toContainText('2×2=4'); await expect(numbers).toContainText('2×4=8');
+    const order=await page.locator('[data-qk-score-walk]').evaluate(walk=>{
+      const roles=document.querySelector('svg[aria-labelledby="qkv-t qkv-d"]')!;
+      const lab=document.querySelector('.lab--attention')!;
+      return [Boolean(roles.compareDocumentPosition(walk)&Node.DOCUMENT_POSITION_FOLLOWING),Boolean(walk.compareDocumentPosition(lab)&Node.DOCUMENT_POSITION_FOLLOWING)];
+    });
+    expect(order).toEqual([true,true]);
   }
 });

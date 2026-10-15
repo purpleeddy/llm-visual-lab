@@ -198,8 +198,7 @@ Token count determines rows; values used to represent one token determine column
 </Expand>
 
 <Note variant="limit" title="Illustrative values chosen to make the calculation clear">
-The vectors in E and the coefficients used later are illustrative values, not trained model parameters.
-Matrix products and attention outputs are computed from them. Naming a row “school” does not make it a learned representation of school.
+Real models adjust vectors and weights through learning. Here we use small illustrative numbers that can be worked out by hand.
 </Note>
 
 ### Pass three rows of numbers to the next calculation
@@ -229,7 +228,7 @@ Real embedding tables are learned, and mixing context through layers changes a t
 ### Matrix product — creating new features from the input
 
 Next-token prediction needs useful patterns computed from the input. Learning adjusts **the combination coefficients (weights)** to reduce prediction errors.
-Multiply one row of X by one column of the coefficient table W and add: this gives **one value in the new representation Y**. A **matrix product** bundles many such combinations.
+Multiplication controls each input’s contribution; addition collects those contributions into one new value. Multiply one row of X by one column of the coefficient table W and add: this gives **one value in the new representation Y**. A **matrix product** bundles many such combinations.
 
 <Figure caption="X remains available as the input; one row of X and one column of W produce one value in the new representation Y." wide>
   <RowTimesColumn locale="en" />
@@ -350,28 +349,6 @@ $$
 The two 4s meet and cancel; the outer 3 and 2 remain.
 That one rule tells you how many of everything comes out of every step ahead.
 
-### Transpose — arrange the table for the pairs you need
-
-To compare two lists, multiply matching entries and add. To use the **row × column** calculation we just learned, stand the second list in a column.
-Moving a table’s rows into columns is the **transpose**. Values and their order within each list stay the same.
-
-<Figure caption="Each row of the Y we just made becomes a column of Yᵀ. Same colour, same list of numbers.">
-  <TransposeFlip locale="en" />
-</Figure>
-
-<Expand id="math-transpose" summary="Check transpose and comparison with small numbers">
-
-A transpose is written with $\top$ in the upper right.
-
-$$
-\begin{pmatrix} 2 & 0 \\ 0 & 2 \\ 1 & 1 \end{pmatrix}^{\!\top}
-= \begin{pmatrix} 2 & 0 & 1 \\ 0 & 2 & 1 \end{pmatrix}
-$$
-
-For example, comparing the first row (2, 0) with the second (0, 2) gives 2×0 + 0×2 = 0.
-Placing the second row in a column multiplies and adds the same entries. In the attention unit, this lets us bundle **every pair of positions** in one product.
-</Expand>
-
 <div id="similarity">
 
 ### Build a score for comparing two rows
@@ -396,9 +373,8 @@ $$
 Same $q$, and the answer went from 4 to 0. The digits in $k$ are still a 2 and a 0 —
 only their positions moved.
 
-The reason is that a dot product only multiplies **matching slots**.
-If $q$ has its value in the first slot and $k$ has its value in the second,
-nothing survives. Both have to put weight in the same places for the value to be large.
+Simply adding all the values gives 4 in both cases, hiding which slots line up.
+**Multiplying matching slots** gives zero contribution when either entry is zero, and a positive contribution when both are positive. Add the contributions to obtain **one comparison score**. This multiplication and addition is called a **dot product**.
 
 ### Move them and watch
 
@@ -415,7 +391,7 @@ nothing survives. Both have to put weight in the same places for the value to be
 **One.** Change $k$ to $(0, 2)$. The arrows become perpendicular and the value goes to 0.
 
 **Two.** Change $k$ to $(4, 0)$. Same direction, but the value doubles from 4 to 8 —
-only the length changed. Check that $\cos\theta$ stays at 1.
+the first positive contribution changed from 2×2=4 to 2×4=8. Check that $\cos\theta$ stays at 1.
 
 **Three.** Change $k$ to $(-2, 0)$. The value becomes −4.
 Opposite directions give negative results. The next section deals with that.
@@ -468,29 +444,36 @@ tell those apart.
 
 </Expand>
 
-### Why attention uses it
+### Use the score for the sentence
 
-Picture each token carrying two things:
-
-- **what I am looking for** — "I need a subject"
-- **what I have** — "I am a subject"
-
-A large dot product between those two means a good match, which makes it usable as a score
-for "how much is this worth looking at". The first is called the **query**, the second the **key**.
-
-<Note variant="limit" title="Don't mistake the names for meanings">
-"Query" and "key" are borrowed from databases as an analogy. There is no human-readable
-statement of what is being looked for sitting inside those vectors — they are numbers
-adjusted by training. Use the analogy to remember what each part does, and stop short of
-assigning meanings to the values.
-</Note>
-
-There is a practical reason for the dot product too. Several ways of measuring a match exist,
-and this one computes **the same kind of value far more cheaply**. Matrix multiplication is
-the operation computers are best at, so highly optimised code can be used as-is.
-
+Each position in “I / went / to school” needs scores for which positions to draw from. A real model learns transformations that make these comparisons useful for prediction. This does not assign a human-defined meaning to each coordinate.
+We can calculate one pair at a time, or bundle the same multiplication and addition for many pairs. The next diagram shows the layout that makes this possible.
 
 </div>
+
+### Arrange the same pair as a row and a column
+
+A dot product of one pair can use the two rows as they stand. Take the “to school” row (1, 1) and the “I” row (2, 0) from the Y we made earlier.
+To write the same calculation as a matrix product’s **horizontal row × vertical column**, stand only the right row (2, 0) in a column.
+
+<Figure scrollable caption="The two-row dot product and the row-by-column product both give 1×2 + 1×0 = 2. Follow the matching coloured slots.">
+  <TransposeFlip locale="en" />
+</Figure>
+
+Moving a row into a column is a **transpose**. The values, their order and the result 2 stay the same.
+If the right-hand list were already a column, no move would be needed. Attention later stores candidates as token rows, then places them in columns to bundle this same calculation across many pairs.
+
+<Expand id="math-transpose" summary="Check the same pair’s layout with small numbers">
+
+A transpose is written with $\top$ in the upper right. The right row (2, 0) becomes a column:
+
+$$
+\begin{pmatrix} 2 & 0 \end{pmatrix}^{\!\top}
+= \begin{pmatrix} 2 \\ 0 \end{pmatrix}
+$$
+
+Keep the left row (1, 1), so 1×2 + 1×0 = **2**. A **1 × 2 row** and a **2 × 1 column** give a **1 × 1 result**.
+</Expand>
 
 </Section>
 
@@ -838,8 +821,13 @@ Their roles:
   <QKVRoles locale="en" />
 </Figure>
 
-It can feel odd that all three come out of the same token. The three $W$ matrices differ,
-which is what makes three different results from one input.
+Different $W$ matrices turn the same input into different numerical rows for each role.
+
+### Start with one pair’s score
+
+To decide which position to draw information from, first compare the Q row (1, 1) at “to school” with the K row (0, 2) at “I”. Add matching-slot products to get one score, then repeat the same calculation for other candidates.
+
+<QKScoreWalk locale="en" />
 
 The job is one thing: decide how much each token should look at every other token, and
 bring information across in those proportions. Read from the inside out, that is four
@@ -886,11 +874,7 @@ K = \begin{pmatrix} 0 & 2 \\ 2 & 0 \\ 1 & 1 \end{pmatrix}, \quad
 V = \begin{pmatrix} 3 & 0 \\ 0 & 3 \\ 1 & 1 \end{pmatrix}
 $$
 
-**Scores.** Q supplies the current position’s numbers for comparison; K supplies a reference position’s numbers. Let’s compare Q at “to school” with K at the preceding “I”.
-
-<QKScoreWalk locale="en" />
-
-The third score row is (2, 2, 2). Keep its three equal scores in mind.
+**Scores.** The grid above has first row (0, 4, 2) and third row (2, 2, 2). The next two calculations turn these scores into shares.
 
 **Dividing.** This limits the increase in score spread with dimension; it does not guarantee variance 1 for this particular small row. With $d_k = 2$, divide by $\sqrt{2} \approx 1.414$.
 The first row $(0, 4, 2)$ becomes $(0,\ 2.828,\ 1.414)$.

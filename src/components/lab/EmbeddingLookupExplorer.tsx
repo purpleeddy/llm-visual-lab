@@ -12,6 +12,6 @@ export function EmbeddingLookupExplorer({ locale }: { locale: Locale }) {
     <div className="segmented" role="group" aria-label={ko ? '조회할 토큰' : 'Token to look up'}>{tokens.map((token, i) => <button key={token} aria-pressed={id === i} onClick={() => setId(i)}>{token} · ID {i}</button>)}</div>
     <div className="mini-flow" aria-live="polite"><div><strong>{ko ? '토큰' : 'Token'}</strong><p>{tokens[id]}</p></div><span aria-hidden="true">→</span><div><strong>ID</strong><p>{id}</p></div><span aria-hidden="true">→</span><div><strong>{ko ? '벡터 네 값' : 'Four-feature vector'}</strong><p className="embedding-lookup__vector">({DEFAULT_X[id].join(', ')})</p></div></div>
     <MatrixGrid matrix={DEFAULT_X} name="E" shape="3 × 4" rowLabels={tokens.map((token, i) => `ID ${i} · ${token}`)} highlightRow={id} tone="input" compact />
-    <p className="lab__hint">{ko ? `마지막 조각 “${tokens[2]}”를 고르기 전에 ID 2의 행을 찾아보세요. 세 행을 문장 순서대로 쌓으면 다음 단원의 입력 X가 됩니다. 이 값은 이해를 돕기 위해 정했으며, 실제 모델이 학습한 벡터는 아닙니다.` : `Find ID 2 before choosing the final chunk, ${tokens[2]}. Stack the three rows in sentence order to obtain input X for the next unit. These values illustrate the calculation; they are not trained embeddings.`}</p>
+    <p className="lab__hint">{ko ? `마지막 조각 “${tokens[2]}”를 고르기 전에 ID 2의 행을 찾아보세요. 세 행을 문장 순서대로 쌓으면 다음 단원의 입력 X가 됩니다.` : `Find ID 2 before choosing the final chunk, ${tokens[2]}. Stack the three rows in sentence order to obtain input X for the next unit.`}</p>
   </section>;
 }

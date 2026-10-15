@@ -1,42 +1,66 @@
 ---
-/** The preceding product Y, with each row kept intact as a column of Yᵀ. */
+/** One existing pair, first as two rows and then as a row and a column. */
 import type { Locale } from '../../lib/i18n/routing';
-import { DEFAULT_X, DEFAULT_WQ } from '../../lib/math/examples';
-import { matmul, transpose } from '../../lib/math/matrix';
+import { DEFAULT_X, DEFAULT_WQ, LEARNING_EXAMPLE } from '../../lib/math/examples';
+import { matmul, transpose, cellDerivation } from '../../lib/math/matrix';
 
 interface Props { locale: Locale; }
 const { locale } = Astro.props;
 const ko = locale === 'ko';
 const Y = matmul(DEFAULT_X, DEFAULT_WQ);
-const YT = transpose(Y);
-const CELL = 36;
-const xL = 28;
-const xR = 222;
-const yTop = 62;
-const rowFill = ['var(--data-q-wash)', 'var(--data-k-wash)', 'var(--data-v-wash)'];
-const rowStroke = ['var(--data-q)', 'var(--data-k)', 'var(--data-v)'];
-const title = ko ? '전치 — Y의 행을 Yᵀ의 열에 놓기' : 'Transpose — rows of Y become columns of Yᵀ';
+const left = Y[2];
+const right = Y[0];
+const calculation = cellDerivation([left], transpose([right]), 0, 0);
+const tokens = LEARNING_EXAMPLE[locale].tokens;
+const CELL = 34;
+const fills = ['var(--data-q-wash)', 'var(--data-k-wash)'];
+const strokes = ['var(--data-q)', 'var(--data-k)'];
+const equation = calculation.terms.map(term => `${term.a} × ${term.b}`).join(' + ') + ` = ${calculation.value}`;
+const title = ko ? '같은 두 줄, 같은 점수: 오른쪽 줄만 세로로 놓기' : 'The same pair and score: stand only the right row in a column';
 const desc = ko
-  ? `앞의 곱셈으로 만든 3행 2열 Y를 전치하면 2행 3열 Yᵀ가 됩니다. Y의 각 행 ${Y.map(row => '(' + row.join(', ') + ')').join(', ')}을 순서와 값 그대로 Yᵀ의 각 열에 놓습니다.`
-  : `The preceding product Y has 3 rows and 2 columns; Yᵀ has 2 rows and 3 columns. Each row of Y, ${Y.map(row => '(' + row.join(', ') + ')').join(', ')}, becomes a column of Yᵀ with its values and order unchanged.`;
+  ? `앞의 Y에서 ${tokens[2]}의 행 (${left.join(', ')})과 ${tokens[0]}의 행 (${right.join(', ')})을 꺼냅니다. 왼쪽은 두 가로줄에서 같은 색의 자리를 곱해 더합니다. 오른쪽은 첫 줄을 그대로 두고 둘째 줄만 세로로 옮깁니다. ${equation}. 어느 배치든 점수는 ${calculation.value}입니다. 한 쌍씩 내적할 때는 전치 없이 계산할 수 있습니다.`
+  : `Take the ${tokens[2]} row (${left.join(', ')}) and the ${tokens[0]} row (${right.join(', ')}) from the preceding Y. On the left, multiply matching coloured slots in the two rows and add. On the right, keep the first row horizontal and stand only the second in a column. ${equation}. Both layouts give ${calculation.value}. A dot product of one pair needs no transpose.`;
 ---
-<svg viewBox="0 0 360 218" width="360" height="218" role="img" aria-labelledby="tf-t tf-d">
+<svg viewBox="0 0 560 250" width="560" height="250" role="img" aria-labelledby="tf-t tf-d" data-one-pair-transpose>
   <title id="tf-t">{title}</title>
   <desc id="tf-d">{desc}</desc>
   <defs><marker id="tf-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)"></path></marker></defs>
-  <text class="tmap__head" x={xL + CELL} y="27" text-anchor="middle">Y</text>
-  <text class="tmap__note" x={xL + CELL} y="46" text-anchor="middle">3 × 2</text>
-  {Y.map((row, i) => row.map((value, j) => <g>
-    <rect x={xL+j*CELL} y={yTop+i*CELL} width={CELL} height={CELL} fill={rowFill[i]} stroke={rowStroke[i]} />
-    <text class="hp__value" x={xL+j*CELL+CELL/2} y={yTop+i*CELL+CELL/2+5} text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
-  </g>))}
-  <path class="tmap__line" d={`M ${xL+2*CELL+20} 108 H ${xR-20}`} marker-end="url(#tf-arrow)"></path>
-  <text class="tmap__op" x="162" y="94" text-anchor="middle">ᵀ</text>
-  <text class="tmap__head" x={xR+CELL*1.5} y="27" text-anchor="middle">Yᵀ</text>
-  <text class="tmap__note" x={xR+CELL*1.5} y="46" text-anchor="middle">2 × 3</text>
-  {YT.map((row, i) => row.map((value, j) => <g>
-    <rect x={xR+j*CELL} y={yTop+i*CELL} width={CELL} height={CELL} fill={rowFill[j]} stroke={rowStroke[j]} />
-    <text class="hp__value" x={xR+j*CELL+CELL/2} y={yTop+i*CELL+CELL/2+5} text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
-  </g>))}
-  <text class="tmap__note" x="180" y="205" text-anchor="middle">{ko ? '같은 색: 같은 숫자 줄' : 'Same colour: the same list of numbers'}</text>
+  <text class="tmap__head" x="22" y="26">{ko ? '① 한 쌍을 그대로 내적' : '① A dot product of two rows'}</text>
+  <text class="tmap__head" x="296" y="26">{ko ? '② 오른쪽 줄만 세로로' : '② Stand the right row up'}</text>
+  {[
+    {id: 'left', values: left, y: 54, label: tokens[2]},
+    {id: 'right', values: right, y: 112, label: tokens[0]},
+  ].map(row => <g data-pair-row={row.id}>
+    <text class="tmap__label" x="22" y={row.y + 22}>{row.label}</text>
+    {row.values.map((value, slot) => <g>
+      <rect x={108 + slot * CELL} y={row.y} width={CELL} height={CELL} fill={fills[slot]} stroke={strokes[slot]} />
+      <text class="hp__value" x={108 + slot * CELL + CELL / 2} y={row.y + 22} text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
+    </g>)}
+  </g>)}
+  <path class="tmap__line" d="M 208 128 H 270" marker-end="url(#tf-arrow)"></path>
+  <text class="tmap__label" x="239" y="110" text-anchor="middle">{ko ? '행 → 열' : 'row → column'}</text>
+  <g data-pair-product="left">
+    {left.map((value, slot) => <g>
+      <rect x={296 + slot * CELL} y="82" width={CELL} height={CELL} fill={fills[slot]} stroke={strokes[slot]} />
+      <text class="hp__value" x={296 + slot * CELL + CELL / 2} y="104" text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
+    </g>)}
+  </g>
+  <text class="tmap__label" x="330" y="64" text-anchor="middle">{tokens[2]}</text>
+  <text class="tmap__op" x="381" y="105" text-anchor="middle">×</text>
+  <g data-pair-product="right">
+    {right.map((value, slot) => <g>
+      <rect x="402" y={64 + slot * CELL} width={CELL} height={CELL} fill={fills[slot]} stroke={strokes[slot]} />
+      <text class="hp__value" x="419" y={86 + slot * CELL} text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
+    </g>)}
+  </g>
+  <text class="tmap__label" x="419" y="49" text-anchor="middle">{tokens[0]}</text>
+  <text class="tmap__op" x="456" y="105" text-anchor="middle">=</text>
+  <rect class="walk__cell walk__cell--sum" x="477" y="82" width={CELL} height={CELL}></rect>
+  <text class="hp__value" data-pair-result x="494" y="104" text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{calculation.value}</text>
+  <text class="tmap__label" x="330" y="157" text-anchor="middle">1 × 2</text>
+  <text class="tmap__label" x="419" y="157" text-anchor="middle">2 × 1</text>
+  <text class="tmap__label" x="494" y="157" text-anchor="middle">1 × 1</text>
+  <text class="tmap__label" data-pair-equation="rows" x="22" y="199" style="font-size: 16px;">{equation}</text>
+  <text class="tmap__label" data-pair-equation="column" x="296" y="199" style="font-size: 16px;">{equation}</text>
+  <text class="tmap__label" x="280" y="235" text-anchor="middle">{ko ? `같은 색은 같은 자리입니다. 배치를 바꿔도 점수는 ${calculation.value}입니다.` : `The colours pair matching slots. Both layouts give ${calculation.value}.`}</text>
 </svg>

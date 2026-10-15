@@ -9,32 +9,55 @@ import Figure from './Figure.astro';
 interface Props { locale: Locale; }
 const { locale } = Astro.props;
 const ko = locale === 'ko';
-// Show raw comparisons; mark the future cells a causal generation mask will exclude later.
+// Raw comparisons; the final grid also marks positions a later causal mask excludes.
 const { Q, K, KT, scores, allowed } = computeAttention({ ...DEFAULT_ATTENTION_INPUT, masked: true });
 const query = Q.length - 1;
 const key = 0;
 const pair = cellDerivation(Q, KT, query, key);
+const comparisons = K.map((_, c) => cellDerivation(Q, KT, query, c));
 const tokens = LEARNING_EXAMPLE[locale].tokens;
 const qLabels = Q.map((_, i) => `Q${i + 1}`);
 const kLabels = K.map((_, i) => `K${i + 1}`);
 const L = ko ? {
-  label: '전치는 같은 Q–K 비교를 행렬곱으로 묶습니다',
-  titles: ['① 한 쌍을 비교', '② 모든 쌍을 점수 표에 놓기', '③ 같은 비교를 행렬곱으로 묶기'],
-  captions: ['같은 자리끼리 곱해 더하면 “갔다”에서 “나는”을 볼 점수는 2입니다.', '각 Q와 각 K를 비교해 3 × 3 점수 표를 만듭니다.', 'K의 행을 열로 놓으면 Q × Kᵀ가 같은 점수를 냅니다. 숫자나 비교의 뜻은 바뀌지 않습니다.'],
+  label: '한 쌍의 내적에서 모든 위치의 비교로',
+  titles: ['① 한 쌍에서 점수 하나', '② 같은 줄로 세 후보 비교', '③ 같은 비교를 행 × 열로 묶기'],
+  captions: ['같은 자리의 두 곱은 0과 2입니다. 더한 2가 “갔다”에서 “나는”을 참고할 비교 점수입니다.', '기준 줄 하나를 후보 세 줄과 비교하면 점수 세 개, 즉 1 × 3입니다.', '같은 K 행이 같은 색의 열이 됩니다. 곱과 합은 그대로입니다.'],
   pair: 'Q3와 K1의 비교',
+  slots: ['자리 1', '자리 2'],
+  contribution: '기여',
+  oneRow: '기준 1줄 · 후보 3줄 → 점수 1 × 3',
+  allRows: '기준 3줄 · 후보 3줄 → 점수 3 × 3',
+  meaning: '세 점수가 모두 2라서 이 줄에서는 세 후보가 동점입니다. 비중은 다음 softmax에서 만듭니다.',
+  desired: '원하는 K1 한 행',
+  wrong: '점선 열: 세 후보의 첫 값',
+  incompatible: '전치 전: Q 행은 2값, 원래 K 열은 3값입니다. 이 모양은 행렬곱을 할 수 없습니다.',
+  matching: '옮긴 K1 한 열',
+  placement: '한 쌍은 전치 없이 내적합니다. 여러 쌍을 행 × 열로 묶으려고 K를 옮깁니다.',
+  shapeReason: '양쪽 토큰 수가 각각 3이라 3 × 3입니다. 전치는 값을 그대로 옮깁니다.',
   raw: '가리기 전 점수',
   future: '줄무늬: 생성 때 제외할 미래 위치. 여기서는 가리기 전 점수를 표시합니다.',
   blocked: '생성 때 제외할 미래 위치의 원래 점수',
-  transpose: '행 → 열',
+  transpose: '같은 행을 열로',
 } : {
-  label: 'Transpose bundles the same Q–K comparisons in one matrix product',
-  titles: ['① Compare one pair', '② Put every pair in a score grid', '③ Bundle the same comparisons in a product'],
-  captions: ['Multiply matching entries and add: “to school” looking at “I” scores 2.', 'Comparing every Q with every K gives a 3 × 3 score grid.', 'Place K’s rows in columns: Q × Kᵀ gives the same scores. Values and the comparisons’ meaning are unchanged.'],
+  label: 'From one dot product to comparisons at every position',
+  titles: ['① One pair, one score', '② Compare the same row with three candidates', '③ Bundle comparisons as row × column'],
+  captions: ['The two matching-slot products are 0 and 2. Their sum, 2, scores “to school” looking at “I”.', 'One current row compared with three candidate rows gives three scores: 1 × 3.', 'Each K row becomes a column of the same colour; the arithmetic is unchanged.'],
   pair: 'Q3 compared with K1',
+  slots: ['slot 1', 'slot 2'],
+  contribution: 'contribution',
+  oneRow: '1 current row · 3 candidate rows → 1 × 3 scores',
+  allRows: '3 current rows · 3 candidate rows → 3 × 3 scores',
+  meaning: 'All three scores are 2, so these candidates tie for this row. Softmax produces the shares next.',
+  desired: 'Wanted: the whole K1 row',
+  wrong: 'Dashed column: each candidate’s first value',
+  incompatible: 'Before transpose: a Q row has 2 values, the original K column has 3. These shapes cannot be multiplied.',
+  matching: 'After: the whole K1 column',
+  placement: 'A single pair needs no transpose. For many pairs, put each K row where row × column will select it.',
+  shapeReason: 'The grid is 3 × 3 because each side has 3 tokens. Transpose keeps the values.',
   raw: 'Scores before masking',
   future: 'Stripes: future positions excluded during generation. These are the raw scores before masking.',
   blocked: 'raw score for a future position excluded during generation',
-  transpose: 'rows → columns',
+  transpose: 'same rows → columns',
 };
 ---
 <div class="qkw" aria-label={L.label} data-qk-score-walk>
@@ -43,17 +66,29 @@ const L = ko ? {
     <div class="qkw__step" data-step={stage}>
       <h4 class="qkw__title">{L.titles[stage - 1]}</h4>
       {stage === 1 && <>
-        <MatrixGrid matrix={[Q[query], K[key]]} name={L.pair} rowLabels={[qLabels[query], kLabels[key]]} compact matrixId="qkw-pair" />
+        <MatrixGrid matrix={[Q[query], K[key]]} name={L.pair} rowLabels={[`${qLabels[query]} · ${tokens[query]}`, `${kLabels[key]} · ${tokens[key]}`]} colLabels={L.slots} compact matrixId="qkw-pair" />
         <p class="qkw__dot" data-pair-value={pair.value}>{pair.terms.map((term, i) => <>
-          {i > 0 && <span> + </span>}<span class="qkw__term"><b data-query-value>{term.a}</b> × <b data-key-value="0">{term.b}</b></span>
+          {i > 0 && <span> + </span>}<span class="qkw__term" data-slot={i}>
+            <span><b data-query-value>{term.a}</b> × <b data-key-value="0">{term.b}</b></span>
+            <small data-product-value>{L.contribution}: {term.product}</small>
+          </span>
         </>)}<span> = </span><strong class="qkw__selected-score">{pair.value}</strong></p>
       </>}
       {stage === 3 && <>
+        <p data-transpose-purpose>{L.placement}</p>
         <div class="qkw__transpose">
-          <MatrixGrid matrix={K} name="K" shape="3 × 2" rowLabels={kLabels} compact matrixId="qkw-k" />
+          <div class="qkw__layout-card" data-before-transpose>
+            <MatrixGrid matrix={K} name="K" shape="3 × 2" rowLabels={kLabels} compact matrixId="qkw-k" />
+            <p>{L.desired}: <strong data-desired-row>{K[key].join(', ')}</strong></p>
+            <p>{L.wrong}: <span data-wrong-column>{K.map((row, r) => <span data-key={r}>{r > 0 ? ', ' : ''}{row[0]}</span>)}</span></p>
+          </div>
           <span class="qkw__arrow" aria-label={L.transpose}>→</span>
-          <MatrixGrid matrix={KT} name="Kᵀ" shape="2 × 3" colLabels={kLabels} compact matrixId="qkw-kt" />
+          <div class="qkw__layout-card" data-after-transpose>
+            <MatrixGrid matrix={KT} name="Kᵀ" shape="2 × 3" colLabels={kLabels} compact matrixId="qkw-kt" />
+            <p>{L.matching}: <strong data-matching-column>{KT.map(row => row[key]).join(', ')}</strong></p>
+          </div>
         </div>
+        <p class="qkw__layout-note" data-incompatible-shapes>{L.incompatible}</p>
         <div class="qkw__product">
           <MatrixGrid matrix={Q} name="Q" shape="3 × 2" rowLabels={qLabels} highlightRow={query} compact matrixId="qkw-q" />
           <span class="qkw__op">×</span>
@@ -62,17 +97,23 @@ const L = ko ? {
         </div>
       </>}
       {stage > 1 && <>
-        <p class="qkw__matrix-label">S · 3 × 3 <span>{L.raw}</span></p>
+        <p class="qkw__matrix-label" data-comparison-shape={stage === 2 ? '1 × 3' : '3 × 3'}>{stage === 2 ? L.oneRow : L.allRows}</p>
         <div class="qkw__score-scroll"><table class="qkw__scores">
-          <caption class="visually-hidden">{L.raw}: Q × Kᵀ</caption>
+          <caption class="visually-hidden">{L.raw}: {stage === 2 ? qLabels[query] : 'Q × Kᵀ'}</caption>
           <thead><tr><td></td>{kLabels.map((label, c) => <th scope="col" data-key={c}>{label}</th>)}</tr></thead>
-          <tbody>{scores.map((row, r) => <tr>
+          <tbody>{(stage === 2 ? [query] : scores.map((_, r) => r)).map(r => <tr>
             <th scope="row" data-query={r}>{qLabels[r]}</th>
-            {row.map((value, c) => <td data-r={r} data-c={c} data-key={c} data-query={r} data-future={!allowed[r][c]} data-selected={r === query && c === key}
-              aria-label={`S${r+1},${c+1}: ${value}${!allowed[r][c] ? ', ' + L.blocked : ''}`}>{value}</td>)}
+            {scores[r].map((value, c) => <td data-r={r} data-c={c} data-key={c} data-query={r} data-future={stage === 3 && !allowed[r][c]} data-selected={r === query && c === key}
+              aria-label={`S${r+1},${c+1}: ${value}${stage === 3 && !allowed[r][c] ? ', ' + L.blocked : ''}`}>
+              <strong class="qkw__score-value">{value}</strong>
+              {stage === 2 && <span class="qkw__calculation" data-candidate-calculation>{comparisons[c].terms.map(term => `${term.a}×${term.b}`).join(' + ')}</span>}
+            </td>)}
           </tr>)}</tbody>
         </table></div>
-        <p class="qkw__legend"><span class="qkw__stripe" aria-hidden="true"></span>{L.future}</p>
+        {stage === 2 ? <p data-score-meaning>{L.meaning}</p> : <>
+          <p data-square-reason>{L.shapeReason}</p>
+          <p class="qkw__legend"><span class="qkw__stripe" aria-hidden="true"></span>{L.future}</p>
+        </>}
       </>}
     </div>
   </Figure>)}
