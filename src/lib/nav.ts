@@ -86,15 +86,15 @@ export const SECTIONS: SectionItem[] = [
   {
     "id": "language-model",
     "title": {
-      "ko": "언어모델이 하는 일 — 다음 토큰 예측",
-      "en": "What a language model does: next-token prediction"
+      "ko": "한 계산 여정 — 입력에서 다음 토큰까지",
+      "en": "One computation: from input to next token"
     },
     "group": "start",
     "status": "complete",
     "prerequisites": [],
     "goal": {
-      "ko": "문맥 → 후보 확률 → 선택 → 입력에 붙이기의 고리를 설명합니다.",
-      "en": "Explain the loop: context → probabilities → choice → append."
+      "ko": "주어진 두 입력에서 마지막 위치를 따라가며, 계산 → 후보 확률 → 선택 → 새 입력으로 다시 계산하는 고리를 설명합니다.",
+      "en": "Follow the final position of two given inputs through computation, candidate probabilities, choice and recomputation with the longer input."
     },
     "check": {
       "question": {
@@ -107,8 +107,8 @@ export const SECTIONS: SectionItem[] = [
       }
     },
     "navTitle": {
-      "ko": "언어모델의 목표",
-      "en": "Language-model goal"
+      "ko": "입력부터 생성까지",
+      "en": "Input to generation"
     }
   },
   {

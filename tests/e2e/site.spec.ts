@@ -1245,23 +1245,24 @@ test.describe('the complete learning progression', () => {
     }
   });
 
-  test('the opening shows the concrete loop, then defines the model before explaining the route', async ({ page }) => {
+  test('the opening starts with one computed two-input journey before explaining the route', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const ko = path === ARTICLE_KO;
       const intro = page.locator('[data-model-intro]');
-      const lab = page.locator('.lab--next-token');
+      const lab = page.locator('.lab--generation-journey');
       await expect(intro).toBeVisible();
       await expect(intro.locator('p')).toHaveCount(2);
       await expect(intro.locator('strong')).toHaveCount(3);
       await expect(intro.locator('p').first()).toContainText(ko ? '생성형 LLM' : 'generative large language model');
       await expect(intro.locator('p').first()).toContainText(ko ? '다음 토큰의 확률' : 'next-token probabilities');
-      await expect(intro.locator('p').last()).toContainText(ko ? '늘어난 문장으로 다시 예측' : 'predict again from the longer input');
+      await expect(intro.locator('p').last()).toContainText(ko ? '늘어난 문장으로 다시 예측' : 'predicts again from the longer input');
       await expect(page.locator('.doc-header__lead')).toHaveText(ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.');
-      await expect(lab.locator('.next-token__input')).toContainText(ko ? '나는 학교에' : 'I went');
-      await expect(lab.locator('.next-token__prefix')).toContainText(ko ? '나는 학교에 갔다' : 'I went to school');
+      await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
       await expect(lab).toHaveCount(1);
-      await expect(page.locator('#language-model .lab--next-token')).toHaveCount(1);
+      await expect(page.locator('#language-model .lab--generation-journey')).toHaveCount(1);
+      await expect(page.locator('#table-generation')).not.toHaveAttribute('open');
+      await expect(page.locator('.lab--next-token')).not.toBeVisible();
       expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-model-intro]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
       expect(await intro.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-learning-overview]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
       expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#language-model > h2')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
@@ -1329,6 +1330,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      await revealSupplement(lab);
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       const advance = lab.locator('.next-token__advance');
       await advance.click();
@@ -1373,10 +1375,11 @@ test.describe('the complete learning progression', () => {
     }
   });
 
-  test('the opening already shows a completed prediction and one action advances its whole input', async ({ page }) => {
+  test('the supplemental probability table shows its selected prediction and advances its whole input', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      await revealSupplement(lab);
       await expect(lab.locator('button')).toHaveCount(1);
       await expect(lab.locator('.next-token__scenes')).toHaveCount(0);
       await expect(lab.locator('.next-token__details')).toHaveCount(0);
@@ -1402,12 +1405,14 @@ test.describe('the complete learning progression', () => {
     }
   });
 
-  test('the opening sentence and probabilities fit the first viewport and arrows connect before and after', async ({ page }, testInfo) => {
+  test('the supplemental sentence and probabilities fit the viewport after opening and its arrows connect before and after', async ({ page }, testInfo) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     for (const path of ALL_PAGES) {
       await page.goto(path);
       await page.evaluate(() => document.fonts.ready);
       const lab = page.locator('.lab--next-token');
+      await revealSupplement(lab);
+      await lab.evaluate(node => node.scrollIntoView({ block: 'start' }));
       for (const selector of ['.next-token__input', '.next-token__prefix', '.next-token__probability']) {
         const node = selector === '.next-token__probability' ? lab.locator('tbody tr[data-selected="true"]').locator(selector) : lab.locator(selector);
         const bounds = await node.boundingBox();
@@ -1443,6 +1448,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const ko = path === ARTICLE_KO; const lab = page.locator('.lab--next-token');
+      await revealSupplement(lab);
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await expect(lab.locator('button')).toHaveCount(1);
       await expect(lab.getByRole('button', { name: /^(?:자동으로 보기|재생|일시정지|Play|Pause)$/i })).toHaveCount(0);
@@ -1470,6 +1476,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path);
+      await revealSupplement(lab);
       await lab.locator('.next-token__advance').click();
       await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens);
       await expect(lab.locator('.next-token__token--new')).toHaveText('.');
@@ -1497,12 +1504,14 @@ test.describe('the complete learning progression', () => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.goto(path);
       const lab = page.locator('.lab--next-token'); const advance = lab.locator('.next-token__advance');
+      await revealSupplement(lab);
       expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
       for (const bar of await lab.locator('.probability-bar').all()) expect(await bar.evaluate(node => getComputedStyle(node).animationName)).toBe('none');
       await advance.click();
       expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.goto(path);
+      await revealSupplement(lab);
       expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
       await lab.locator('.next-token__advance').click();
       expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).not.toBe('none');
@@ -1514,6 +1523,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path);
+      await revealSupplement(lab);
       await lab.locator('.next-token__advance').click();
       await page.evaluate(() => document.documentElement.style.fontSize = '200%');
       const box = await lab.locator('.next-token__prefix').evaluate(node => {
@@ -1850,14 +1860,15 @@ test('the article title, visual subtitle and first lesson question match their m
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content',lead);
     await expect(page.locator('.doc-header__lead')).toHaveText(lead);
     await expect(page.locator('#course-nav a[aria-current="page"]')).toHaveText(title);
-    const lab = page.locator('.lab--next-token');
+    const lab = page.locator('.lab--generation-journey');
     await expect(lab.locator('.lab__title')).toHaveText(ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?');
-    await expect(lab.locator('button')).toHaveCount(1);
+    await expect(lab.locator('.journey__next')).toHaveCount(1);
+    await expect(lab.locator('.journey__previous')).toBeDisabled();
     await expect(page.locator('.doc-header')).not.toContainText(ko ? '작은 숫자로' : 'Small Numbers');
-    const openingHeadings = await page.locator('.doc-header h1, .lab--next-token .lab__title').allTextContents();
+    const openingHeadings = await page.locator('.doc-header h1, .lab--generation-journey .lab__title').allTextContents();
     expect(openingHeadings.filter(heading=>heading.includes('?'))).toHaveLength(1);
-    await expect(lab.locator('.next-token__token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
-    await expect(lab.locator('.next-token__output-token')).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
+    await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
+    await expect(lab.locator('[data-journey-input] [data-token-id=2]')).toHaveCount(0);
     await expect(page.locator('#math-transpose summary')).toContainText(ko ? '작은 숫자로' : 'small numbers');
   }
 });

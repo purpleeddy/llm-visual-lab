@@ -57,6 +57,7 @@ import Steps from '../../../components/site/Steps.astro';
 import ModelRoutes from '../../../components/site/ModelRoutes.astro';
 import { MatrixGrid } from '../../../components/lab/MatrixGrid';
 import { EmbeddingLookupExplorer } from '../../../components/lab/EmbeddingLookupExplorer';
+import { GenerationJourney } from '../../../components/lab/GenerationJourney';
 import { NextTokenExplorer } from '../../../components/lab/NextTokenExplorer';
 import { LayerTraceExplorer } from '../../../components/lab/LayerTraceExplorer';
 import { LearningUpdateExplorer } from '../../../components/lab/LearningUpdateExplorer';
@@ -68,61 +69,49 @@ import { computeMultiHead } from '../../../lib/math/multihead';
 <Section id="language-model" locale="en">
 
 <div slot="opening">
-  <NextTokenExplorer client:load locale="en" initialRound={2} />
-
-<div data-model-intro>
-  <p>A <strong>generative large language model (LLM)</strong> learns language patterns from large amounts of text and computes <strong>next-token probabilities</strong> from the preceding text.</p>
-  <p>The opening shows how choosing one chunk after “I went” makes the model <strong>predict again from the longer input</strong>.</p>
+  <GenerationJourney client:load locale="en" />
+  <div data-model-intro>
+    <p>A <strong>generative large language model (LLM)</strong> computes <strong>next-token probabilities</strong> from the text it is given.</p>
+    <p>The journey follows the final input position, appends one choice, then <strong>predicts again from the longer input</strong>.</p>
+  </div>
 </div>
-</div>
 
-### What just happened?
+### What does this computation show?
 
-The starting input “I went” is supplied by us. The model reads this available text to predict **one chunk immediately after it**.
-For this input, the example candidates are “to school / home / to work / end”. A model's **vocabulary** is the full list of chunks it can choose; the figure shows a small, context-appropriate list.
+The initial input contains only “I / went”. It does not read the unchosen “to school” in advance.
+Use the final input position, “went”, to predict **one position immediately after it**. A rule that **chooses the highest probability** appends one chunk.
+Then compute from the **whole longer context** with the same coefficients. Sampling according to the probabilities is another possible rule. Computing probabilities and selecting one chunk are separate operations.
 
-After “I went”, the illustrative probability of “to school” is 0.7, or 70%. “home” has 10%, “to work” has 15%, and end has 5%.
-With a rule that **chooses the highest probability**, “to school” is appended and the input becomes “I went to school”.
-Sampling according to the probabilities could choose another candidate. Computing probabilities and choosing one token are separate jobs.
+This small model computes probabilities using fixed coefficients. Real LLMs learn those coefficients, or **weights**, from many texts to reduce prediction errors.
+**Learning** changes weights; **prediction** computes next-candidate probabilities with current weights; **generation** appends a choice and repeats prediction.
+These numbers were chosen to make the arithmetic small; they are not learned word meanings.
 
-The model now uses **the whole longer context “I went to school”**, rather than just “to school”, for the next prediction.
-Press the next-chunk button above: the table now uses the longer input and its probabilities. The illustrative candidates also change with the input: subjects at the start, actions after “I”, and destinations after “I went”. This example next chooses the end marker `.` and stops.
-End is a special token the model can choose. Continuing text does not guarantee a unique correct answer or factual content.
-
-These are educational word and phrase chunks, treated as tokens. Real tokens may be **a word or part of a word**, and their boundaries depend on the tokenizer.
-The readable chunks are not a real tokenizer's output for this sentence.
+The educational tokens are readable word and phrase chunks. Real tokens may be **a word or part of a word**, depending on the tokenizer.
+End is a special stopping token, not an ordinary period. High probability does not guarantee factual content or a unique correct answer.
 
 <div data-learning-overview>
-<Steps title="Where do those probabilities come from?">
+<Steps title="Now learn the parts of the same computation in more detail">
 
-1. **Represent text as numbers.** Retrieve a list of values for each chunk in “I / went / to school”. For example, “I” is represented by (1, 0, 1, 0). The model calculates with these numbers instead of text. Try the lookup in the [next unit](#tokens).
-2. **Make the numbers reflect surrounding text.** The row representing “to school” draws information from the preceding “I” and “went”. Determine which positions to use and how much to take from each, then mix their content. We explore this job in [attention](#attention).
-3. **Make a score for each next candidate, then turn scores into probabilities.** To keep the later numerical labs small, they use a four-chunk vocabulary: “I / went / to school / end”. The final position's representation gives each candidate a score. Convert those scores into probabilities totaling 1. [Connect the calculations](#big-picture) computes the route from input to candidate probabilities.
+1. **Look up numbers for text.** Assign IDs and retrieve table rows. Start with (1, 0, 1, 0) for “I” in the [next unit](#tokens).
+2. **Transform numbers and gather context.** Learn multiply-and-add, row comparisons and content retrieval using reference shares. [Detailed arithmetic](#numbers) is a separate exercise with all three tokens supplied.
+3. **Go from the final representation to next candidates.** Separate probabilities for “I / went / to school / end” from the selection rule. [Connect the calculations](#big-picture) also compares a different configuration that adds positions.
 
 </Steps>
 </div>
 
-The opening uses **chosen example probability tables** to show the generation loop first. Real LLMs do not store a table for every possible context;
-they calculate using **weights** learned from many texts. Weights are coefficients used in the computation; we meet them again where a small calculation needs them.
-Later labs represent the same chunks numerically and compute different probabilities, which need not match the opening table.
-
-**Learning** changes weights; **prediction** computes candidate probabilities using the current weights; **generation** appends a token and repeats prediction.
-For now, see why every longer input needs another prediction. Next we open up the calculations, starting with how text becomes numbers.
-
-### The same candidate changes with its context
-
-After “I went”, the end marker has illustrative probability 0.05, or 5%. After appending “to school”, it has been set to 1, or 100%.
-The destination table sums to 0.7 + 0.1 + 0.15 + 0.05 = 1; the final table has only end, with probability 1. A probability must be read together with **the context it belongs to**.
-
 <Expand id="math-conditional" summary="Which context does this probability belong to?">
 
-| Available context | Probability of next candidate “end” | Write it briefly |
-| --- | --- | --- |
-| I went | 0.05 | P(end \| I went) = 0.05 |
-| I went to school | 1 | P(end \| I went to school) = 1 |
+In P(end \| I went), the text after the vertical bar is the **available input**, and the item before it is the **next candidate**. This is a conditional probability.
+The journey computes different end probabilities for “I went” and “I went to school” using the same coefficients. Read every probability together with its input context.
 
-After `|` is the context already available; before it is the candidate being predicted. This is a **conditional probability**.
-A changed context can change predictions without retraining weights. Choosing a chunk is a separate rule using those probabilities.
+</Expand>
+
+<Expand id="table-generation" summary="Supplement: compare selection rules with chosen probability tables">
+
+This separate exercise uses **chosen example probability tables** to practice choice and appending alone.
+Keep it separate from the computed journey above. Its values are set in advance: 70% for “to school”, then 100% for end.
+
+<NextTokenExplorer client:load locale="en" initialRound={2} />
 
 </Expand>
 
@@ -225,6 +214,11 @@ Real embedding tables are learned, and mixing context through layers changes a t
 </Section>
 
 <Section id="numbers" locale="en">
+
+<Note>
+This is an <strong>independent advanced exercise with all three tokens supplied</strong>. Follow the first position, “I”, in “I / went / to school”, with future masking off.
+It is a different run from the opening, which predicts after the final input “went”. Its scores (0, 4, 2) do not continue the opening's (4, 0).
+</Note>
 
 <AttentionStory locale="en" stage="overview" />
 
@@ -970,6 +964,10 @@ Attention across two separate sequences is compared after translation architectu
 
 <Section id="positions" locale="en">
 
+<Note>
+The opening omitted position calculation. Here we introduce a <strong>new operation</strong>: adding position vectors to embeddings. The changed input numbers can change later comparisons, reference shares and candidate probabilities.
+</Note>
+
 The shared chunks need **positions as well as IDs**. An ID identifies a chunk; it is not its current position.
 For a separate order example, compare “the dog bites the man / the man bites the dog”: the word lists match, but the roles differ.
 The common I / went / to school chunks occupy positions **0 / 1 / 2**. We add a position vector to each embedding.
@@ -1533,6 +1531,10 @@ Predict each shape before advancing and compare one row’s values across stages
 | FFN inner width | 8 | 2048 |
 | Blocks | 1 | 6 each in encoder and decoder |
 | Output vocabulary | Four entries: I, went, to school, end | Tens of thousands of translation tokens |
+
+<Note>
+This integrated exercise uses different settings from the opening: all three tokens are supplied, position vectors are added, and the vocabulary readout is the identity matrix. The opening omitted positions and used −1 as the first readout coefficient, so these probabilities belong to a separate run.
+</Note>
 
 <LayerTraceExplorer client:load locale="en" />
 

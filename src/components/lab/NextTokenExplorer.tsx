@@ -27,9 +27,9 @@ export function NextTokenExplorer({ locale, initialRound = 0 }: { locale: Locale
     ? (ko ? `“${input}” 뒤에서는 끝 표시 .의 예시 확률이 가장 큽니다. 이 토큰을 붙였으므로 여기서 글쓰기를 마칩니다.` : `After “${input}”, the end marker . has the largest example probability. Appending this token ends the sequence.`)
     : (ko ? `이 입력에서는 “${tokenName(chosen)}”의 예시 확률 ${Math.round(probability * 100)}%가 가장 큽니다. 이 조각을 뒤에 붙인 결과가 오른쪽의 “${nextInput}”입니다. 다음 계산에는 오른쪽 글 전체를 넣습니다.` : `After “${input}”, “${tokenName(chosen)}” is the largest candidate at ${Math.round(probability * 100)}%. This example appends that one chunk to make “${nextInput}”. The next calculation uses the whole text on the right.`);
 
-  return <section id="generation-opening" className="lab lab--next-token" aria-label={ko ? '다음 토큰을 하나씩 붙이기' : 'Append one token at a time'} data-round={after.length} data-stage={done ? 'finished' : 'generated'} data-interacted={interacted}>
+  return <section id="manual-table-generation" className="lab lab--next-token" aria-label={ko ? '다음 토큰을 하나씩 붙이기' : 'Append one token at a time'} data-round={after.length} data-stage={done ? 'finished' : 'generated'} data-interacted={interacted}>
     <header className="lab__header"><div>
-      <h3 className="lab__title">{ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?'}</h3>
+      <h3 className="lab__title">{ko ? '보충: 정한 확률표로 하나씩 붙이기' : 'Supplement: append using chosen probability tables'}</h3>
       <p className="lab__kind">{ko ? '읽기 쉽게 정한 조각 · 설명용 확률' : 'Illustrative chunks and probabilities'}</p>
     </div></header>
 
