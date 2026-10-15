@@ -2051,3 +2051,15 @@ base.css, NextTokenExplorer.tsx, examples.ts, learning.test.ts, site.spec.ts,
 - 회귀 소스는 선택 쌍 4, 전체 원점수 9개·미래 위치 3개 보존, 동일 기본 예제의 단계별 연결·토큰 라벨·기본값 고정·일부 값만 바뀌는 행·축 고정을 다룹니다. 보충으로 옮긴 기존 실험은 실제 상위 summary를 열어 원래 수치 검사를 계속 수행하도록 조정했습니다. skip/only·lint/type 규칙 비활성화는 추가하지 않았습니다.
 - 이번 커밋의 fixtures/unit/typecheck/build/E2E·UI·배포 화면은 미실행/미검증입니다. 사용자 지시에 따라 push 이후 부모 클라우드에서 검사합니다. 과거 검사 통과 수치를 이번 수정의 결과로 주장하지 않습니다. 로컬에서는 소스/diff 범위와 파일 보존만 확인합니다.
 - 변경 범위는 두 언어 본문, AttentionStory.astro, MatrixProductExplorer.tsx, DotProductExplorer.tsx, TransposeFlip.astro, QKScoreWalk.astro, RowTimesColumn.astro, ShapeFlow.astro, base.css, site.spec.ts, 이 기록의 12개입니다. 두 사용자 문서와 무관한 변경은 보존·제외합니다. 삭제·의존성·지침·hook·권한 변경은 없습니다.
+
+
+## 2026-10-15 — 본선 연결의 국소 보완
+
+- 기준은 a94726dba623a92ec01f5f225f0b6d5f8e287d6c입니다. 부모 클라우드에서 그 커밋의 fixtures·unit 175·typecheck·build·배포와 수치 연속성을 확인했다는 결과를 받았습니다. 이번 수정의 검사 결과와 구분합니다.
+- 내적 본선에 두 후보의 네 값을 그냥 더하면 둘 다 4지만, 같은 자리끼리 곱해 더하면 학교에 후보 4와 나는 후보 0이 된다는 짧은 실제 비교를 복원했습니다. 한·영을 같은 구조로 맞췄습니다.
+- 한 쌍 전치 다음, 기준 줄 (2, 0)에 후보 세 열 [[0, 2, 1], [2, 0, 1]]을 곱해 (0, 4, 2)를 얻는 장면을 기존 점수표 위에 넣었습니다. 열 위 토큰 이름을 유지하고 방금 세운 학교에 후보 열과 점수4를 강조합니다. 전체 3 × 3은 기존 attention에 둡니다.
+- 비중 본선은 양수이고 합1인 비중을 만드는 목적, 나눈 점수의 실제 지수값 열, 지수값 합 약22.032로 나누는 계산을 연결합니다. 이 작은 고정 예제에서 표시하는 지수값은 최댓값을 빼기 전 값이며 비중은 기존 계산을 그대로 읽습니다. √2의 목적은 점수 폭 조정이며 여기서는 두 좌표이기 때문이라고 짧게 설명합니다. 통계 유도는 보충에 유지합니다.
+- 고정 MatrixProductExplorer 출력은 선택 안내 caption을 받지 않으며 interactive 출력의 기존 선택 안내는 보존합니다. 미래 가리기는 실제 #positions의 뒤 단원 링크로 연결하고, 위 X/Y 참조·학교에 조사·영문 끝 공백을 고쳤습니다.
+- 회귀 소스에 본선의 실제 비교·후보 열 숫자와 이름·지수값·합·위치 단원 링크·정적/상호작용 캡션 차이를 추가했습니다. 기존 기본값·수학 알고리즘·fixtures·단위 검사 파일은 바꾸지 않았습니다. skip/only·검사 규칙 비활성화는 없습니다.
+- 이번 수정의 fixtures/unit/typecheck/build/E2E/UI·CI/Pages 결과는 미실행/미검증이며 부모 클라우드에서 이어갑니다. Mac에서는 테스트·빌드·브라우저/UI를 실행하지 않고 소스/diff 범위 확인과 정상 main push만 수행합니다.
+- 변경 범위는 KO/EN index.mdx, AttentionStory.astro, MatrixProductExplorer.tsx, QKScoreWalk.astro, site.spec.ts, 이 기록의 7개입니다. 두 제외 사용자 문서는 보존·미포함합니다. 삭제·의존성·hook·권한·지침 파일 변경은 없습니다.

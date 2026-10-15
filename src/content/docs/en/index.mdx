@@ -272,7 +272,7 @@ Follow **the first value 2 in Y** to its four X-row/W-column pairs. Cell selecti
   initialCell={{ row: 0, col: 0 }}
 />
 
-The main route keeps these default coefficients and inputs fixed to the end. Follow the token row labels in X and Y.
+The main route keeps these default coefficients and inputs fixed to the end. Follow the token row labels in X and Y above.
 
 <AttentionStory locale="en" stage="preparation" />
 
@@ -281,6 +281,8 @@ The main route keeps these default coefficients and inputs fixed to the end. Fol
 ### Build a score for comparing two rows
 
 The current-position row for “I” is (2, 0). Applying **different coefficients to the same X** gives the candidate row (2, 0) for “went”. Pair matching slots in this one pair and add their products.
+
+Simply adding all the current-row and candidate-row values gives 4 for both “went” (2, 0) and “I” (0, 2). **Multiply matching slots and add** instead: went gives 2×2 + 0×0 = **4**, while I gives 2×0 + 0×2 = **0**, distinguishing which slots line up.
 
 **2×2 + 0×0 = 4.** The contributions 4 and 0 sum to the pair’s comparison score 4. This multiplication and addition is a **dot product**. We have not assigned human-defined meanings to coordinates.
 
@@ -497,7 +499,7 @@ tell those apart.
 
 <Section id="proportion" locale="en">
 
-Continue with the same scores (0, 4, 2). Each comparison row has two values, so divide by √2≈1.414 before softmax. Keep raw and divided scores distinct.
+Continue with the same scores (0, 4, 2). Dividing limits the increase in score spread as comparisons use more values. Here each row has two values, so divide by √2≈1.414 before softmax. Keep raw and divided scores distinct.
 
 <AttentionStory locale="en" stage="shares" />
 
@@ -909,7 +911,7 @@ The first row $(0, 4, 2)$ becomes $(0,\ 2.828,\ 1.414)$.
 
 **Proportions.** The previous section applied softmax to one token's three scores. Here one
 row is one token, so softmax applies to each row separately. The first row becomes
-$(0.045,\ 0.768,\ 0.187)$, which adds to 1. 
+$(0.045,\ 0.768,\ 0.187)$, which adds to 1.
 
 **Weighted sum.** Apply the same first-row shares to V to obtain (0.323, 2.490). Giving about 76.8% to the V row (0, 3) for went completes the opening picture.
 

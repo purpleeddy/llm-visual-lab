@@ -2373,6 +2373,9 @@ test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows t
     expect(dot).toBeGreaterThanOrEqual(0); expect(transpose).toBeGreaterThan(dot);
     await expect(numbers).not.toContainText('Query'); await expect(numbers).not.toContainText('Key');
     await expect(numbers).toContainText(ko ? '2×2 + 0×0 = 4' : '2×2 + 0×0 = 4');
+    const explanation=numbers.locator('#similarity');
+    await expect(explanation).toContainText(ko ? '네 값을 그냥 모두 더하면' : 'adding all the current-row and candidate-row values');
+    await expect(explanation).toContainText('2×0 + 0×2 =');
     await expect(numbers).toContainText('2×2=4'); await expect(numbers).toContainText('2×4=8');
     const order=await page.locator('[data-qk-score-walk]').evaluate(walk=>{
       const roles=document.querySelector('svg[aria-labelledby="qkv-t qkv-d"]')!;
@@ -2393,12 +2396,21 @@ test('the fixed attention story carries one first-row example from purpose to co
     await expect(overview).toContainText('(0, 4, 2)');
     await expect(overview).toContainText('(0.323, 2.490)');
     await expect(overview).toContainText(ko ? '미래를 가리기 전' : 'before future masking');
+    await expect(overview.locator('a[href="#positions"]')).toHaveText(ko ? '뒤의 위치와 가리기 단원' : 'later position and masking unit');
     const fixed=page.locator('#numbers [data-matmul-mode="fixed"]');
     await expect(fixed.locator('button, input, details')).toHaveCount(0);
+    await expect(fixed.locator('[data-matrix="Y"] caption')).toHaveCount(0);
     for (const matrix of ['X','Y']) await expect(fixed.locator(`[data-matrix="${matrix}"] .mgrid__rowlabel`)).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
     const candidates=page.locator('[data-matrix="story-candidates"]');
     await expect(candidates.locator('.mgrid__value')).toHaveText(['0','2','2','0','1','1']);
+    const product=page.locator('[data-story-candidate-product]');
+    await expect(product.locator('[data-matrix="story-product-current"] .mgrid__value')).toHaveText(['2','0']);
+    await expect(product.locator('[data-matrix="story-candidate-columns"] .mgrid__collabel')).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
+    await expect(product.locator('[data-matrix="story-candidate-columns"] .mgrid__value')).toHaveText(['0','2','1','2','0','1']);
+    await expect(product.locator('[data-matrix="story-product-scores"] .mgrid__value')).toHaveText(['0','4','2']);
     await expect(page.locator('[data-story-score]')).toHaveText(['0','4','2']);
+    await expect(page.locator('[data-story-exponential]')).toHaveText(['1.000','16.919','4.113']);
+    await expect(page.locator('[data-story-normalization]')).toContainText('22.032');
     await expect(page.locator('[data-story-share]')).toHaveText(['0.045388','0.767918','0.186694']);
     await expect(page.locator('[data-matrix="story-content"] .mgrid__value')).toHaveText(['3','0','0','3','1','1']);
     await expect(page.locator('[data-matrix="story-output"] .mgrid__value')).toHaveText(['0.323','2.490']);
@@ -2410,6 +2422,7 @@ test('the fixed attention story carries one first-row example from purpose to co
     await expect(arrow).toHaveAttribute('x2',before!);
     await expect(dot.locator('.terms__running').last()).toHaveText('8');
     const experiment=page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
+    await expect(experiment.locator('[data-matrix="Y"] caption')).toHaveCount(1);
     await openFold(experiment,'.matmul__inputs');
     await experiment.locator('[data-matrix="X"] [data-r="0"][data-c="0"] input').fill('2');
     await expect(experiment.locator('.mgrid--score .mgrid__value')).toHaveText(['3','0','0','2','1','1']);

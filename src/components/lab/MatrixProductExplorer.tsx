@@ -145,7 +145,7 @@ export function MatrixProductExplorer({
           selectable={interactive}
           selected={cell}
           onSelect={setCell}
-          caption={ui.math.selectOutputCell}
+          caption={interactive ? ui.math.selectOutputCell : undefined}
         />
         <ConnectorOverlay
           containerRef={chainRef}
