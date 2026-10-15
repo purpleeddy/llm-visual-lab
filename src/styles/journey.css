@@ -31,13 +31,43 @@
 .journey__pair > div { display: grid; justify-items: center; gap: 0.75rem; }
 .journey__row { display: inline-flex; gap: 1rem; padding: 0.5rem; border-inline: 2px solid var(--line-3); font-family: var(--font-mono); }
 .journey__column { display: grid; gap: 0.5rem; padding: 0.5rem; border-inline: 2px solid var(--line-3); font-family: var(--font-mono); text-align: center; }
-.journey__scroll { overflow-x: auto; max-width: 100%; min-width: 0; margin-block: 1rem; }
+.journey__scroll { overflow-x: visible; max-width: 100%; min-width: 0; margin-block: 1rem; }
 .journey__scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.prose .journey__table { border-collapse: collapse; width: 100%; min-width: 19rem; margin: 0; }
-.journey__table th, .journey__table td { padding: 0.65rem; text-align: start; border-block-end: 1px solid var(--line-2); white-space: normal; }
+.prose .journey__table { border-collapse: collapse; width: 100%; min-width: 0; table-layout: fixed; margin: 0; }
+.prose .journey__table th, .prose .journey__table td { padding: 0.65rem; text-align: start; border-block-end: 1px solid var(--line-2); white-space: normal; overflow-wrap: anywhere; min-width: 0; }
 .journey__table caption { text-align: start; color: var(--ink-2); padding-block-end: 0.5rem; }
-.journey__table [data-largest='true'] { background: var(--accent-wash); }
-.journey__bar { display: block; background: var(--accent); height: 0.3rem; margin-block-start: 0.25rem; }
+.journey__probabilities { width: 100%; min-width: 0; margin-block: 1rem; }
+.journey__probabilities > dl { margin: 0; padding: 0; min-width: 0; }
+.journey__probability-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0.5rem 1rem; align-items: center; padding: 0.4rem; min-width: 0; border-block-end: 1px solid var(--line-2); }
+.journey__probability-row[data-largest='true'] { background: var(--accent-wash); }
+.journey__probability-row dt, .journey__probability-row dd { margin: 0; min-width: 0; }
+.journey__probability-row dd { display: grid; grid-template-columns: 5.5ch minmax(0,1fr); gap: 0.75rem; align-items: center; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.journey__bar-track { display: block; min-width: 0; background: var(--line-1); }
+.journey__bar { display: block; background: var(--accent); height: 0.4rem; }
+.journey__preview { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; border-inline-start: 3px solid var(--accent); padding-inline-start: 0.75rem; }
+.journey__destination { border-inline-start: 3px solid var(--accent); padding-inline-start: 0.75rem; }
+.journey__digits { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 0.4rem; max-width: 100%; min-width: 0; width: min(100%, 16rem); }
+.journey__digits > span { display: block; text-align: center; border: 1px solid var(--line-3); padding: 0.35rem; font-family: var(--font-mono); font-size: 1rem; }
+.journey__lookup > div { min-width: 0; }
+.journey__projection-inputs { display: grid; gap: 0.75rem; }
+.journey__projection-inputs > div { display: grid; gap: 0.5rem; min-width: 0; }
+.journey__secondary { display: block; font: inherit; font-size: 1rem; color: var(--ink-2); background: transparent; border: 0; padding: 0.5rem 0; text-decoration: underline; text-underline-offset: 0.25rem; text-align: start; cursor: pointer; max-width: 100%; }
+.journey__mixture { margin: 1rem 0; min-width: 0; }
+.journey__contributions { display: grid; gap: 1rem; min-width: 0; }
+.journey__contribution { --contribution-color: var(--data-q); display: grid; grid-template-columns: max-content minmax(0,1fr) max-content max-content minmax(0,1fr); gap: 0.75rem; align-items: center; border-inline-start: 3px solid var(--contribution-color); padding-inline-start: 0.75rem; min-width: 0; }
+.journey__contribution[data-source-id='1'] { --contribution-color: var(--data-k); }
+.journey__contribution[data-source-id='2'] { --contribution-color: var(--data-v); }
+.journey__coordinates { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0.4rem; min-width: 0; }
+.journey__coordinates > span { display: block; min-width: 0; text-align: center; border: 1px solid var(--line-3); padding: 0.35rem; font-family: var(--font-mono); font-size: 1rem; }
+.journey__coordinate > strong { font-weight: 600; }
+.journey__contribution-bar { display: block; height: 0.3rem; margin-block-start: 0.25rem; background: var(--contribution-color); }
+.journey__merge { display: grid; justify-items: center; gap: 0.25rem; margin-block: 0.75rem; font-size: 1rem; }
+.journey__mixture-result { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 1rem; align-items: center; border-block-start: 2px solid var(--accent); padding-block-start: 0.75rem; }
+.journey__sum-bar { display: flex; height: 0.3rem; margin-block-start: 0.25rem; }
+.journey__sum-bar > span[data-source-id='0'] { background: var(--data-q); }
+.journey__sum-bar > span[data-source-id='1'] { background: var(--data-k); }
+.journey__sum-bar > span[data-source-id='2'] { background: var(--data-v); }
+.journey__mixture figcaption { margin-block-start: 0.75rem; font-size: 1rem; color: var(--ink-2); }
 .journey__equation, .journey__values dd { font-family: var(--font-mono); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
 .journey__values { display: grid; grid-template-columns: minmax(0,1fr); gap: 0.35rem; }
 .journey__values dt { font-weight: 600; }
@@ -59,4 +89,21 @@
   .journey__context > strong { grid-column: 1; grid-row: 3; }
   .journey__restart { margin-inline-start: 0; }
   .journey__controls .btn { flex: 1 1 8rem; }
+}
+
+@media (max-width: 50rem) {
+  .journey__contribution { grid-template-columns: minmax(0,1fr); justify-items: stretch; gap: 0.5rem; }
+  .journey__contribution > .journey-token { justify-self: start; }
+  .journey__contribution-arrow { justify-self: center; transform: rotate(90deg); }
+  .journey__multiply { text-align: center; }
+}
+@media (max-width: 34rem) {
+  .journey__probability-row { grid-template-columns: minmax(0,1fr); }
+  .journey__mixture-result { grid-template-columns: minmax(0,1fr); }
+  .journey__mixture-result > .journey-token { justify-self: start; }
+}
+@media (max-width: 20rem) {
+  .journey__digits { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .prose .journey__table th, .prose .journey__table td { padding: 0.25rem; }
+  .journey__coordinates, .journey__probability-row dd { grid-template-columns: minmax(0,1fr); }
 }

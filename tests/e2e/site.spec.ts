@@ -1261,6 +1261,10 @@ test.describe('the complete learning progression', () => {
       await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
       await expect(lab).toHaveCount(1);
       await expect(page.locator('#language-model .lab--generation-journey')).toHaveCount(1);
+      await expect(lab).toHaveAttribute('data-mode', 'overview');
+      await expect(lab).toHaveAttribute('data-progress', '1/3');
+      await expect(lab.locator('[data-journey-preview] .journey-token')).toHaveText(ko ? '갔다' : 'to school');
+      await expect(lab.locator('[data-journey-probability]')).toHaveText(['11.5%', '11.6%', '71.8%', '5.2%']);
       await expect(page.locator('#table-generation')).not.toHaveAttribute('open');
       await expect(page.locator('.lab--next-token')).not.toBeVisible();
       expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-model-intro]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);

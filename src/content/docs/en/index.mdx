@@ -90,7 +90,7 @@ The educational tokens are readable word and phrase chunks. Real tokens may be *
 End is a special stopping token, not an ordinary period. High probability does not guarantee factual content or a unique correct answer.
 
 <div data-learning-overview>
-<Steps title="Now learn the parts of the same computation in more detail">
+<Steps title="Now learn these operations in more detail">
 
 1. **Look up numbers for text.** Assign IDs and retrieve table rows. Start with (1, 0, 1, 0) for “I” in the [next unit](#tokens).
 2. **Transform numbers and gather context.** Learn multiply-and-add, row comparisons and content retrieval using reference shares. [Detailed arithmetic](#numbers) is a separate exercise with all three tokens supplied.
@@ -501,10 +501,10 @@ Continue with the same scores (0, 4, 2). Dividing limits the increase in score s
 
 <AttentionStory locale="en" stage="mixture" />
 
-This completes the opening picture’s calculation for “I”. The next unit names the current-position, candidate and content roles, and applies the same calculation to all rows.
+This completes the three-token reference exercise’s calculation for “I”. The next unit names the current-position, candidate and content roles, and applies the same calculation to all rows.
 
 <Expand id="softmax-experiments" summary="Supplement: unscaled scores and softmax controls">
-This independent experiment uses (0, 4, 2) without division by √2. Its shares (0.016, 0.867, 0.117) differ from the main route’s scaled-score shares. Edits here do not change the fixed main calculation.
+This independent experiment uses (0, 4, 2) without division by √2. Its shares (0.016, 0.867, 0.117) differ from the three-token reference exercise’s scaled-score shares. Edits here do not change the fixed three-token reference calculation.
 
 ### Why not just divide?
 
@@ -907,7 +907,7 @@ The first row $(0, 4, 2)$ becomes $(0,\ 2.828,\ 1.414)$.
 row is one token, so softmax applies to each row separately. The first row becomes
 $(0.045,\ 0.768,\ 0.187)$, which adds to 1.
 
-**Weighted sum.** Apply the same first-row shares to V to obtain (0.323, 2.490). Giving about 76.8% to the V row (0, 3) for went completes the opening picture.
+**Weighted sum.** Apply the same first-row shares to V to obtain (0.323, 2.490). Giving about 76.8% to the V row (0, 3) for went completes the three-token reference exercise.
 
 <Expand id="attention-third-row" summary="Supplement: a tied comparison for another current row">
 The third score row (2, 2, 2) gives exact thirds. $(0.333,\ 0.333,\ 0.333)$ is a rounded display; only its displayed sum is 0.999.

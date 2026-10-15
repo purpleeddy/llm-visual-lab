@@ -101,15 +101,21 @@ describe('one computed opening, from a two-token input to end', () => {
     expect(lessonSnapshot().attention.perHead[0].scores[1]).toEqual([4, 0]);
   });
 
-  it.each(['ko', 'en'] as const)('%s: the opening renders only the two available inputs, without future-token leakage', locale => {
+  it.each(['ko', 'en'] as const)('%s: the opening previews a computed choice outside its two actual inputs', locale => {
     const html = renderToStaticMarkup(createElement(GenerationJourney, { locale }));
     const input = html.match(/data-journey-input="[^"]*"[\s\S]*?<ol/)!;
     expect(input).not.toBeNull();
     expect(input[0]).toContain('data-token-id="0"');
     expect(input[0]).toContain('data-token-id="1"');
     expect(input[0]).not.toContain('data-token-id="2"');
-    expect(html).not.toContain(LEARNING_EXAMPLE[locale].tokens[2]);
-    expect(html).not.toContain('data-journey-probabilities');
+    expect(input[0]).not.toContain(LEARNING_EXAMPLE[locale].tokens[2]);
+    expect(html).toContain('data-journey-preview');
+    expect(html.indexOf('data-journey-preview')).toBeGreaterThan(html.indexOf('</ol>'));
+    expect(html).toContain(LEARNING_EXAMPLE[locale].tokens[2]);
+    expect(html).toContain('data-journey-probabilities');
+    expect(html).toContain('71.8%');
+    expect(html).toContain('data-mode="overview"');
+    expect(html).toContain('data-progress="1/3"');
     expect(html).not.toContain('70%');
     expect(html).not.toContain('<table');
     expect(html).toContain('data-stage="purpose"');
