@@ -84,7 +84,7 @@ const L = ko ? {
     </table></div>
     <p data-story-normalization>{ko ? `양수이고 합이 1인 비중을 만들려고 나눈 점수마다 지수값을 구합니다. 각 지수값을 그 합 ${fmt(exponentialSum, 3)}으로 나누면 표의 비중이 됩니다. 학교에의 내용을 약 76.8% 가져옵니다.` : `To make positive shares summing to 1, exponentiate each divided score. Divide each exponential by their sum, ${fmt(exponentialSum, 3)}, to obtain the shares in the table. About 76.8% goes to content from went.`}</p>
   </Figure>}
-  {stage === 'mixture' && <Figure caption={ko ? '처음 그림의 계산 완성: 나는의 새 값은 약 (0.323, 2.490)입니다. 학교에의 전달값 (0, 3)을 가장 많이 가져온 결과입니다.' : 'Complete the opening picture: new values for I are about (0.323, 2.490), drawing most heavily from the content row (0, 3) for went.'}>
+  {stage === 'mixture' && <Figure caption={ko ? '세 토큰 심화 그림의 계산 완성: 나는의 새 값은 약 (0.323, 2.490)입니다. 학교에의 전달값 (0, 3)을 가장 많이 가져온 결과입니다.' : 'Complete the three-token reference exercise: new values for I are about (0.323, 2.490), drawing most heavily from the content row (0, 3) for went.'}>
     <p>{ko ? '가져올 내용도 같은 X에 전달용 계수를 곱해 따로 준비합니다. 비교용 숫자와 역할이 다릅니다.' : 'Prepare content separately by applying content coefficients to the same X. It has a different role from comparison values.'}</p>
     <div class="attention-story__matrices">
       <MatrixGrid matrix={result.WV} name={ko ? '전달용 계수' : 'Content coefficients'} shape="4 × 2" compact matrixId="story-content-coefficients" />
