@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { computeMultiHead } from '../../lib/math/multihead';
-import { defaultMultiHeadInput } from '../../lib/math/examples';
+import { defaultMultiHeadInput, LEARNING_EXAMPLE } from '../../lib/math/examples';
 import { fmt, heatLevel } from '../../lib/math/format';
 import { t } from '../../lib/i18n/ui';
 import { EXPLORER_TEXT } from '../../lib/i18n/explorers';
@@ -56,7 +56,7 @@ export function HeadPatternsExplorer({ locale }: { locale: Locale }) {
             <div className="segmented" role="group" aria-labelledby="hp-q-label">
               {Array.from({ length: n }, (_, i) => (
                 <button key={i} type="button" aria-pressed={q === i} onClick={() => setQ(i)}>
-                  {ui.lab.tokenLabel.replace('{n}', String(i + 1))}
+                  {ui.lab.tokenLabel.replace('{n}', String(i + 1))} · {LEARNING_EXAMPLE[locale].tokens[i]}
                 </button>
               ))}
             </div>

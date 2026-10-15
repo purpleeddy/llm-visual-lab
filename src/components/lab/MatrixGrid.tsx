@@ -169,7 +169,7 @@ export function MatrixGrid({
                     .filter(Boolean)
                     .join(' ');
 
-                  const text = isBlocked
+                  const text = isBlocked && tone !== 'weight'
                     ? '−∞'
                     : compact
                       ? fmtCompact(value, decimals)
@@ -188,7 +188,7 @@ export function MatrixGrid({
                     name,
                     rowLabels ? rowLabels[r] : `row ${r + 1}`,
                     colLabels ? colLabels[c] : `column ${c + 1}`,
-                    isBlocked ? blockedLabel : text,
+                    isBlocked ? `${text}, ${blockedLabel}` : text,
                   ].join(', ');
 
                   if (!selectable) {

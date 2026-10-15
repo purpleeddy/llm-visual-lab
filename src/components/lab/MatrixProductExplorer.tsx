@@ -3,6 +3,7 @@ import { MatrixGrid, type CellRef } from './MatrixGrid';
 import { EditableMatrix } from './EditableMatrix';
 import { TermExpansion } from './TermExpansion';
 import { ConnectorOverlay, type ConnectorLink } from './ConnectorOverlay';
+import { fmt } from '../../lib/math/format';
 import { cellDerivation, matmul, type Matrix } from '../../lib/math/matrix';
 import { t } from '../../lib/i18n/ui';
 import type { Locale } from '../../lib/i18n/routing';
@@ -17,6 +18,8 @@ export interface MatrixProductExplorerProps {
   rowLabelsA?: string[];
   colLabelsB?: string[];
   editable?: boolean;
+  /** A two-share mixture: edit p, with the other share always 1 − p. */
+  complementaryWeights?: boolean;
   /** The cell selected to begin with */
   initialCell?: CellRef;
 }
@@ -36,6 +39,7 @@ export function MatrixProductExplorer({
   rowLabelsA,
   colLabelsB,
   editable = true,
+  complementaryWeights = false,
   initialCell = { row: 0, col: 0 },
 }: MatrixProductExplorerProps) {
   const ui = t(locale);
@@ -89,71 +93,40 @@ export function MatrixProductExplorer({
 
   return (
     <section className="lab lab--matmul" aria-label={ui.math.matrixProduct}>
+      {complementaryWeights ? <label className="explorer__control">{locale === 'ko' ? '첫 비중 p' : 'First share p'}: {fmt(a[0][0], 2)} · {locale === 'ko' ? '둘째 비중 1 − p' : 'Second share 1 − p'}: {fmt(a[0][1], 2)}
+        <input className="explorer__range" type="range" min={0} max={1} step={0.05} value={a[0][0]}
+          aria-label={locale === 'ko' ? '첫 비중 p' : 'First share p'}
+          onChange={e => { const p = Number(e.target.value); setA([[p, 1 - p]]); }} />
+      </label> : null}
       <div className="lab__chain" ref={chainRef}>
-        {editable ? (
-          <EditableMatrix
-            matrix={a}
-            name={nameA}
-            shape={`${rowsA} × ${colsA}`}
-            rowLabels={rowNames}
-            colLabels={innerNames}
-            tone="q"
-            highlightRow={cell.row}
-            activeTerm={activeTerm}
-            activeTermAxis="row"
-            onChange={(r, col, v) =>
-              setA((prev) => prev.map((row, ri) => row.map((x, ci) => (ri === r && ci === col ? v : x))))
-            }
-          />
-        ) : (
-          <MatrixGrid
-            matrix={a}
-            name={nameA}
-            shape={`${rowsA} × ${colsA}`}
-            rowLabels={rowNames}
-            colLabels={innerNames}
-            tone="q"
-            compact
-            highlightRow={cell.row}
-            activeTerm={activeTerm}
-            activeTermAxis="row"
-          />
-        )}
-
+        <MatrixGrid
+          matrix={a}
+          name={nameA}
+          shape={`${rowsA} × ${colsA}`}
+          rowLabels={rowNames}
+          colLabels={innerNames}
+          tone="q"
+          compact
+          highlightRow={cell.row}
+          activeTerm={activeTerm}
+          activeTermAxis="row"
+        />
         <span className="lab__op" aria-hidden="true">
           ·
         </span>
 
-        {editable ? (
-          <EditableMatrix
-            matrix={b}
-            name={nameB}
-            shape={`${colsA} × ${colsB}`}
-            rowLabels={innerNames}
-            colLabels={colNames}
-            tone="k"
-            highlightCol={cell.col}
-            activeTerm={activeTerm}
-            activeTermAxis="col"
-            onChange={(r, col, v) =>
-              setB((prev) => prev.map((row, ri) => row.map((x, ci) => (ri === r && ci === col ? v : x))))
-            }
-          />
-        ) : (
-          <MatrixGrid
-            matrix={b}
-            name={nameB}
-            shape={`${colsA} × ${colsB}`}
-            rowLabels={innerNames}
-            colLabels={colNames}
-            tone="k"
-            compact
-            highlightCol={cell.col}
-            activeTerm={activeTerm}
-            activeTermAxis="col"
-          />
-        )}
-
+        <MatrixGrid
+          matrix={b}
+          name={nameB}
+          shape={`${colsA} × ${colsB}`}
+          rowLabels={innerNames}
+          colLabels={colNames}
+          tone="k"
+          compact
+          highlightCol={cell.col}
+          activeTerm={activeTerm}
+          activeTermAxis="col"
+        />
         <span className="lab__op" aria-hidden="true">
           =
         </span>
@@ -191,6 +164,21 @@ export function MatrixProductExplorer({
           labels={{ term: ui.lab.term, product: ui.lab.product, sum: ui.lab.sum }}
         />
       </div>
+
+      {editable ? <details className="expand matmul__inputs">
+        <summary>{locale === 'ko' ? '행렬값 직접 바꾸기' : 'Edit the matrix values'}</summary>
+        <div className="expand__body">
+          <p className="lab__hint">{ui.lab.inputsHint}</p>
+          <div className="lab__row">
+            {!complementaryWeights ? <EditableMatrix matrix={a} name={nameA} shape={`${rowsA} × ${colsA}`} rowLabels={rowNames} colLabels={innerNames} tone="q"
+              highlightRow={cell.row} activeTerm={activeTerm} activeTermAxis="row"
+              onChange={(r, col, v) => setA(prev => prev.map((row, ri) => row.map((x, ci) => ri === r && ci === col ? v : x)))} /> : null}
+            <EditableMatrix matrix={b} name={nameB} shape={`${colsA} × ${colsB}`} rowLabels={innerNames} colLabels={colNames} tone="k"
+              highlightCol={cell.col} activeTerm={activeTerm} activeTermAxis="col"
+              onChange={(r, col, v) => setB(prev => prev.map((row, ri) => row.map((x, ci) => ri === r && ci === col ? v : x)))} />
+          </div>
+        </div>
+      </details> : null}
 
       <div className="lab__footer">
         <button type="button" className="btn" onClick={reset}>

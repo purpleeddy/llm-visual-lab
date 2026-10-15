@@ -128,8 +128,8 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "토큰 번호 8123과 4차원 embedding은 같은 종류의 값일까요?",
-        "en": "Are token ID 8123 and a four-dimensional embedding the same kind of value?"
+        "ko": "토큰 번호 0과 4차원 embedding은 같은 종류의 값일까요?",
+        "en": "Are token ID 0 and a four-dimensional embedding the same kind of value?"
       },
       "answer": {
         "ko": "번호는 표의 한 행을 찾는 정수입니다. embedding은 그 행에서 꺼낸 숫자 목록입니다. 번호의 크기가 의미의 크기를 뜻하지 않습니다.",

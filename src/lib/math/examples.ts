@@ -17,6 +17,14 @@ import type { ToyModel } from './generation';
 
 const clone = (m: Matrix): Matrix => m.map((r) => [...r]);
 
+/** Readable lesson labels for the shared three-row numerical example.
+ * These chunks and embedding values are illustrative, not tokenizer or model output.
+ */
+export const LEARNING_EXAMPLE = {
+  ko: { tokens: ['나는', '학교에', '갔다'], vocabulary: ['나는', '학교에', '갔다', '.'] },
+  en: { tokens: ['I', 'went', 'to school'], vocabulary: ['I', 'went', 'to school', '.'] },
+};
+
 /** n × d_model = 3 × 4 */
 export const DEFAULT_X: Matrix = [
   [1, 0, 1, 0],
@@ -180,6 +188,41 @@ export const TOY_MODEL: ToyModel = {
   'c b': { '.': 1 },
   'c c': { '.': 1 },
   'b a c': { '.': 1 },
+};
+
+
+/* The introduction demonstrates the generation loop with chosen probabilities.
+ * Each prefix shows readable continuations; the later decoder keeps its separate four-output vocabulary.
+ */
+function sentenceModel(stages: ToyModel[string][]): ToyModel {
+  const model: ToyModel = {};
+  let prefixes: string[][] = [[]];
+  for (const choices of stages) {
+    const next: string[][] = [];
+    for (const prefix of prefixes) {
+      model[prefix.join(' ')] = { ...choices };
+      for (const token of Object.keys(choices)) {
+        if (token !== '.') next.push([...prefix, token]);
+      }
+    }
+    prefixes = next;
+  }
+  return model;
+}
+
+export const NEXT_TOKEN_SENTENCE_MODELS = {
+  ko: sentenceModel([
+    { '나는': 0.6, '우리는': 0.25, '그는': 0.1, '.': 0.05 },
+    { '학교에': 0.6, '집에': 0.2, '도서관에': 0.15, '.': 0.05 },
+    { '갔다': 0.7, '도착했다': 0.1, '간다': 0.15, '.': 0.05 },
+    { '.': 1 },
+  ]),
+  en: sentenceModel([
+    { I: 0.6, We: 0.25, They: 0.1, '.': 0.05 },
+    { went: 0.6, walked: 0.2, headed: 0.15, '.': 0.05 },
+    { 'to school': 0.7, home: 0.1, 'to work': 0.15, '.': 0.05 },
+    { '.': 1 },
+  ]),
 };
 
 /* ------------------------------------------------------------- training */

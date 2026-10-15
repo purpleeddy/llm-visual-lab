@@ -18,7 +18,7 @@ const N = 12;
 export function PositionExplorer({ locale }: { locale: Locale }) {
   const ui = t(locale);
   const text = EXPLORER_TEXT[locale].position;
-  const [pos, setPos] = useState(3);
+  const [pos, setPos] = useState(1);
   const [pair, setPair] = useState(0);
 
   const pe = useMemo(() => positionalEncoding(N, D_MODEL), []);
@@ -107,10 +107,10 @@ export function PositionExplorer({ locale }: { locale: Locale }) {
           <line x1={xOf(pos)} x2={xOf(pos)} y1={yMid - AMP - 6} y2={yMid + AMP + 6} stroke="var(--accent)" strokeDasharray="3 3" />
           <circle className="pw__dot pw__dot--sin" cx={xOf(pos)} cy={vOf(sin.value)} r="4.5" />
           <circle className="pw__dot pw__dot--cos" cx={xOf(pos)} cy={vOf(cos.value)} r="4.5" />
-          <text className="tp__num" x={xOf(pos) + 8} y={vOf(sin.value) - 6}>
+          <text className="tp__num" x={pos >= N - 3 ? xOf(pos) - 8 : xOf(pos) + 8} y={vOf(sin.value) - 6} textAnchor={pos >= N - 3 ? "end" : "start"}>
             sin {fmt(sin.value, 3)}
           </text>
-          <text className="tp__num" x={xOf(pos) + 8} y={vOf(cos.value) + 14}>
+          <text className="tp__num" x={pos >= N - 3 ? xOf(pos) - 8 : xOf(pos) + 8} y={vOf(cos.value) + 14} textAnchor={pos >= N - 3 ? "end" : "start"}>
             cos {fmt(cos.value, 3)}
           </text>
           <text className="tmap__note" x={PAD_L} y={16}>

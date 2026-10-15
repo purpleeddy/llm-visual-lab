@@ -28,7 +28,7 @@ export interface CourseGroup {
 export const COURSE: CourseGroup[] = [
   {
     title: { ko: '이 학습 글', en: 'This learning guide' },
-    items: [{ id: '', title: { ko: 'LLM 원리, 작은 숫자로', en: 'LLM Principles in Small Numbers' } }],
+    items: [{ id: '', title: { ko: '눈으로 이해하는 LLM 원리', en: 'LLM Principles, Visually Explained' } }],
   },
   {
     title: { ko: '이어지는 길', en: 'Where it goes' },

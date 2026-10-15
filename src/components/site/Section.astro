@@ -32,10 +32,13 @@ const previous = SECTIONS[index - 1];
 const next = SECTIONS[index + 1];
 const prerequisites = meta.prerequisites.map(key => { const p = sectionById(key); if (!p) throw new Error(`Unknown prerequisite: ${key}`); return p; });
 const planned = meta.status === 'planned';
+const hasOpening = Astro.slots.has('opening');
 const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not written yet';
 ---
 
-<section class={`doc-section${planned ? ' doc-section--planned' : ''}`} id={id} data-section={id}>
+<section class={`doc-section${planned ? ' doc-section--planned' : ''}${hasOpening ? ' doc-section--opening' : ''}`} id={id} data-section={id}>
+  {/* The first lesson can show its concrete opening before the lesson heading. */}
+  <slot name="opening" />
   <p class="doc-section__kicker">{kicker}</p>
   <h2 class="doc-section__title">
     <span>{title}</span>

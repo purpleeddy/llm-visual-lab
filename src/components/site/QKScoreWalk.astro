@@ -1,0 +1,79 @@
+---
+import type { Locale } from '../../lib/i18n/routing';
+import { DEFAULT_ATTENTION_INPUT, LEARNING_EXAMPLE } from '../../lib/math/examples';
+import { computeAttention } from '../../lib/math/attention';
+import { cellDerivation } from '../../lib/math/matrix';
+import { MatrixGrid } from '../lab/MatrixGrid';
+import Figure from './Figure.astro';
+
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+// Show raw comparisons; mark the future cells a causal generation mask will exclude later.
+const { Q, K, KT, scores, allowed } = computeAttention({ ...DEFAULT_ATTENTION_INPUT, masked: true });
+const query = Q.length - 1;
+const key = 0;
+const pair = cellDerivation(Q, KT, query, key);
+const tokens = LEARNING_EXAMPLE[locale].tokens;
+const qLabels = Q.map((_, i) => `Q${i + 1}`);
+const kLabels = K.map((_, i) => `K${i + 1}`);
+const L = ko ? {
+  label: '전치는 같은 Q–K 비교를 행렬곱으로 묶습니다',
+  titles: ['① 한 쌍을 비교', '② 모든 쌍을 점수 표에 놓기', '③ 같은 비교를 행렬곱으로 묶기'],
+  captions: ['같은 자리끼리 곱해 더하면 “갔다”에서 “나는”을 볼 점수는 2입니다.', '각 Q와 각 K를 비교해 3 × 3 점수 표를 만듭니다.', 'K의 행을 열로 놓으면 Q × Kᵀ가 같은 점수를 냅니다. 숫자나 비교의 뜻은 바뀌지 않습니다.'],
+  pair: 'Q3와 K1의 비교',
+  raw: '가리기 전 점수',
+  future: '줄무늬: 생성 때 제외할 미래 위치. 여기서는 가리기 전 점수를 표시합니다.',
+  blocked: '생성 때 제외할 미래 위치의 원래 점수',
+  transpose: '행 → 열',
+} : {
+  label: 'Transpose bundles the same Q–K comparisons in one matrix product',
+  titles: ['① Compare one pair', '② Put every pair in a score grid', '③ Bundle the same comparisons in a product'],
+  captions: ['Multiply matching entries and add: “to school” looking at “I” scores 2.', 'Comparing every Q with every K gives a 3 × 3 score grid.', 'Place K’s rows in columns: Q × Kᵀ gives the same scores. Values and the comparisons’ meaning are unchanged.'],
+  pair: 'Q3 compared with K1',
+  raw: 'Scores before masking',
+  future: 'Stripes: future positions excluded during generation. These are the raw scores before masking.',
+  blocked: 'raw score for a future position excluded during generation',
+  transpose: 'rows → columns',
+};
+---
+<div class="qkw" aria-label={L.label} data-qk-score-walk>
+  <div class="qkw__positions">{tokens.map((token, i) => <span>{i + 1}: {token}</span>)}</div>
+  {[1, 2, 3].map(stage => <Figure caption={L.captions[stage - 1]}>
+    <div class="qkw__step" data-step={stage}>
+      <h4 class="qkw__title">{L.titles[stage - 1]}</h4>
+      {stage === 1 && <>
+        <MatrixGrid matrix={[Q[query], K[key]]} name={L.pair} rowLabels={[qLabels[query], kLabels[key]]} compact matrixId="qkw-pair" />
+        <p class="qkw__dot" data-pair-value={pair.value}>{pair.terms.map((term, i) => <>
+          {i > 0 && <span> + </span>}<span class="qkw__term"><b data-query-value>{term.a}</b> × <b data-key-value="0">{term.b}</b></span>
+        </>)}<span> = </span><strong class="qkw__selected-score">{pair.value}</strong></p>
+      </>}
+      {stage === 3 && <>
+        <div class="qkw__transpose">
+          <MatrixGrid matrix={K} name="K" shape="3 × 2" rowLabels={kLabels} compact matrixId="qkw-k" />
+          <span class="qkw__arrow" aria-label={L.transpose}>→</span>
+          <MatrixGrid matrix={KT} name="Kᵀ" shape="2 × 3" colLabels={kLabels} compact matrixId="qkw-kt" />
+        </div>
+        <div class="qkw__product">
+          <MatrixGrid matrix={Q} name="Q" shape="3 × 2" rowLabels={qLabels} highlightRow={query} compact matrixId="qkw-q" />
+          <span class="qkw__op">×</span>
+          <MatrixGrid matrix={KT} name="Kᵀ" shape="2 × 3" colLabels={kLabels} compact matrixId="qkw-product-kt" />
+          <span class="qkw__op">= S ↓</span>
+        </div>
+      </>}
+      {stage > 1 && <>
+        <p class="qkw__matrix-label">S · 3 × 3 <span>{L.raw}</span></p>
+        <div class="qkw__score-scroll"><table class="qkw__scores">
+          <caption class="visually-hidden">{L.raw}: Q × Kᵀ</caption>
+          <thead><tr><td></td>{kLabels.map((label, c) => <th scope="col" data-key={c}>{label}</th>)}</tr></thead>
+          <tbody>{scores.map((row, r) => <tr>
+            <th scope="row" data-query={r}>{qLabels[r]}</th>
+            {row.map((value, c) => <td data-r={r} data-c={c} data-key={c} data-query={r} data-future={!allowed[r][c]} data-selected={r === query && c === key}
+              aria-label={`S${r+1},${c+1}: ${value}${!allowed[r][c] ? ', ' + L.blocked : ''}`}>{value}</td>)}
+          </tr>)}</tbody>
+        </table></div>
+        <p class="qkw__legend"><span class="qkw__stripe" aria-hidden="true"></span>{L.future}</p>
+      </>}
+    </div>
+  </Figure>)}
+</div>

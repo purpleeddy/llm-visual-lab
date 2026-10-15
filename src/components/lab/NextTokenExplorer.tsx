@@ -1,25 +1,70 @@
-import { useMemo, useState } from 'react';
-import { greedy } from '../../lib/math/generation';
-import { TOY_MODEL } from '../../lib/math/examples';
+import { Fragment, useMemo, useState } from 'react';
+import { END, greedy } from '../../lib/math/generation';
+import { NEXT_TOKEN_SENTENCE_MODELS } from '../../lib/math/examples';
 import { fmt } from '../../lib/math/format';
 import type { Locale } from '../../lib/i18n/routing';
 
-/** A prefix lookup and an actual greedy trace, with no claim that the table is learned. */
-export function NextTokenExplorer({ locale }: { locale: Locale }) {
+/** One whole prediction is visible immediately; the only action advances its input. */
+export function NextTokenExplorer({ locale, initialRound = 0 }: { locale: Locale; initialRound?: number }) {
   const ko = locale === 'ko';
-  const run = useMemo(() => greedy(TOY_MODEL), []);
-  const [round, setRound] = useState(0);
-  const done = round === run.steps.length;
-  const step = run.steps[Math.min(round, run.steps.length - 1)];
-  const prefix = done ? run.best.tokens : step.before[0].tokens;
-  const distribution = done ? [] : Object.entries(TOY_MODEL[prefix.join(' ')]);
-  const lastChosen = round > 0 ? run.steps[round - 1].kept[0].tokens.at(-1) : null;
-  return <section className="lab lab--next-token" aria-label={ko ? '다음 토큰을 하나씩 붙이기' : 'Append one token at a time'} data-round={round}>
-    <header className="lab__header"><div><h3 className="lab__title">{ko ? '다음 토큰을 하나씩 붙이기' : 'Append one token at a time'}</h3><p className="lab__kind">{ko ? '손으로 정한 확률 · 실제 선택 계산' : 'Hand-written probabilities · computed choices'}</p></div><button className="btn" onClick={() => setRound(0)}>{ko ? '처음으로' : 'Reset'}</button></header>
-    <p className="lab__note">{ko ? 'a, b, c와 끝 표시 .만 있는 작은 어휘입니다. 확률표는 사람이 정했고, 다음 토큰 선택과 전체 확률은 코드가 계산합니다. 새 문맥이 생기면 다음 확률표도 달라집니다.' : 'A tiny vocabulary: a, b, c and the end marker. The probability tables are hand-written; token choices and sequence probabilities are computed. A new prefix uses a different table.'}</p>
-    <div className="mini-flow" aria-live="polite"><div><strong>{ko ? '지금까지의 문맥' : 'Context so far'}</strong><p className="next-token__prefix">{ko ? '시작' : 'start'} {prefix.join(' ')}</p></div><span aria-hidden="true">→</span><div><strong>{ko ? '다음 토큰의 확률' : 'Next-token probabilities'}</strong><p>{done ? (ko ? '끝 표시를 골랐으므로 멈춥니다.' : 'The end marker stops generation.') : (ko ? '아래 표에서 합이 1인 후보들을 봅니다.' : 'The candidates below sum to one.')}</p></div><span aria-hidden="true">→</span><div><strong>{ko ? '골라서 입력 뒤에 붙이기' : 'Choose and append'}</strong><p className="next-token__chosen">{lastChosen ? `${ko ? '방금 붙인 것' : 'Last appended'}: ${lastChosen}` : (ko ? '먼저 무엇이 붙을지 예측하세요.' : 'Predict the next choice first.')}</p></div></div>
-    {!done && <div className="terms__tablewrap"><table className="terms__table"><thead><tr><th scope="col">{ko ? '후보' : 'Candidate'}</th><th scope="col">{ko ? '확률' : 'Probability'}</th><th scope="col">{ko ? '비중' : 'Share'}</th></tr></thead><tbody>{distribution.map(([token, p]) => <tr key={token}><th scope="row">{token}</th><td>{fmt(p, 3)}</td><td><div className="probability-bar" style={{ width: `${p * 100}%` }} aria-hidden="true" /></td></tr>)}</tbody></table></div>}
-    <button className="btn" onClick={() => setRound(r => Math.min(run.steps.length, r + 1))} disabled={done}>{ko ? '가장 큰 확률의 토큰 붙이기' : 'Append the most likely token'}</button>
-    <p className="lab__hint">{done ? `${ko ? '만든 토큰열' : 'Generated sequence'}: ${run.best.tokens.join(' ')} · ${ko ? '전체 확률' : 'Sequence probability'} ${fmt(run.best.probability, 3)}` : (ko ? '붙이기 전후의 표를 비교하세요. 가중치를 새로 배우는 것이 아니라, 문맥을 바꾸어 다음 선택을 계산하는 과정입니다.' : 'Compare the table before and after appending. This changes the context used for a prediction; it does not retrain weights.')}</p>
+  const model = NEXT_TOKEN_SENTENCE_MODELS[locale];
+  const run = useMemo(() => greedy(model), [model]);
+  const openingRound = Math.min(run.steps.length - 1, Math.max(0, Math.trunc(initialRound)));
+  const [round, setRound] = useState(openingRound);
+  const [interacted, setInteracted] = useState(false);
+  const step = run.steps[round];
+  const before = step.before[0].tokens;
+  const after = step.kept[0].tokens;
+  const chosen = after.at(-1)!;
+  const done = chosen === END;
+  const start = ko ? '시작' : 'start';
+  const input = before.join(' ') || start;
+  const nextInput = after.join(' ');
+  const distribution = model[before.join(' ')];
+  const tokenName = (token: string) => token === END ? (ko ? '끝 표시 .' : 'end marker .') : token;
+  const probability = distribution[chosen];
+  const narration = done
+    ? (ko ? `“${input}” 뒤에서는 끝 표시 .의 예시 확률이 가장 큽니다. 이 토큰을 붙였으므로 여기서 글쓰기를 마칩니다.` : `After “${input}”, the end marker . has the largest example probability. Appending this token ends the sequence.`)
+    : (ko ? `이 입력에서는 “${tokenName(chosen)}”의 예시 확률 ${Math.round(probability * 100)}%가 가장 큽니다. 이 조각을 뒤에 붙인 결과가 오른쪽의 “${nextInput}”입니다. 다음 계산에는 오른쪽 글 전체를 넣습니다.` : `After “${input}”, “${tokenName(chosen)}” is the largest candidate at ${Math.round(probability * 100)}%. This example appends that one chunk to make “${nextInput}”. The next calculation uses the whole text on the right.`);
+
+  return <section id="generation-opening" className="lab lab--next-token" aria-label={ko ? '다음 토큰을 하나씩 붙이기' : 'Append one token at a time'} data-round={after.length} data-stage={done ? 'finished' : 'generated'} data-interacted={interacted}>
+    <header className="lab__header"><div>
+      <h3 className="lab__title">{ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?'}</h3>
+      <p className="lab__kind">{ko ? '읽기 쉽게 정한 조각 · 설명용 확률' : 'Illustrative chunks and probabilities'}</p>
+    </div></header>
+
+    <div className="next-token__story">
+      <div className="next-token__context">
+        <strong className="next-token__context-title">{ko ? '이번에 넣은 입력' : 'Input for this prediction'}</strong>
+        <div className="next-token__input"><span className="next-token__start">{start}</span>{before.map((token, i) => <Fragment key={i}>{' '}<code className="next-token__token">{token}</code></Fragment>)}</div>
+
+      </div>
+      <span className="next-token__arrow" aria-hidden="true">→</span>
+      <div className="next-token__after">
+        <strong>{ko ? '한 조각을 붙인 결과' : 'After appending one chunk'}</strong>
+        <div className="next-token__prefix">{after.map((token, i) => <Fragment key={i}>{i ? ' ' : ''}<code className={`next-token__output-token${i === after.length - 1 ? ' next-token__token--new' : ''}`} aria-label={token === END ? (ko ? '끝 표시' : 'end marker') : undefined}>{token}</code></Fragment>)}</div>
+      </div>
+    </div>
+
+    <div className="next-token__candidates">
+      <p className="next-token__table-title">{ko ? '현재 확률을 구할 때 쓴 입력' : 'Input for the current probabilities'}: <strong data-probability-context>{input}</strong></p>
+      <div className="terms__tablewrap"><table className="terms__table">
+        <thead><tr><th scope="col">{ko ? '이 입력의 후보(예시)' : 'Candidates for this input (examples)'}</th><th scope="col">{ko ? '현재 입력의 확률' : 'Current probabilities'}</th><th scope="col">{ko ? '비중' : 'Share'}</th></tr></thead>
+        <tbody>{Object.entries(distribution).map(([token, p]) => {
+          return <tr key={token} className={token === chosen ? 'is-active' : undefined} data-selected={token === chosen}>
+            <th scope="row">{tokenName(token)}</th>
+            <td><strong className="next-token__percent">{Math.round(p * 100)}%</strong> <span className="next-token__probability">({fmt(p, 3)})</span></td>
+            <td><div className="probability-bar" style={{ width: `${p * 100}%`, minWidth: p === 0 ? 0 : undefined }} aria-hidden="true" /></td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+    </div>
+    <p className="next-token__narration" role="status" aria-live="polite" aria-atomic="true">{narration}</p>
+    <div className="next-token__controls">
+      <button className="btn next-token__advance" onClick={() => { setInteracted(true); setRound(current => current === run.steps.length - 1 ? 0 : current + 1); }}>{done ? (ko ? '처음부터 다시 보기' : 'Replay from the start') : (ko ? '이 새 입력으로 다음 조각 보기' : 'See the next chunk for this input')}</button>
+    </div>
+    <p className="lab__note">{ko ? '문맥에 맞는 단어·구 조각을 한 토큰으로 정한 학습용 예시입니다. 표는 실제 모델의 전체 어휘가 아닌 작은 설명용 후보 목록입니다. 단어 하나가 항상 토큰 하나인 것은 아닙니다. 확률도 원리를 보여 주려고 정한 값이며 실제 모델이나 토크나이저의 출력은 아닙니다.' : 'These context-appropriate word and phrase chunks are educational tokens. Each table is a small illustrative candidate list, rather than a real model’s full vocabulary. One word is not always one token. The probabilities are chosen to show the mechanism; they are not model or tokenizer outputs.'}</p>
+    <p className="lab__hint">{done ? (ko ? '만든 문장: ' : 'Generated sequence: ') + nextInput : (ko ? '이 예에서는 가장 큰 확률의 후보를 고릅니다. 실제 생성에는 확률에 따라 뽑는 규칙도 있습니다. 선택한 하나를 붙인 뒤 새 문맥으로 다시 계산하는 고리는 같습니다.' : 'This example chooses the highest probability. Generation can also sample from the distribution. Either rule appends one token, then predicts from the new context.')}</p>
+    {done && <details className="expand next-token__details"><summary>{ko ? '이 경로의 전체 확률은 어떻게 계산하나요?' : 'How is the probability of this whole path calculated?'}</summary><div className="expand__body"><p className="next-token__path-probability">{ko ? '시작부터 고른 네 확률을 곱하면' : 'Multiplying the four chosen probabilities from the start gives'} 0.6 × 0.6 × 0.7 × 1 = {fmt(run.best.probability, 3)}.</p><p>{ko ? '이 문장이 사실일 확률이나 답이 맞을 확률은 아닙니다. 위 확률은 생성 고리를 보여 주려고 정했으며, 뒤 실습에서는 같은 조각의 숫자 벡터로 다른 확률을 직접 계산합니다.' : 'This is not the probability that the sentence is factual or correct. These probabilities illustrate the loop; later labs use the same chunks as vectors to compute different probabilities.'}</p></div></details>}
   </section>;
 }

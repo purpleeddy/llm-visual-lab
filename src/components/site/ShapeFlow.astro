@@ -2,7 +2,7 @@
 /**
  * How the sizes lock together in a matrix product, drawn as cells.
  *
- * The dimensions come from **the same values** as `X(3×4) · W_Q(4×2) = Q(3×2)`
+ * The dimensions come from **the same values** as `X(3×4) · W(4×2) = Y(3×2)`
  * in the prose. The figure has to move when the example does, so 3, 4 and 2
  * are never written out here.
  */
@@ -17,14 +17,14 @@ const ko = locale === 'ko';
 
 const n = DEFAULT_X.length; // 토큰 수
 const dModel = DEFAULT_X[0].length; // 입력 벡터의 길이
-const dK = DEFAULT_WQ[0].length; // query 벡터의 길이
+const dOut = DEFAULT_WQ[0].length; // 새 표현의 값 개수
 
 const CELL = 18;
 const wA = dModel * CELL;
 const hA = n * CELL;
-const wB = dK * CELL;
+const wB = dOut * CELL;
 const hB = dModel * CELL;
-const wC = dK * CELL;
+const wC = dOut * CELL;
 const hC = n * CELL;
 
 // Wide enough that the operator and the dimension numbers do not run together.
@@ -44,33 +44,33 @@ const cells = (x: number, y: number, rows: number, cols: number) =>
 const L = ko
   ? {
       keep3: `${n} — X 의 행 수가 그대로 남습니다`,
-      keep2: `${dK} — W_Q 의 열 수가 그대로 남습니다`,
+      keep2: `${dOut} — W 의 열 수가 그대로 남습니다`,
       cancel: `${dModel} — 서로 같아야 하고, 결과에는 남지 않습니다`,
       title: '행렬곱에서 크기가 맞물리는 방식',
-      desc: `왼쪽부터 X, W_Q, Q 세 행렬을 칸으로 그렸습니다. X 는 ${n}행 ${dModel}열, W_Q 는 ${dModel}행 ${dK}열, 결과인 Q 는 ${n}행 ${dK}열입니다. X 의 왼쪽 변과 Q 의 왼쪽 변이 같은 색으로 강조되어 있어 행 수 ${n}이 그대로 남는 것을 보여 주고, W_Q 의 위쪽 변과 Q 의 위쪽 변이 또 다른 색으로 강조되어 열 수 ${dK}가 그대로 남는 것을 보여 줍니다. X 의 아래쪽 변과 W_Q 의 왼쪽 변은 점선으로 이어져 있는데, 이 ${dModel}은 서로 같아야 곱할 수 있고 결과에는 남지 않습니다.`,
+      desc: `왼쪽부터 X, W, Y 세 행렬을 칸으로 그렸습니다. X 는 ${n}행 ${dModel}열, W 는 ${dModel}행 ${dOut}열, 결과인 Y 는 ${n}행 ${dOut}열입니다. X 의 왼쪽 변과 Y 의 왼쪽 변이 같은 색으로 강조되어 있어 행 수 ${n}이 그대로 남는 것을 보여 주고, W 의 위쪽 변과 Y 의 위쪽 변이 또 다른 색으로 강조되어 열 수 ${dOut}가 그대로 남는 것을 보여 줍니다. X 의 아래쪽 변과 W 의 왼쪽 변은 점선으로 이어져 있는데, 이 ${dModel}은 서로 같아야 곱할 수 있고 결과에는 남지 않습니다.`,
     }
   : {
       keep3: `${n} — the rows of X carry through`,
-      keep2: `${dK} — the columns of W_Q carry through`,
+      keep2: `${dOut} — the columns of W carry through`,
       cancel: `${dModel} — these must match, and they cancel`,
       title: 'How the sizes lock together in a matrix product',
-      desc: `Three matrices drawn as grids of cells: X with ${n} rows and ${dModel} columns, W_Q with ${dModel} rows and ${dK} columns, and the result Q with ${n} rows and ${dK} columns. The left edge of X and the left edge of Q are highlighted in one colour, showing that the row count ${n} carries through. The top edge of W_Q and the top edge of Q are highlighted in another colour, showing that the column count ${dK} carries through. The bottom edge of X and the left edge of W_Q are drawn as dashed lines and joined: this ${dModel} has to match on both sides for the product to exist, and it does not appear in the result.`,
+      desc: `Three matrices drawn as grids of cells: X with ${n} rows and ${dModel} columns, W with ${dModel} rows and ${dOut} columns, and the result Y with ${n} rows and ${dOut} columns. The left edge of X and the left edge of Y are highlighted in one colour, showing that the row count ${n} carries through. The top edge of W and the top edge of Y are highlighted in another colour, showing that the column count ${dOut} carries through. The bottom edge of X and the left edge of W are drawn as dashed lines and joined: this ${dModel} has to match on both sides for the product to exist, and it does not appear in the result.`,
     };
 ---
 
-<svg viewBox="0 0 360 248" width="360" height="248" role="img" aria-labelledby="sf-t sf-d">
+<svg viewBox="0 0 360 248" width="432" height="297.6" role="img" aria-labelledby="sf-t sf-d">
   <title id="sf-t">{L.title}</title>
   <desc id="sf-d">{L.desc}</desc>
 
   {/* ---- Cells ---- */}
   {cells(xA, yA, n, dModel).map((c) => <rect class="tmap__box" x={c.x} y={c.y} width={CELL} height={CELL} />)}
-  {cells(xB, yB, dModel, dK).map((c) => <rect class="tmap__box" x={c.x} y={c.y} width={CELL} height={CELL} />)}
-  {cells(xC, yC, n, dK).map((c) => <rect class="tmap__box tmap__box--head" x={c.x} y={c.y} width={CELL} height={CELL} />)}
+  {cells(xB, yB, dModel, dOut).map((c) => <rect class="tmap__box" x={c.x} y={c.y} width={CELL} height={CELL} />)}
+  {cells(xC, yC, n, dOut).map((c) => <rect class="tmap__box tmap__box--head" x={c.x} y={c.y} width={CELL} height={CELL} />)}
 
   {/* ---- Names ---- */}
   <text class="tmap__head" x={xA + wA / 2} y="54" text-anchor="middle">X</text>
-  <text class="tmap__head" x={xB + wB / 2} y="54" text-anchor="middle">W_Q</text>
-  <text class="tmap__head" x={xC + wC / 2} y="54" text-anchor="middle">Q</text>
+  <text class="tmap__head" x={xB + wB / 2} y="54" text-anchor="middle">W</text>
+  <text class="tmap__head" x={xC + wC / 2} y="54" text-anchor="middle">Y</text>
 
   <text class="tmap__op" x={(xA + wA + xB) / 2} y="118" text-anchor="middle">·</text>
   <text class="tmap__op" x={(xB + wB + xC) / 2} y="118" text-anchor="middle">=</text>
@@ -83,8 +83,8 @@ const L = ko
 
   <path class="sf__edge sf__edge--cols" d={`M ${xB} ${yB} H ${xB + wB}`}></path>
   <path class="sf__edge sf__edge--cols" d={`M ${xC} ${yC} H ${xC + wC}`}></path>
-  <text class="tmap__label" x={xB + wB / 2} y={yB - 8} text-anchor="middle">{dK}</text>
-  <text class="tmap__label" x={xC + wC / 2} y={yC - 8} text-anchor="middle">{dK}</text>
+  <text class="tmap__label" x={xB + wB / 2} y={yB - 8} text-anchor="middle">{dOut}</text>
+  <text class="tmap__label" x={xC + wC / 2} y={yC - 8} text-anchor="middle">{dOut}</text>
 
   {/* ---- The dimension that cancels ---- */}
   <path class="sf__edge sf__edge--cancel" d={`M ${xA} ${yA + hA} H ${xA + wA}`}></path>

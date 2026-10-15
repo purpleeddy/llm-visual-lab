@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import { useCallback, useMemo, useState } from 'react';
 import { layerNormRow } from '../../lib/math/blocks';
 import { fmt, fmtCompact } from '../../lib/math/format';
@@ -11,7 +12,8 @@ const INITIAL = [2, 8, 4, 6];
  * Layer normalization on one editable row.
  *
  * The two group controls — add to all, multiply all — exist to make the one
- * fact that matters observable: the output ignores both. Only γ and β change it.
+ * contrast observable: a common shift cancels, while positive scaling nearly
+ * cancels (the small epsilon changes exact scale invariance). γ and β then adjust it.
  */
 export function LayerNormExplorer({ locale }: { locale: Locale }) {
   const ui = t(locale);
@@ -69,18 +71,14 @@ export function LayerNormExplorer({ locale }: { locale: Locale }) {
           <span className="lab__toggle-label">{text.values}</span>
           <div className="explorer__numbers">
             {values.map((v, i) => (
-              <input
+              <NumberInput
                 key={i}
                 className="softmax__score"
-                type="number"
                 step={1}
                 value={v}
                 aria-label={`${text.values} ${i + 1}`}
                 onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) setValues((prev) => prev.map((x, j) => (j === i ? n : x)));
-                }}
+                onValueChange={n => setValues(prev => prev.map((x, j) => j === i ? n : x))}
               />
             ))}
           </div>
@@ -111,7 +109,7 @@ export function LayerNormExplorer({ locale }: { locale: Locale }) {
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} 190`} className="explorer__svg explorer__svg--bars" aria-hidden="true">
+      <svg viewBox={`0 0 ${W} 232`} className="explorer__svg explorer__svg--bars" aria-hidden="true">
         {stages.map((vals, s) => (
           <g key={s}>
             <text className="walk__title" x={xOf(s)} y={22}>

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page, type Locator } from '@playwright/test';
 import { READY_COUNT } from '../../src/lib/curriculum';
 import { GROUPS } from '../../src/lib/nav';
 
@@ -22,8 +22,7 @@ import { GROUPS } from '../../src/lib/nav';
 const ARTICLE_KO = 'ko/';
 const ARTICLE_EN = 'en/';
 const ALL_PAGES = [ARTICLE_KO, ARTICLE_EN];
-const BASE = 'http://localhost:4321/llm-visual-lab/';
-
+const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/llm-visual-lab/';
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
   'language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions',
@@ -33,6 +32,20 @@ const SECTION_IDS = [
 // only means moving the split, not rewriting the checks.
 const WRITTEN_IDS = SECTION_IDS;
 const PLANNED_IDS: string[] = [];
+
+/** Jump controls are optional; ordinary reading uses the next button. */
+async function chooseStep(lab: Locator, index: number | 'last') {
+  const menu = lab.locator('.stepper__jump');
+  if (await menu.count() && !(await menu.evaluate(el => (el as HTMLDetailsElement).open))) {
+    await menu.locator('summary').click();
+  }
+  const chips = lab.locator('.stepper__chip');
+  await (index === 'last' ? chips.last() : chips.nth(index)).click();
+}
+async function openFold(lab: Locator, selector: string) {
+  const fold = lab.locator(selector);
+  if (!(await fold.evaluate(el => (el as HTMLDetailsElement).open))) await fold.locator('summary').click();
+}
 
 /** Collects failed requests and console errors for a page. */
 function watchFailures(page: Page) {
@@ -61,7 +74,7 @@ test.describe('deployment paths and assets', () => {
   test('the root path sends you to the default language', async ({ page }) => {
     await page.goto('./');
     await page.waitForURL(/\/llm-visual-lab\/ko\/$/, { timeout: 10_000 });
-    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
+    await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
   });
 
   test('the KaTeX fonts and styles all load', async ({ page }) => {
@@ -207,7 +220,7 @@ test.describe('the single-page structure', () => {
   test('there is exactly one page title', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     await expect(page.locator('main h1')).toHaveCount(1);
-    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
+    await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
   });
 
   test('scrolling moves the current-section mark in the contents', async ({ page }) => {
@@ -229,7 +242,7 @@ test.describe('learning path on the left, contents on the right', () => {
   test('the left rail lists only what can be read, and says the rest is in preparation', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const nav = page.locator('#course-nav');
-    await expect(nav).toContainText('LLM 원리, 작은 숫자로');
+    await expect(nav.locator('a[aria-current="page"]')).toHaveText('눈으로 이해하는 LLM 원리');
     await expect(nav.locator('a')).toHaveCount(READY_COUNT);
     await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
 
@@ -321,7 +334,7 @@ const FIGURES = [
   { id: 'gl', section: 'generation' },
   { id: 'gs', section: 'generation' },
   { id: 'pr', section: 'positions' },
-  { id: 'xs', section: 'attention' },
+  { id: 'xs', section: 'big-picture' },
   { id: 'be', section: 'results' },
 ];
 
@@ -397,14 +410,17 @@ test.describe('the styling is still attached', () => {
       const page = await ctx.newPage();
       await page.goto(BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
 
-      const widths = await page.evaluate(() => {
+      const { paragraphs, ...widths } = await page.evaluate(() => {
         const round = (el: Element | null) =>
           el ? Math.round(el.getBoundingClientRect().width) : null;
-        const para = [...document.querySelectorAll('.doc-section p')].find(
+        // Measure article prose, not inset captions inside an opening lab.
+        // Check every substantial body/intro paragraph instead of just the first.
+        const paras = [...document.querySelectorAll('.doc-section > p, [data-model-intro] > p')].filter(
           (e) => (e.textContent ?? '').trim().length > 60,
         );
         return {
-          paragraph: round(para ?? null),
+          paragraphs: paras.map(round),
+          paragraph: round(paras[0] ?? null),
           note: round(document.querySelector('.note')),
           lead: round(document.querySelector('.doc-header__lead')),
           caption: round(document.querySelector('.figure__caption')),
@@ -414,7 +430,8 @@ test.describe('the styling is still attached', () => {
         };
       });
 
-      const values = Object.values(widths);
+      const values = [...Object.values(widths), ...paragraphs];
+      expect(paragraphs.length, 'substantial article paragraphs must be present').toBeGreaterThan(0);
       expect(values.every((v) => v !== null), `something was missing: ${JSON.stringify(widths)}`).toBe(
         true,
       );
@@ -496,17 +513,27 @@ test.describe('figures', () => {
     });
   }
 
-  test('no figure overflows its frame', async ({ page }) => {
-    await page.goto(ARTICLE_KO + '#problem');
+  test('readable figures scroll inside their frame without widening the page', async ({ page }) => {
+    await page.goto(ARTICLE_KO);
     for (const f of FIGURES) {
       const svg = page.locator(`svg[aria-labelledby="${f.id}-t ${f.id}-d"]`);
+      if (!(await svg.isVisible())) await openFold(page.locator('#big-picture'), '#paper-translation');
       await svg.scrollIntoViewIfNeeded();
-      const over = await svg.evaluate((el) => {
+      const geometry = await svg.evaluate(el => {
         const frame = el.closest('.figure__frame') as HTMLElement;
-        return el.getBoundingClientRect().width - frame.clientWidth;
+        const box = frame.getBoundingClientRect();
+        const overflow = el.getBoundingClientRect().width > frame.clientWidth;
+        const scrollable = getComputedStyle(frame).overflowX === 'auto' && frame.scrollWidth > frame.clientWidth;
+        const intrinsic = (el as SVGSVGElement).viewBox.baseVal.width;
+        return { left: box.left, right: box.right, overflow, scrollable, svgWidth: el.getBoundingClientRect().width, intrinsic, wide: Boolean(el.closest('.figure.wide')) };
       });
-      expect(over, `${f.id} must not be wider than its frame`).toBeLessThanOrEqual(1);
+      const width = page.viewportSize()!.width;
+      expect(geometry.left, `${f.id}: frame stays on the page`).toBeGreaterThanOrEqual(0);
+      expect(geometry.right, `${f.id}: frame stays on the page`).toBeLessThanOrEqual(width);
+      if (geometry.overflow) expect(geometry.scrollable, `${f.id}: overflow has an internal scroll container`).toBe(true);
+      if (geometry.wide) expect(geometry.svgWidth, `${f.id}: text retains its intrinsic size`).toBeGreaterThanOrEqual(geometry.intrinsic-1);
     }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
   });
 
   test('the figures read their numbers from the example, not from a copy', async ({ page }) => {
@@ -525,6 +552,20 @@ test.describe('figures', () => {
 
     // The BLEU scatter is the paper's own table, not a redrawing of it.
     await expect(page.locator('.lab--bleucost')).toContainText('28.4');
+  });
+
+  test('preparation figures consistently show generic X times W to Y before the Q projection', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const prep = page.locator('#numbers');
+      await expect(prep.locator('svg[aria-labelledby="sf-t sf-d"] .tmap__head')).toHaveText(['X', 'W', 'Y']);
+      await expect(prep.locator('#sf-d')).toContainText(path === ARTICLE_KO ? '결과인 Y' : 'result Y');
+      await expect(prep.locator('#sf-d')).not.toContainText('W_Q');
+      await expect(prep).not.toContainText(/W[_₍\s]*Q/);
+      await expect(prep.locator('.lab--matmul').first().locator('.mgrid--score .mgrid__value')).toHaveText(['2', '0', '0', '2', '1', '1']);
+      await expect(page.locator('#attention')).toContainText('W_Q');
+      await expect(page.locator('#attention')).toContainText('Q');
+    }
   });
 
   test('the dimensions in the figures match the worked example', async ({ page }) => {
@@ -566,7 +607,7 @@ test.describe('switching between Korean and English', () => {
   test('both languages compute the same numbers', async ({ page }) => {
     const read = async (path: string) => {
       await page.goto(path);
-      await page.locator('.lab--attention .stepper__chip').nth(5).click();
+      await chooseStep(page.locator('.lab--attention'), 5);
       return page.locator('.lab--attention .mgrid--weight .mgrid__value').allInnerTexts();
     };
     const ko = await read(ARTICLE_KO);
@@ -586,17 +627,45 @@ test.describe('switching between Korean and English', () => {
   });
 });
 
-test.describe('the masthead star', () => {
+test.describe('quiet repository link and balanced header', () => {
   for (const path of ALL_PAGES) {
-    test(`${path}: links to the repository in a new tab`, async ({ page }) => {
-      await page.goto(path);
-      const star = page.locator('.star-link');
-      await expect(star).toBeVisible();
-      await expect(star).toHaveAttribute('href', /^https:\/\/github\.com\//);
-      await expect(star).toHaveAttribute('target', '_blank');
-      await expect(star).toHaveAttribute('aria-label', /GitHub/);
+    test(`${path}: keeps one small repository link in the footer and makes no star API request`, async ({ page }) => {
+      const requests: string[] = [];
+      await page.route('https://api.github.com/**', route => {
+        requests.push(route.request().url());
+        return route.abort('failed');
+      });
+      await page.goto(path, { waitUntil: 'networkidle' });
+      await expect(page.locator('.masthead a[href^="https://github.com/"]')).toHaveCount(0);
+      await expect(page.locator('.star-link,[data-star-count]')).toHaveCount(0);
+      const repo = page.locator('.site-footer a[href="https://github.com/purpleeddy/llm-visual-lab"]');
+      await expect(repo).toHaveCount(1);
+      await expect(repo).toBeVisible();
+      await expect(repo).toHaveText(path === 'ko/' ? 'GitHub 저장소' : 'GitHub repository');
+      await expect(repo).toHaveAttribute('target', '_blank');
+      await expect(repo).toHaveAttribute('rel', 'noopener');
+      expect(await repo.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeLessThanOrEqual(13);
+      expect(requests, 'the page must not query GitHub for star counts').toEqual([]);
     });
   }
+
+  test('aligns language and theme controls within the header in both languages', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const bounds = await page.locator('.lang-switch,.theme-toggle').evaluateAll(nodes => nodes.map(node => {
+        const r = node.getBoundingClientRect();
+        return { height: r.height, center: r.top + r.height / 2, left: r.left, right: r.right };
+      }));
+      expect(bounds).toHaveLength(2);
+      expect(Math.max(...bounds.map(b => b.height)) - Math.min(...bounds.map(b => b.height))).toBeLessThanOrEqual(1);
+      expect(Math.max(...bounds.map(b => b.center)) - Math.min(...bounds.map(b => b.center))).toBeLessThanOrEqual(1);
+      const width = page.viewportSize()!.width;
+      for (const b of bounds) {
+        expect(b.left).toBeGreaterThanOrEqual(0);
+        expect(b.right).toBeLessThanOrEqual(width);
+      }
+    }
+  });
 });
 
 test.describe('the big-picture walk', () => {
@@ -618,9 +687,13 @@ test.describe('the big-picture walk', () => {
       await expect(frameOn).toHaveCount(1);
 
       const next = walk.getByRole('button', { name: /다음 단계|Next step/ });
+      await expect(walk.locator('[data-sentence-token-arrow]')).toHaveCount(1);
       for (let i = 1; i < 7; i++) {
         await next.click();
         await expect(chips.nth(i)).toHaveAttribute('aria-current', 'step');
+        if (i === 1) {
+          await expect(walk.locator('[data-sentence-token-arrow]'), 'the lookup frame must not draw an arrow through its token heading').toHaveCount(0);
+        }
       }
       await expect(next).toBeDisabled();
 
@@ -662,7 +735,7 @@ test.describe('the attention lab', () => {
   test('selecting a cell opens the working for it', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
 
     // S(1,2) = 4 is 2×2 + 0×0
     await lab.locator('.mgrid--score button.mgrid__cell').nth(1).click();
@@ -681,7 +754,7 @@ test.describe('the attention lab', () => {
     const page = await ctx.newPage();
     await page.goto(BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
     await lab.locator('.mgrid--score button.mgrid__cell').nth(1).click();
     // One for the row, one for the column
     await expect(lab.locator('.connectors__line')).toHaveCount(2);
@@ -694,7 +767,7 @@ test.describe('the attention lab', () => {
     const page = await ctx.newPage();
     await page.goto(BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
     await lab.locator('.mgrid--score button.mgrid__cell').nth(1).click();
     await expect(lab.locator('.connectors__line')).toHaveCount(0);
     // Without the lines, the row and column highlight still has to be there
@@ -705,7 +778,7 @@ test.describe('the attention lab', () => {
   test('changing an input moves every result with it', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
     const scores = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
     expect(await scores()).toEqual(['0', '4', '2', '4', '0', '2', '2', '2', '2']);
 
@@ -721,13 +794,14 @@ test.describe('the attention lab', () => {
   test('resetting returns to the starting values and the first step', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(3).click();
+    await chooseStep(lab, 3);
+    await openFold(lab, '.lab__settings');
     await lab.getByRole('button', { name: '끔', exact: true }).click();
 
     await lab.getByRole('button', { name: '처음 값으로 되돌리기' }).click();
 
     await expect(lab.locator('.stepper__chip').nth(0)).toHaveAttribute('aria-current', 'step');
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
     expect(await lab.locator('.mgrid--score .mgrid__value').allInnerTexts()).toEqual([
       '0', '4', '2', '4', '0', '2', '2', '2', '2',
     ]);
@@ -736,15 +810,16 @@ test.describe('the attention lab', () => {
   test('with the causal mask on, the first row sees only itself', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
+    await openFold(lab, '.lab__settings');
     await lab.getByRole('button', { name: /켬 \(decoder/ }).click();
-    await lab.locator('.stepper__chip').nth(5).click();
+    await chooseStep(lab, 5);
 
     const weights = await lab.locator('.mgrid--weight .mgrid__value').allInnerTexts();
-    expect(weights.slice(0, 3)).toEqual(['1.000', '−∞', '−∞']);
+    expect(weights.slice(0, 3)).toEqual(['1.000', '0.000', '0.000']);
     expect(weights.slice(6)).toEqual(['0.333', '0.333', '0.333']);
     await expect(lab.locator('.mgrid--weight .mgrid__cell.is-blocked').first()).toBeVisible();
 
-    await lab.locator('.stepper__chip').nth(6).click();
+    await chooseStep(lab, 6);
     const out = await lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
     expect(out.slice(0, 2)).toEqual(['3.000', '0.000']);
   });
@@ -752,10 +827,11 @@ test.describe('the attention lab', () => {
   test('switching the division off makes the probabilities more lopsided', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(5).click();
+    await chooseStep(lab, 5);
     const on = await lab.locator('.mgrid--weight .mgrid__value').allInnerTexts();
     expect(on.slice(0, 3)).toEqual(['0.045', '0.768', '0.187']);
 
+    await openFold(lab, '.lab__settings');
     await lab.getByRole('button', { name: '끔', exact: true }).click();
     const off = await lab.locator('.mgrid--weight .mgrid__value').allInnerTexts();
     expect(off.slice(0, 3)).toEqual(['0.016', '0.867', '0.117']);
@@ -768,7 +844,7 @@ test.describe('keyboard access', () => {
   test('the arrow keys move between matrix cells', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
 
     const first = lab.locator('.mgrid--score button.mgrid__cell').first();
     await first.focus();
@@ -797,7 +873,7 @@ test.describe('keyboard access', () => {
   test('tab stops only at the selected cell (roving tabindex)', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator(LAB);
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
     const tabbable = await lab
       .locator('.mgrid--score button.mgrid__cell')
       .evaluateAll((els) => els.filter((e) => e.getAttribute('tabindex') === '0').length);
@@ -834,7 +910,7 @@ test.describe('responsiveness and reading', () => {
   test('the screen updates within 100ms of an interaction', async ({ page }) => {
     await page.goto(ARTICLE_KO, { waitUntil: 'networkidle' });
     const lab = page.locator('.lab--attention');
-    await lab.locator('.stepper__chip').nth(2).click();
+    await chooseStep(lab, 2);
 
     const timings: number[] = [];
     for (let i = 0; i < 8; i++) {
@@ -933,14 +1009,18 @@ test.describe('responsiveness and reading', () => {
     const page = await ctx.newPage();
     await page.goto(BASE + ARTICLE_KO);
 
-    await expect(page.locator('main h1')).toContainText('LLM 원리, 작은 숫자로');
+    await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
     await expect(page.locator('.katex').first()).toBeVisible();
 
     // The sections and the labs have to be in the static HTML already
     await expect(page.locator('[data-section]')).toHaveCount(SECTION_IDS.length);
     expect(await page.locator('.lab--attention .emat__input').count()).toBeGreaterThan(0);
-    await expect(page.locator('.lab--attention .terms__table')).toBeVisible();
+    await expect(page.locator('.lab--attention .lab__stage .mgrid__value')).toHaveText(['1','0','1','0','0','1','0','1','1','1','0','0']);
+    await expect(page.locator('.lab--attention .terms__table')).toHaveCount(0);
     await expect(page.locator('.lab--attention .lab__what')).not.toBeEmpty();
+    // The loss controls need a mounted handler; static results remain readable without JavaScript.
+    await expect(page.locator('.lab--loss #loss-p')).toBeDisabled();
+    await expect(page.locator('.lab--loss #loss-eps')).toBeDisabled();
 
     await ctx.close();
   });
@@ -951,14 +1031,14 @@ test.describe('the labs inside the article', () => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('#numbers .lab--matmul');
 
-    // Q(2,2) = row 2 of X · column 2 of W_Q = 0×0 + 1×1 + 0×0 + 1×1 = 2
+    // Y(2,2) = row 2 of X · column 2 of W = 0×0 + 1×1 + 0×0 + 1×1 = 2
     await lab.locator('.mgrid--score button.mgrid__cell').nth(3).click();
-    await expect(lab.locator('.terms__result')).toContainText('Q(2, 2)');
+    await expect(lab.locator('.terms__result')).toContainText('Y(2, 2)');
     await expect(lab.locator('.terms__running').last()).toHaveText('2');
 
-    // The highlight belongs on the editable input matrix, not on a copy of it
-    await expect(lab.locator('.emat--q input.is-in-row')).toHaveCount(4);
-    await expect(lab.locator('.emat--k input.is-in-col')).toHaveCount(4);
+    // The visible source row and column identify the selected result cell.
+    await expect(lab.locator('.mgrid--q .mgrid__cell.is-in-row')).toHaveCount(4);
+    await expect(lab.locator('.mgrid--k .mgrid__cell.is-in-col')).toHaveCount(4);
     await expect(page.locator('.lab__mirror')).toHaveCount(0);
   });
 
@@ -968,6 +1048,7 @@ test.describe('the labs inside the article', () => {
     const result = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
     expect(await result()).toEqual(['2', '0', '0', '2', '1', '1']);
 
+    await openFold(lab, '.matmul__inputs');
     for (let r = 0; r < 4; r++) {
       await lab.locator('.emat--k input').nth(r * 2).fill('0');
     }
@@ -1055,7 +1136,8 @@ test.describe('the labs inside the article', () => {
   test('positions: moving the position moves the marked cell and the readout', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('.lab--position');
-    await expect(lab.locator('.explorer__line').first()).toContainText('3:');
+    await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
+    await expect(lab.locator('.explorer__line').first()).toContainText('1:');
     await lab.locator('#pe-pos').fill('0');
     await lab.locator('#pe-pos').dispatchEvent('input');
     await expect(lab.locator('.explorer__line').first()).toContainText('0: (0.000, 1.000, 0.000, 1.000)');
@@ -1088,10 +1170,12 @@ test.describe('the labs inside the article', () => {
   test('loss: lowering the probability on the right word raises the loss', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('.lab--loss');
+    await expect(lab.locator('#loss-p')).toBeEnabled();
     await expect(lab).toContainText('0.511');
     await lab.locator('#loss-p').fill('0.1');
     await lab.locator('#loss-p').dispatchEvent('input');
     await expect(lab).toContainText('2.303');
+    await openFold(lab, '.loss__comparison');
     await lab.locator('#loss-eps').fill('0');
     await lab.locator('#loss-eps').dispatchEvent('input');
     const losses = await lab.locator('.tmap__note').filter({ hasText: '틀린 정도' }).allTextContents();
@@ -1125,6 +1209,62 @@ test.describe('the labs inside the article', () => {
 
 
 test.describe('the complete learning progression', () => {
+  test('the opening renders semantic emphasis without literal Markdown delimiters', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const intro = page.locator('[data-model-intro]');
+      await expect(intro).not.toContainText('**');
+      await expect(intro.locator('strong').first()).toContainText('LLM');
+      const weight = await intro.locator('strong').first().evaluate(node => Number(getComputedStyle(node).fontWeight));
+      expect(weight).toBeGreaterThanOrEqual(600);
+      await expect(page.locator('.doc-header__lead')).not.toContainText('**');
+      await expect(page.locator('#language-model')).not.toContainText('**');
+      const unparsed = await page.locator('.prose').evaluate(root => {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const found: string[] = [];
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (node.textContent?.includes('**') && !node.parentElement?.closest('pre, code, script, style, .katex')) found.push(node.textContent.trim());
+        }
+        return found;
+      });
+      expect(unparsed, 'article prose must not expose unused Markdown emphasis').toEqual([]);
+    }
+  });
+
+  test('the opening shows the concrete loop, then defines the model before explaining the route', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const ko = path === ARTICLE_KO;
+      const intro = page.locator('[data-model-intro]');
+      const lab = page.locator('.lab--next-token');
+      await expect(intro).toBeVisible();
+      await expect(intro.locator('p')).toHaveCount(2);
+      await expect(intro.locator('strong')).toHaveCount(3);
+      await expect(intro.locator('p').first()).toContainText(ko ? '생성형 LLM' : 'generative large language model');
+      await expect(intro.locator('p').first()).toContainText(ko ? '다음 토큰의 확률' : 'next-token probabilities');
+      await expect(intro.locator('p').last()).toContainText(ko ? '늘어난 문장으로 다시 예측' : 'predict again from the longer input');
+      await expect(page.locator('.doc-header__lead')).toHaveText(ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.');
+      await expect(lab.locator('.next-token__input')).toContainText(ko ? '나는 학교에' : 'I went');
+      await expect(lab.locator('.next-token__prefix')).toContainText(ko ? '나는 학교에 갔다' : 'I went to school');
+      await expect(lab).toHaveCount(1);
+      await expect(page.locator('#language-model .lab--next-token')).toHaveCount(1);
+      expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-model-intro]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      expect(await intro.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-learning-overview]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#language-model > h2')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-learning-overview]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      const explanation = (await page.locator('#language-model > p').allTextContents()).join(' ');
+      expect(explanation).toContain(ko ? '단어 하나나 단어의 일부' : 'a word or part of a word');
+      expect(explanation).toContain(ko ? '가장 큰 확률을 고르는 규칙' : 'chooses the highest probability');
+      expect(explanation).toContain(ko ? '확률에 따라 뽑는 규칙' : 'Sampling according to the probabilities');
+      expect(explanation).toContain(ko ? '늘어난 문맥' : 'whole longer context');
+      expect(explanation).toContain(ko ? '가중치' : 'weights');
+      await expect(page.locator('[data-learning-overview] li')).toHaveCount(3);
+      await expect(page.locator('[data-learning-overview]')).toContainText('(1, 0, 1, 0)');
+      await expect(page.locator('[data-learning-overview]')).toContainText(ko ? '나는 / 학교에 / 갔다 / 끝' : 'I / went / to school / end');
+    }
+  });
+
   test('both languages expose twelve goals, prerequisite links and reasoned checkpoints', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
@@ -1146,25 +1286,273 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab=page.locator('.lab--embedding-lookup');
+      await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 0, 1, 0)');
-      await lab.getByRole('button', { name: 'c · ID 2' }).click();
+      const chooser = await lab.locator('.segmented').boundingBox();
+      expect(chooser).not.toBeNull();
+      for (const arrow of await lab.locator('.mini-flow > span').all()) {
+        const bounds = await arrow.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.y, 'a rotated flow arrow must not extend above its row into the token controls').toBeGreaterThanOrEqual(chooser!.y + chooser!.height);
+      }
+      await lab.getByRole('button', { name: path==='ko/' ? '갔다 · ID 2' : 'to school · ID 2' }).click();
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 1, 0, 0)');
-      await lab.getByRole('button', { name: 'b · ID 1' }).click();
+      await lab.getByRole('button', { name: path==='ko/' ? '학교에 · ID 1' : 'went · ID 1' }).click();
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(0, 1, 0, 1)');
     }
   });
 
+  const sentenceDemo = (path: string) => path==='ko/' ? {
+    tokens:['나는','학교에','갔다','.'], probability:'0.252', destination:1,
+    candidates:['학교에','집에','도서관에','끝 표시 .'], beforeEnd:'시작 나는 학교에 갔다',
+    candidateRounds:[['나는','우리는','그는','끝 표시 .'],['학교에','집에','도서관에','끝 표시 .'],['갔다','도착했다','간다','끝 표시 .'],['끝 표시 .']],
+  } : {
+    tokens:['I','went','to school','.'], probability:'0.252', destination:1,
+    candidates:['went','walked','headed','end marker .'], beforeEnd:'start I went to school',
+    candidateRounds:[['I','We','They','end marker .'],['went','walked','headed','end marker .'],['to school','home','to work','end marker .'],['end marker .']],
+  };
+
   test('the next-token loop appends a token, changes context and stops on the end marker', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await page.goto(path); const lab=page.locator('.lab--next-token');
-      const append=lab.getByRole('button', { name: path==='ko/' ? '가장 큰 확률의 토큰 붙이기' : 'Append the most likely token' });
-      await append.click(); await expect(lab).toHaveAttribute('data-round', '1');
-      await expect(lab.locator('.next-token__prefix')).toContainText('a');
-      await expect(lab.locator('tbody')).toContainText('0.400');
-      await append.click(); await expect(lab).toHaveAttribute('data-round', '2');
-      await expect(lab.locator('.next-token__prefix')).toContainText('a .');
-      await expect(append).toBeDisabled();
-      await expect(lab.locator('.lab__hint')).toContainText('0.200');
+      await page.goto(path);
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
+      const advance = lab.locator('.next-token__advance');
+      await advance.click();
+      await expect(lab).toHaveAttribute('data-stage', 'finished');
+      await advance.click();
+      await expect(lab.locator('.lab__note')).toContainText(ko ? '실제 모델이나 토크나이저의 출력은 아닙니다' : 'not model or tokenizer outputs');
+      await expect(lab.locator('.lab__note')).toContainText(ko ? '항상 토큰 하나인 것은 아닙니다' : 'not always one token');
+      for (const [i, token] of example.tokens.entries()) {
+        await expect(lab).toHaveAttribute('data-round', String(i + 1));
+        await expect(lab.locator('tbody th')).toHaveText(example.candidateRounds[i]);
+        const roundProbabilities = [
+          ['(0.600)', '(0.250)', '(0.100)', '(0.050)'],
+          ['(0.600)', '(0.200)', '(0.150)', '(0.050)'],
+          ['(0.700)', '(0.100)', '(0.150)', '(0.050)'],
+          ['(1.000)'],
+        ];
+        await expect(lab.locator('.next-token__probability')).toHaveText(roundProbabilities[i]);
+        const visibleSum = (await lab.locator('.next-token__probability').allTextContents()).reduce((sum, value) => sum + Number(value.slice(1, -1)), 0);
+        expect(visibleSum).toBeCloseTo(1, 12);
+        await expect(lab.locator('tbody button, tbody a')).toHaveCount(0);
+        if (i === example.destination) {
+          await expect(lab.locator('.next-token__probability')).toHaveText(['(0.600)', '(0.200)', '(0.150)', '(0.050)']);
+          for (const [j, candidate] of example.candidates.entries()) {
+            const row = lab.locator('tbody tr').filter({ has: page.getByRole('rowheader', { name: candidate, exact: true }) });
+            await expect(row.locator('.next-token__probability')).toHaveText(['(0.600)', '(0.200)', '(0.150)', '(0.050)'][j]);
+          }
+        }
+        await expect(lab.locator('tbody tr[data-selected="true"] th')).toHaveText(token === '.' ? ko ? '끝 표시 .' : 'end marker .' : token);
+        await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens.slice(0, i + 1));
+        await expect(lab.locator('.next-token__token--new')).toHaveText(token);
+        await expect(lab.locator('.next-token__token')).toHaveText(example.tokens.slice(0, i));
+        await expect(lab.locator('[data-probability-context]')).toHaveText(i ? example.tokens.slice(0, i).join(' ') : ko ? '시작' : 'start');
+        if (i < example.tokens.length - 1) await advance.click();
+      }
+      await expect(lab).toHaveAttribute('data-stage', 'finished');
+      await expect(advance).toHaveText(ko ? '처음부터 다시 보기' : 'Replay from the start');
+      await expect(lab.locator('tbody tr')).toHaveCount(1);
+      await expect(lab.locator('.lab__hint')).toContainText(example.tokens.join(' '));
+      await lab.locator('.next-token__details > summary').click();
+      await expect(lab.locator('.next-token__path-probability')).toContainText(example.probability);
+      await expect(lab.getByRole('status')).toContainText(ko ? '글쓰기를 마칩니다' : 'ends the sequence');
+    }
+  });
+
+  test('the opening already shows a completed prediction and one action advances its whole input', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      await expect(lab.locator('button')).toHaveCount(1);
+      await expect(lab.locator('.next-token__scenes')).toHaveCount(0);
+      await expect(lab.locator('.next-token__details')).toHaveCount(0);
+      await expect(lab.locator('input, select')).toHaveCount(0);
+      await expect(lab).toHaveAttribute('data-round', '3');
+      await expect(lab).toHaveAttribute('data-interacted', 'false');
+      await expect(lab.locator('.next-token__token')).toHaveText(example.tokens.slice(0, 2));
+      await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens.slice(0, 3));
+      await expect(lab.locator('tbody th')).toHaveText(example.candidateRounds[2]);
+      await expect(lab.locator('tbody tr[data-selected="true"] th')).toHaveText(example.tokens[2]);
+      await expect(lab.locator('.next-token__token--new')).toHaveText(example.tokens[2]);
+      await expect(lab.locator('.next-token__probability')).toHaveText(['(0.700)', '(0.100)', '(0.150)', '(0.050)']);
+      await expect(lab.getByRole('status')).toContainText('70%');
+      await expect(lab.getByRole('status')).toContainText(example.tokens.slice(0, 3).join(' '));
+      await lab.locator('.next-token__advance').click();
+      await expect(lab).toHaveAttribute('data-round', '4');
+      await expect(lab.locator('.next-token__token')).toHaveText(example.tokens.slice(0, 3));
+      await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens);
+      await expect(lab.locator('[data-probability-context]')).toHaveText(example.tokens.slice(0, 3).join(' '));
+      await expect(lab.locator('.next-token__probability')).toHaveText(['(1.000)']);
+      await expect(lab.locator('tbody th')).toHaveText(example.candidateRounds[3]);
+      await expect(lab.locator('button')).toHaveCount(1);
+    }
+  });
+
+  test('the opening sentence and probabilities fit the first viewport and arrows connect before and after', async ({ page }, testInfo) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      await page.evaluate(() => document.fonts.ready);
+      const lab = page.locator('.lab--next-token');
+      for (const selector of ['.next-token__input', '.next-token__prefix', '.next-token__probability']) {
+        const node = selector === '.next-token__probability' ? lab.locator('tbody tr[data-selected="true"]').locator(selector) : lab.locator(selector);
+        const bounds = await node.boundingBox();
+        expect(bounds).not.toBeNull();
+        expect(bounds!.y).toBeGreaterThanOrEqual(0);
+        expect(bounds!.y + bounds!.height, 'the input, appended result and largest probability must be visible before clicking').toBeLessThanOrEqual(page.viewportSize()!.height);
+      }
+      const initialCapture = testInfo.outputPath(`opening-${path.slice(0, 2)}-input.png`);
+      await page.screenshot({ path: initialCapture, fullPage: false });
+      await testInfo.attach(`opening-${path.slice(0, 2)}-input`, { path: initialCapture, contentType: 'image/png' });
+      for (let i = 0; i < 5; i++) {
+        const before = (await lab.locator('.next-token__context').boundingBox())!;
+        const arrow = (await lab.locator('.next-token__arrow').boundingBox())!;
+        const after = (await lab.locator('.next-token__after').boundingBox())!;
+        expect(arrow.x).toBeGreaterThanOrEqual(before.x + before.width);
+        expect(arrow.x + arrow.width).toBeLessThanOrEqual(after.x);
+        for (const bounds of [before, arrow, after]) {
+          expect(bounds.x).toBeGreaterThanOrEqual(0);
+          expect(bounds.x + bounds.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+        }
+        if (i < 2) {
+          const capture = testInfo.outputPath(`opening-${path.slice(0, 2)}-${i === 0 ? 'append' : 'end'}.png`);
+          await lab.screenshot({ path: capture });
+          await testInfo.attach(`opening-${path.slice(0, 2)}-${i}`, { path: capture, contentType: 'image/png' });
+        }
+        await lab.locator('.next-token__advance').click();
+      }
+    }
+  });
+
+  test('a single manual action advances a prediction and replays from the keyboard without timers', async ({ page }) => {
+    await page.clock.install();
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const ko = path === ARTICLE_KO; const lab = page.locator('.lab--next-token');
+      await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
+      await expect(lab.locator('button')).toHaveCount(1);
+      await expect(lab.getByRole('button', { name: /^(?:자동으로 보기|재생|일시정지|Play|Pause)$/i })).toHaveCount(0);
+      await expect(lab).not.toHaveAttribute('data-playing');
+      const advance = lab.locator('.next-token__advance');
+      await page.clock.fastForward(60_000);
+      await expect(lab).toHaveAttribute('data-round', '3');
+      await advance.focus(); await page.keyboard.press('Enter');
+      await expect(lab).toHaveAttribute('data-stage', 'finished');
+      await expect(lab).toHaveAttribute('data-round', '4');
+      await page.clock.fastForward(60_000);
+      await expect(lab).toHaveAttribute('data-round', '4');
+      await expect(advance).toHaveText(ko ? '처음부터 다시 보기' : 'Replay from the start');
+      await advance.focus(); await page.keyboard.press('Enter');
+      await expect(lab).toHaveAttribute('data-round', '1');
+      await expect(lab.locator('.next-token__token')).toHaveCount(0);
+      await expect(lab.locator('.next-token__output-token')).toHaveText(sentenceDemo(path).tokens.slice(0, 1));
+      await page.clock.fastForward(60_000);
+      await expect(lab).toHaveAttribute('data-round', '1');
+    }
+  });
+
+  test('the newest appended token is distinct from earlier tokens and replay returns to the first prediction', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path);
+      await lab.locator('.next-token__advance').click();
+      await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens);
+      await expect(lab.locator('.next-token__token--new')).toHaveText('.');
+      await expect(lab.locator('.next-token__input')).toContainText(example.beforeEnd);
+      const style = await lab.locator('.next-token__output-token').evaluateAll(nodes => nodes.map(node => {
+        const s = getComputedStyle(node); return { weight: Number(s.fontWeight), border: parseFloat(s.borderTopWidth), background: s.backgroundColor, size: parseFloat(s.fontSize), animation: s.animationName };
+      }));
+      const newest = style.at(-1)!;
+      expect(newest.weight).toBeGreaterThan(style[0].weight);
+      expect(newest.border).toBeGreaterThan(style[0].border);
+      expect(newest.background).not.toBe(style[0].background);
+      expect(newest.size).toBeGreaterThanOrEqual(22);
+      expect(newest.animation).toBe('none');
+      await lab.locator('.next-token__advance').click();
+      await expect(lab).toHaveAttribute('data-round', '1');
+      await expect(lab.locator('.next-token__token')).toHaveCount(0);
+      await expect(lab.locator('.next-token__output-token')).toHaveText(example.tokens.slice(0, 1));
+      await expect(lab.locator('.next-token__token--new')).toHaveText(example.tokens[0]);
+      await expect(lab.locator('tbody tr')).toHaveCount(4);
+    }
+  });
+
+  test('manual token transitions respect reduced motion and the first prediction is static', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.goto(path);
+      const lab = page.locator('.lab--next-token'); const advance = lab.locator('.next-token__advance');
+      expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+      for (const bar of await lab.locator('.probability-bar').all()) expect(await bar.evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+      await advance.click();
+      expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.goto(path);
+      expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).toBe('none');
+      await lab.locator('.next-token__advance').click();
+      expect(await lab.locator('.next-token__token--new').evaluate(node => getComputedStyle(node).animationName)).not.toBe('none');
+    }
+  });
+
+  test('the accumulated token row and the one action wrap on a narrow screen with enlarged text', async ({ page }) => {
+    await page.setViewportSize({ width: 280, height: 844 });
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path);
+      await lab.locator('.next-token__advance').click();
+      await page.evaluate(() => document.documentElement.style.fontSize = '200%');
+      const box = await lab.locator('.next-token__prefix').evaluate(node => {
+        const bounds = node.getBoundingClientRect();
+        return { width: node.clientWidth, scroll: node.scrollWidth, left: bounds.left, right: bounds.right, items: [...node.querySelectorAll('.next-token__output-token')].map(el => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom }; }) };
+      });
+      expect(box.scroll).toBeLessThanOrEqual(box.width);
+      expect(box.right).toBeLessThanOrEqual(280);
+      expect(box.left).toBeGreaterThanOrEqual(0);
+      expect(box.items).toHaveLength(example.tokens.length);
+      for (const item of box.items) { expect(item.left).toBeGreaterThanOrEqual(box.left - 1); expect(item.right).toBeLessThanOrEqual(box.right + 1); }
+      const earlier = box.items.at(-2)!; const last = box.items.at(-1)!;
+      expect(last.top).toBeGreaterThanOrEqual(earlier.bottom - 1);
+      await expect(lab.locator('.next-token__token--new')).toHaveText('.');
+      const button = await lab.locator('.next-token__advance').boundingBox();
+      expect(button).not.toBeNull();
+      expect(button!.x).toBeGreaterThanOrEqual(0);
+      expect(button!.x + button!.width).toBeLessThanOrEqual(280);
+      await expect(lab.locator('button')).toHaveCount(1);
+    }
+  });
+
+  test('the shared sentence retains its embedding rows through transformation and computed candidate selection', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const words=sentenceDemo(path).tokens.slice(0,3);
+      const overview=page.locator('[data-learning-overview]');
+      await expect(overview).toBeVisible();
+      expect(await overview.evaluate(node=>Boolean(node.compareDocumentPosition(document.querySelector('[data-section="tokens"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      await overview.getByRole('link',{name:path==='ko/' ? '이어서 해보기' : 'Connect the calculations',exact:true}).click();
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('9/12');
+      await expect(page.locator('[data-section="big-picture"]')).toBeInViewport();
+      const lookup=page.locator('.lab--embedding-lookup');
+      const expectedRows=['(1, 0, 1, 0)','(0, 1, 0, 1)','(1, 1, 0, 0)'];
+      for (let i=0;i<3;i++) {
+        await lookup.getByRole('button',{name:`${words[i]} · ID ${i}`,exact:true}).click();
+        await expect(lookup.locator('.embedding-lookup__vector')).toHaveText(expectedRows[i]);
+      }
+      const matrix=page.locator('#numbers .lab--matmul');
+      expect(await matrix.locator('.emat--q input').evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value))).toEqual(['1','0','1','0','0','1','0','1','1','1','0','0']);
+      await expect(matrix.locator('.mgrid--score .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
+      const trace=page.locator('.lab--layer-trace');
+      await expect(trace.locator('.mgrid__rowlabel')).toHaveText(words);
+      await expect(trace.locator('.mgrid__value')).toHaveText(['1.000','0.000','1.000','0.000','0.000','1.000','0.000','1.000','1.000','1.000','0.000','0.000']);
+      await chooseStep(trace, 'last');
+      await expect(trace).toHaveAttribute('data-stage','probabilities');
+      await expect(trace.locator('.mgrid__collabel')).toHaveText([...words,'.']);
+      const probabilities=['0.219','0.154','0.036','0.591'];
+      await expect(trace.locator('tbody tr').last().locator('.mgrid__value')).toHaveText(probabilities);
+      const choice=page.locator('.lab--token-choice');
+      await expect(choice.locator('.token-choice__probability')).toHaveText(probabilities);
+      await expect(choice.locator('tbody th')).toHaveText(words.map((word,i)=>`${i} · ${word}`).concat(path==='ko/' ? '3 · 끝 표시 .' : '3 · end marker .'));
     }
   });
 
@@ -1203,12 +1591,13 @@ test.describe('the complete learning progression', () => {
   test('the integrated block reaches vocabulary probabilities and reacts to position input', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path); const lab=page.locator('.lab--layer-trace');
-      await lab.locator('.stepper__chip').last().click();
+      await chooseStep(lab, 'last');
       await expect(lab).toHaveAttribute('data-stage','probabilities');
       const before=await lab.locator('.layer-trace__prediction').innerText();
       const values=await lab.locator('.mgrid__value').allTextContents();
       expect(values).toHaveLength(12);
       for (let i=0;i<3;i++) expect(values.slice(i*4,i*4+4).reduce((sum,v)=>sum+Number(v),0)).toBeCloseTo(1,2);
+      await openFold(lab, '.layer-trace__settings');
       await lab.getByRole('checkbox').uncheck();
       await expect(lab.locator('.layer-trace__prediction')).not.toHaveText(before);
     }
@@ -1218,6 +1607,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const lab = page.locator('.lab--layer-trace');
+      await openFold(lab, '.layer-trace__settings');
       const checkbox = lab.getByRole('checkbox');
       const alignment = await checkbox.locator('..').evaluate(label => {
         const input = label.querySelector('input')!.getBoundingClientRect();
@@ -1231,12 +1621,13 @@ test.describe('the complete learning progression', () => {
       expect(alignment.gap).toBeLessThan(16);
       await expect(checkbox).toHaveAccessibleName(path==='ko/' ? '위치 정보 포함하기' : 'Include position information');
       await expect(checkbox).toBeChecked();
-      await lab.locator('.stepper__chip').nth(1).click();
+      await chooseStep(lab, 1);
       expect((await lab.locator('.mgrid__value').allTextContents()).slice(0,4)).toEqual(['1.000','1.000','1.000','1.000']);
       await checkbox.focus(); await checkbox.press('Space');
       await expect(checkbox).not.toBeChecked();
       expect((await lab.locator('.mgrid__value').allTextContents()).slice(0,4)).toEqual(['1.000','0.000','1.000','0.000']);
       await page.reload();
+      await openFold(lab, '.layer-trace__settings');
       await expect(checkbox).toBeChecked();
     }
   });
@@ -1244,12 +1635,16 @@ test.describe('the complete learning progression', () => {
   test('sampling can choose different tokens from unchanged logits', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path); const lab=page.locator('.lab--token-choice');
+      const initialScores=await lab.locator('tbody td:nth-child(2)').allTextContents();
+      const initialProbabilities=await lab.locator('.token-choice__probability').allTextContents();
       await lab.getByRole('button',{name:'sampling',exact:true}).click();
       const u=lab.getByRole('slider').nth(1);
       await u.focus(); await u.press('Home');
-      await expect(lab.locator('.token-choice__selected')).toHaveText('a');
+      await expect(lab.locator('.token-choice__selected')).toHaveText(path==='ko/' ? '나는' : 'I');
       await u.press('End'); await expect(lab.locator('.token-choice__selected')).toHaveText('.');
-      const before=(await lab.locator('.token-choice__probability').allTextContents()).map(Number);
+      expect(await lab.locator('tbody td:nth-child(2)').allTextContents()).toEqual(initialScores);
+      expect(await lab.locator('.token-choice__probability').allTextContents()).toEqual(initialProbabilities);
+      const before=initialProbabilities.map(Number);
       const temperature=lab.getByRole('slider').first(); await temperature.focus(); await temperature.press('End');
       const after=(await lab.locator('.token-choice__probability').allTextContents()).map(Number);
       expect(Math.max(...after)).toBeLessThan(Math.max(...before));
@@ -1297,9 +1692,11 @@ test.describe('the complete learning progression', () => {
 
   test('smoothing loss can be lower for a low correct probability', async ({ page }) => {
     await page.goto(ARTICLE_KO); const lab=page.locator('.lab--loss');
-    const probability=lab.getByRole('slider').first(); await probability.focus(); await probability.press('Home');
+    const probability=lab.getByRole('slider').first(); await expect(probability).toBeEnabled(); await probability.focus(); await probability.press('Home');
     for (let i=0;i<7;i++) await probability.press('ArrowRight');
-    const labels=await lab.locator('svg').first().locator('text').allTextContents();
+    await expect(probability).toHaveValue('0.08');
+    await openFold(lab, '.loss__comparison');
+    const labels=await lab.locator('.loss__comparison svg').locator('text').allTextContents();
     const losses=labels.filter(s=>s.includes(' = ')).map(s=>Number(s.split('=').at(-1)));
     expect(losses).toHaveLength(2);
     expect(losses[0]).toBeCloseTo(2.526,3); expect(losses[1]).toBeCloseTo(2.429,3);
@@ -1323,5 +1720,598 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
     await toc.locator('a[href="#tokens"]').click();
     await expect(toc.locator('[data-current-lesson]')).toContainText('2/12');
     await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
+  }
+});
+
+
+test.describe('visible static transpose explanation', () => {
+  test('the prerequisite transpose uses the Y that the preceding multiplication produced', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const diagram = page.locator('#numbers svg[aria-labelledby="tf-t tf-d"]');
+      await expect(diagram.locator('.hp__value')).toHaveText(['2','0','0','2','1','1','2','0','1','0','2','1']);
+      await expect(diagram.locator('#tf-d')).toContainText('Y');
+      await expect(diagram.locator('#tf-d')).not.toContainText('Q');
+      await expect(diagram.locator('#tf-d')).not.toContainText('K');
+    }
+  });
+});
+
+
+test.describe('static Q–K comparisons', () => {
+  test('three visible steps keep the pair, key rows, transpose columns and raw scores identical', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const walk = page.locator('[data-qk-score-walk]');
+      await expect(walk).toHaveCount(1);
+      await expect(walk.locator('[data-step]')).toHaveCount(3);
+      await expect(walk.locator('figure figcaption')).toHaveCount(3);
+      await expect(walk.locator('button, input, select, details, astro-island')).toHaveCount(0);
+      await expect(walk.locator('.qkw__positions span')).toHaveText(path===ARTICLE_KO ? ['1: 나는','2: 학교에','3: 갔다'] : ['1: I','2: went','3: to school']);
+      await expect(walk.locator('[data-pair-value]')).toHaveAttribute('data-pair-value','2');
+      await expect(walk.locator('[data-query-value]')).toHaveText(['1','1']);
+      await expect(walk.locator('[data-key-value]')).toHaveText(['0','2']);
+      await expect(walk.locator('[data-matrix="qkw-pair"] .mgrid__value')).toHaveText(['1','1','0','2']);
+      await expect(walk.locator('[data-matrix="qkw-k"] .mgrid__value')).toHaveText(['0','2','2','0','1','1']);
+      for (const id of ['qkw-kt','qkw-product-kt']) {
+        await expect(walk.locator(`[data-matrix="${id}"] .mgrid__value`)).toHaveText(['0','2','1','2','0','1']);
+        await expect(walk.locator(`[data-matrix="${id}"] .mgrid__shape`)).toHaveText('2 × 3');
+      }
+      await expect(walk.locator('[data-matrix="qkw-q"] .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
+      for (const stage of [2,3]) {
+        const step = walk.locator(`[data-step="${stage}"]`);
+        await expect(step.locator('.qkw__scores tbody td')).toHaveText(['0','4','2','4','0','2','2','2','2']);
+        await expect(step.locator('[data-selected="true"]')).toHaveText('2');
+        const future = step.locator('[data-future="true"]');
+        await expect(future).toHaveCount(3);
+        expect(await future.evaluateAll(cells => cells.map(cell => [cell.getAttribute('data-r'),cell.getAttribute('data-c')]))).toEqual([['0','1'],['0','2'],['1','2']]);
+        await expect(step.locator('.qkw__legend')).toContainText(path===ARTICLE_KO ? '가리기 전 점수' : 'raw scores before masking');
+      }
+    }
+  });
+
+  test('key row colours follow their columns in both themes and the static tables stay within the page', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      for (const theme of ['light','dark']) {
+        await page.evaluate(theme => document.documentElement.setAttribute('data-theme',theme),theme);
+        const walk = page.locator('[data-qk-score-walk]');
+        for (let i=0;i<3;i++) {
+          const row = await walk.locator(`[data-matrix="qkw-k"] .mgrid__cell--static[data-r="${i}"]`).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundColor));
+          const column = await walk.locator(`[data-matrix="qkw-kt"] .mgrid__cell--static[data-c="${i}"]`).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundColor));
+          const repeated = await walk.locator(`[data-matrix="qkw-product-kt"] .mgrid__cell--static[data-c="${i}"]`).evaluateAll(nodes => nodes.map(node => getComputedStyle(node).backgroundColor));
+          expect(row).toHaveLength(2); expect(column).toEqual(row); expect(repeated).toEqual(row);
+          expect(row[0]).not.toBe('rgba(0, 0, 0, 0)');
+        }
+        const keyColour = await walk.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-r="0"]').first().evaluate(node=>getComputedStyle(node).backgroundColor);
+        expect(await walk.locator('[data-matrix="qkw-pair"] .mgrid__cell--static[data-r="1"]').first().evaluate(node=>getComputedStyle(node).backgroundColor)).toBe(keyColour);
+        const numericStyles = await walk.locator('.mgrid__value, .qkw__scores tbody td').evaluateAll(nodes=>nodes.map(node=>({size:parseFloat(getComputedStyle(node).fontSize),colour:getComputedStyle(node).color})));
+        expect(numericStyles.every(style=>style.size>=16)).toBe(true);
+        for (const selector of ['.figure__frame','.mgrid','.qkw__scores']) {
+          for (const bounds of await walk.locator(selector).evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {left:r.left,right:r.right};}))) {
+            expect(bounds.left).toBeGreaterThanOrEqual(0);
+            expect(bounds.right).toBeLessThanOrEqual(page.viewportSize()!.width);
+          }
+        }
+      }
+    }
+  });
+});
+
+
+test('the article title, visual subtitle and first lesson question match their metadata and hierarchy', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path);
+    const ko = path === ARTICLE_KO;
+    const title = ko ? '눈으로 이해하는 LLM 원리' : 'LLM Principles, Visually Explained';
+    const lead = ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.';
+    await expect(page.locator('main h1')).toHaveText(title);
+    await expect(page).toHaveTitle(`${title} — LLM Visual Lab`);
+    await expect(page.locator('meta[name="description"]')).toHaveAttribute('content',lead);
+    await expect(page.locator('.doc-header__lead')).toHaveText(lead);
+    await expect(page.locator('#course-nav a[aria-current="page"]')).toHaveText(title);
+    const lab = page.locator('.lab--next-token');
+    await expect(lab.locator('.lab__title')).toHaveText(ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?');
+    await expect(lab.locator('button')).toHaveCount(1);
+    await expect(page.locator('.doc-header')).not.toContainText(ko ? '작은 숫자로' : 'Small Numbers');
+    const openingHeadings = await page.locator('.doc-header h1, .lab--next-token .lab__title').allTextContents();
+    expect(openingHeadings.filter(heading=>heading.includes('?'))).toHaveLength(1);
+    await expect(lab.locator('.next-token__token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
+    await expect(lab.locator('.next-token__output-token')).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
+    await expect(page.locator('#math-transpose summary')).toContainText(ko ? '작은 숫자로' : 'small numbers');
+  }
+});
+
+
+test('learning prose omits lab bookkeeping and retains numerical scope and observation cues', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path);
+    const ko = path===ARTICLE_KO;
+    await expect(page.locator('main')).not.toContainText(ko ? '다른 실습에는 각자의 처음값이 남습니다' : 'other labs keep their own inputs');
+    await expect(page.locator('main')).not.toContainText(ko ? '각 단계에 무슨 일이 일어나는지' : 'Each step explains what is happening');
+    await expect(page.locator('main')).not.toContainText(ko ? '이 예제 코드도 곱한 확률과 더한 로그를 둘 다 보존합니다' : 'This example’s code retains both');
+    await expect(page.locator('#tokens')).toContainText(ko ? '실제 모델이 학습한 값은 아닙니다' : 'not trained model parameters');
+    await expect(page.locator('#language-model')).toContainText(ko ? '정해 놓은 예시 확률표' : 'chosen example probability tables');
+    await expect(page.locator('#training')).toContainText(ko ? '실제 LLM의 수많은 가중치·데이터·역전파 전체' : 'all the weights, data or backpropagation of a real LLM');
+    await expect(page.locator('#big-picture')).toContainText(ko ? '도식의 ID·확률은 설명용' : 'IDs and probabilities are illustrative');
+    const attention = page.locator('.lab--attention');
+    await chooseStep(attention, 1);
+    await attention.locator('.lab__inputs > summary').click();
+    await expect(attention.locator('#lab-inputs-hint')).toHaveText(ko ? '바꾼 값은 이 실습에만 적용됩니다.' : 'Changes apply only to this lab.');
+  }
+});
+
+test('the projection creates one position’s new features while keeping X visible and reconstruction qualified', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path);
+    const ko=path===ARTICLE_KO; const numbers=page.locator('#numbers');
+    await expect(numbers.locator('h3').first()).toHaveText(ko ? '행렬곱 — 입력에서 새로운 특징 만들기' : 'Matrix product — creating new features from the input');
+    const motivation=await numbers.locator('h3').first().evaluate(heading=>{
+      const paragraphs: string[]=[]; let next=heading.nextElementSibling;
+      while (next && next.tagName!=='FIGURE') {
+        if (next.tagName==='P') paragraphs.push(next.textContent ?? '');
+        next=next.nextElementSibling;
+      }
+      return paragraphs.join(' ');
+    });
+    expect(motivation).toContain(ko ? '예측' : 'prediction');
+    expect(motivation).toContain(ko ? '학습' : 'Learning');
+    expect(motivation).toContain(ko ? '가중치' : 'weights');
+    const diagram=numbers.locator('svg[aria-labelledby="rc-t rc-d"]');
+    await expect(diagram.locator('[data-projection="X"] .tp__num')).toHaveText(['1','0','1','0','0','1','0','1','1','1','0','0']);
+    await expect(diagram.locator('[data-projection="W"] .tp__num')).toHaveText(['1','0','0','1','1','0','0','1']);
+    await expect(diagram.locator('[data-projection="Y"] .tp__num')).toHaveText(['2','0','0','2','1','1']);
+    await expect(diagram.locator('#rc-d')).toContainText(ko ? 'X는 입력으로 남고' : 'X remains available as the input');
+    await expect(diagram.locator('[data-learning-weights]')).toHaveText(ko ? '학습에서 조합을 조정' : 'Adjusted during learning');
+    const lab=numbers.locator('.lab--matmul').first();
+    await openFold(lab, '.matmul__inputs');
+    const x=lab.locator('[data-matrix="X"] input');
+    const before=await x.evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value));
+    expect(before).toEqual(['1','0','1','0','0','1','0','1','1','1','0','0']);
+    await lab.locator('[data-matrix="W"] [data-r="2"][data-c="0"] input').fill('2');
+    await expect(lab.locator('[data-matrix="Y"] .mgrid__value')).toHaveText(['3','0','0','2','1','1']);
+    await lab.locator('[data-matrix="Y"] button[data-r="2"][data-c="1"]').click();
+    expect(await x.evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value))).toEqual(before);
+    await numbers.locator('#math-matmul > summary').click();
+    await expect(numbers.locator('#math-matmul')).toContainText(ko ? 'Y만으로 원래 X를 항상 복원할 수는 없습니다' : 'Y alone cannot always reconstruct the original X');
+  }
+});
+
+
+test.describe('review regressions: controls and current values', () => {
+  test('typing a negative coordinate preserves its sign in every numeric editor', async ({ page }) => {
+    await page.goto(ARTICLE_EN);
+    const cases = [
+      ['.lab--dot .vecinput__field', '.lab--dot'],
+      ['.lab--softmax .softmax__score', '.lab--softmax'],
+      ['.lab--layernorm .softmax__score', '.lab--layernorm'],
+      ['#numbers .emat__input', '#numbers .lab--matmul'],
+    ];
+    for (const [selector, labSelector] of cases) {
+      const input = page.locator(selector).first();
+      const lab = page.locator(labSelector).first();
+      if (labSelector.startsWith('#numbers')) await openFold(lab, '.matmul__inputs');
+      await input.click();
+      await input.pressSequentially('-2');
+      await expect(input).toHaveValue('-2');
+      await input.blur();
+      await expect(input).toHaveValue('-2');
+      expect(await lab.innerText()).not.toContain('NaN');
+      await input.click();
+      await input.press('Backspace');
+      await expect(input).toHaveValue('');
+      expect(await lab.innerText()).not.toContain('NaN');
+      await input.blur();
+      await expect(input).toHaveValue('-2');
+    }
+    await expect(page.locator('.lab--dot .terms__total')).toHaveText('−4');
+    await expect(page.locator('#numbers .mgrid--score .mgrid__value')).toHaveText(['−1','0','0','2','1','1']);
+  });
+
+  for (const path of ALL_PAGES) {
+    test(`${path}: initial steps show only the current calculation and few controls`, async ({ page }) => {
+      await page.goto(path);
+      const attention = page.locator('.lab--attention');
+      expect(await attention.locator('button:visible').count()).toBe(3);
+      expect(await attention.locator('input:visible').count()).toBe(0);
+      await expect(attention.locator('.lab__stage [data-matrix="X"]')).toBeVisible();
+      await expect(attention.locator('.terms__table')).toHaveCount(0);
+      const trace = page.locator('.lab--layer-trace');
+      expect(await trace.locator('button:visible').count()).toBe(2);
+      await expect(trace.locator('.layer-trace__prediction')).toHaveCount(0);
+      await chooseStep(trace, 'last');
+      await expect(trace.locator('.layer-trace__prediction')).toBeVisible();
+      await expect(trace.locator('.stepper__current')).toContainText('8/8');
+      const active = trace.locator('[aria-current="step"]');
+      const bounds = await active.evaluate(el => {
+        const b = el.getBoundingClientRect();
+        const rail = el.closest('.stepper__list')!.getBoundingClientRect();
+        return { left: b.left - rail.left, right: rail.right - b.right };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(-1);
+      expect(bounds.right).toBeGreaterThanOrEqual(-1);
+    });
+
+    test(`${path}: edited attention guidance agrees with the displayed matrices`, async ({ page }) => {
+      await page.goto(path);
+      const lab = page.locator('.lab--attention');
+      await openFold(lab, '.lab__inputs');
+      await lab.locator('[data-matrix="X"] input').first().fill('3');
+      await chooseStep(lab, 2);
+      await expect(lab.locator('.note--why')).toContainText('(4, 0)');
+      await expect(lab.locator('.note--why')).toContainText('(0, 8, 4)');
+      await expect(lab.locator('.mgrid--score .mgrid__value')).toHaveText(['0','8','4','8','0','2','4','2','2']);
+      await chooseStep(lab, 5);
+      await expect(lab.locator('.note--try')).toContainText('(0.673, 0.164, 0.164)');
+      await chooseStep(lab, 6);
+      await expect(lab.locator('.note--try')).toContainText('(3.528, 0.654)');
+    });
+
+    test(`${path}: mixture shares stay nonnegative and sum to one`, async ({ page }) => {
+      await page.goto(path);
+      const lab = page.locator('#proportion .lab--matmul');
+      const p = lab.getByRole('slider');
+      for (const key of ['Home', 'End', 'ArrowLeft']) {
+        await p.focus(); await p.press(key);
+        const shares = (await lab.locator('.mgrid--q .mgrid__value').allTextContents()).map(Number);
+        expect(shares).toHaveLength(2);
+        expect(shares.every(x => x >= 0 && x <= 1)).toBe(true);
+        expect(shares.reduce((a,b) => a+b,0)).toBeCloseTo(1, 12);
+        await expect(lab.locator('.mgrid--score .mgrid__value')).toHaveText(Number.isInteger(shares[0]*2+shares[1]*8) ? String(shares[0]*2+shares[1]*8) : (shares[0]*2+shares[1]*8).toFixed(3));
+      }
+      await lab.getByRole('button', { name: /처음 값|Reset/ }).click();
+      await expect(lab.locator('.mgrid--q .mgrid__value')).toHaveText(['0.250','0.750']);
+      await expect(lab.locator('.mgrid--score .mgrid__value')).toHaveText('6.500');
+    });
+
+    test(`${path}: only sampling exposes the random draw and bins`, async ({ page }) => {
+      await page.goto(path);
+      const lab = page.locator('.lab--token-choice');
+      await expect(lab.getByRole('slider')).toHaveCount(1);
+      await expect(lab.locator('.sampling-bins')).toHaveCount(0);
+      await expect(lab.locator('thead th')).toHaveCount(3);
+      const greedy = await lab.locator('.token-choice__selected').innerText();
+      await lab.getByRole('button', { name: 'sampling', exact: true }).click();
+      await expect(lab.getByRole('slider')).toHaveCount(2);
+      await expect(lab.locator('.sampling-bins__draw')).toBeVisible();
+      await expect(lab.locator('thead th')).toHaveCount(4);
+      await lab.getByRole('button', { name: 'greedy', exact: true }).click();
+      await expect(lab.getByRole('slider')).toHaveCount(1);
+      await expect(lab.locator('.sampling-bins')).toHaveCount(0);
+      await expect(lab.locator('.token-choice__selected')).toHaveText(greedy);
+      await expect(lab.locator('.lab__note')).toContainText(path===ARTICLE_KO ? '앞 실습에서 바꾼 설정은' : 'do not carry over');
+    });
+  }
+});
+
+
+test.describe('review regressions: diagram bounds and training alignment', () => {
+  for (const path of ALL_PAGES) {
+    test(`${path}: annotations stay inside position, normalization and loss plots`, async ({ page }) => {
+      await page.goto(path);
+      const position = page.locator('.lab--position');
+      await position.getByRole('slider').focus();
+      await position.getByRole('slider').press('End');
+      const norm = page.locator('.lab--layernorm');
+      for (const value of await norm.locator('input[type="number"]').all()) await value.fill('-8');
+      await norm.locator('#ln-gamma').focus(); await norm.locator('#ln-gamma').press('End');
+      await norm.locator('#ln-beta').focus(); await norm.locator('#ln-beta').press('Home');
+      const loss = page.locator('.lab--loss');
+      await expect(loss.locator('#loss-p')).toBeEnabled();
+      const reset = loss.getByRole('button', { name: /처음 값|Reset/ });
+      await openFold(loss, '.loss__comparison');
+      for (const key of ['Home','End']) {
+        await loss.locator('#loss-p').focus(); await loss.locator('#loss-p').press(key);
+        const points = await loss.locator('.loss__basic-plot').locator('text').evaluateAll(texts => texts.map(text => {
+          const b = (text as SVGGraphicsElement).getBBox();
+          const view = text.closest('svg')!.viewBox.baseVal;
+          return { x: b.x, y: b.y, right: b.x+b.width-view.width, bottom: b.y+b.height-view.height };
+        }));
+        for (const p of points) { expect(p.x).toBeGreaterThanOrEqual(0); expect(p.y).toBeGreaterThanOrEqual(0); expect(p.right).toBeLessThanOrEqual(1); expect(p.bottom).toBeLessThanOrEqual(1); }
+      }
+      await loss.locator('#loss-eps').focus(); await loss.locator('#loss-eps').press('End');
+      await reset.click();
+      await expect(loss.locator('#loss-p')).toHaveValue('0.6');
+      await expect(loss.locator('#loss-eps')).toHaveValue('0.1');
+      for (const lab of [position, norm, loss]) {
+        const overflow = await lab.locator('svg text').evaluateAll(texts => texts.map(text => {
+          const b = (text as SVGGraphicsElement).getBBox();
+          const v = text.closest('svg')!.viewBox.baseVal;
+          return { x: b.x, y: b.y, right: b.x+b.width-v.width, bottom: b.y+b.height-v.height };
+        }));
+        for (const p of overflow) { expect(p.x).toBeGreaterThanOrEqual(-1); expect(p.y).toBeGreaterThanOrEqual(-1); expect(p.right).toBeLessThanOrEqual(1); expect(p.bottom).toBeLessThanOrEqual(1); }
+      }
+    });
+
+    test(`${path}: FFN labels and residual formula have separate space`, async ({ page }) => {
+      await page.goto(path);
+      for (const id of ['ffs','rp']) {
+        const svg = page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`);
+        const bounds = await svg.locator('text').evaluateAll(texts => texts.map(text => {
+          const b = (text as SVGGraphicsElement).getBBox(); const v = text.closest('svg')!.viewBox.baseVal;
+          return { x:b.x, y:b.y, right:b.x+b.width-v.width, bottom:b.y+b.height-v.height };
+        }));
+        for (const b of bounds) { expect(b.x).toBeGreaterThanOrEqual(0); expect(b.y).toBeGreaterThanOrEqual(0); expect(b.right).toBeLessThanOrEqual(1); expect(b.bottom).toBeLessThanOrEqual(1); }
+      }
+      const ffn = page.locator('svg[aria-labelledby="ffs-t ffs-d"]');
+      const spacing = await ffn.evaluate(svg => {
+        const labels = [...svg.querySelectorAll('text')].map(el=>({text:el.textContent, box:(el as SVGGraphicsElement).getBBox()}));
+        const cells = [...svg.querySelectorAll('rect')].map(el=>(el as SVGGraphicsElement).getBBox());
+        const firstCell = Math.min(...cells.map(b=>b.y));
+        const lastCell = Math.max(...cells.map(b=>b.y+b.height));
+        return { headerBottom:Math.max(...labels.filter(l=>l.box.y<60).map(l=>l.box.y+l.box.height)), firstCell, lastCell, footerTop:Math.min(...labels.slice(-2).map(l=>l.box.y)), footerGap:labels.at(-1)!.box.y-(labels.at(-2)!.box.y+labels.at(-2)!.box.height) };
+      });
+      expect(spacing.firstCell-spacing.headerBottom).toBeGreaterThan(8);
+      expect(spacing.footerTop-spacing.lastCell).toBeGreaterThan(8);
+      expect(spacing.footerGap).toBeGreaterThan(8);
+    });
+
+    test(`${path}: training input is shifted and decoder preserves its three output rows`, async ({ page }) => {
+      await page.goto(path);
+      const training = page.locator('svg[aria-labelledby="gl-t gl-d"]');
+      await expect(training.locator('[data-training-input]')).toHaveText(path===ARTICLE_KO ? ['시작','나는','학교에','갔다'] : ['start','I','went','to school']);
+      await expect(training.locator('[data-training-target]')).toHaveText(path===ARTICLE_KO ? ['나는','학교에','갔다','끝'] : ['I','went','to school','end']);
+      const walk = page.locator('.lab--walk');
+      await chooseStep(walk, 4);
+      await expect(walk.locator('.walk__frame[data-on="true"] [data-series-rows="5"] .walk__cell--out')).toHaveCount(35);
+      await chooseStep(walk, 5);
+      await expect(walk.locator('.walk__frame[data-on="true"] [data-series-rows="3"] .walk__cell--out')).toHaveCount(21);
+      await expect(walk.locator('.stepper__current')).toContainText('6/7');
+      await expect(walk).toContainText(path===ARTICLE_KO ? '정답을 한 칸 민 입력' : 'shift the target sequence right by one position');
+      await expect(walk).not.toContainText('the whole correct sentence is in the input');
+    });
+
+    test(`${path}: advanced paper settings are folded and evaluation conditions are precise`, async ({ page }) => {
+      await page.goto(path);
+      for (const id of ['paper-translation','paper-smoothing','paper-training']) await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
+      const results = page.locator('#results');
+      await expect(results).toContainText(path===ARTICLE_KO ? '23~55배' : '23–55 times');
+      await expect(results).toContainText(path===ARTICLE_KO ? '5개를 평균' : 'five checkpoints');
+      await expect(results).toContainText(path===ARTICLE_KO ? '체크포인트 평균을 쓰지 않습니다' : 'no checkpoint averaging');
+      await expect(page.locator('#generation')).toContainText('−1.609');
+      await expect(page.locator('#generation')).toContainText('−0.805');
+      await expect(page.locator('.lab--learning-update svg')).toContainText(path===ARTICLE_KO ? '갱신 뒤' : 'Updated');
+    });
+  }
+});
+
+
+test.describe('remaining review', () => {
+  for (const path of ALL_PAGES) {
+    test(`${path}: initial loss and matrices keep optional controls folded`, async ({ page }) => {
+      await page.goto(path);
+      const loss = page.locator('.lab--loss');
+      await expect(loss.getByRole('slider')).toHaveCount(1);
+      await expect(loss.locator('#loss-eps')).not.toBeVisible();
+      await expect(loss.locator('.loss__basic')).toContainText('0.511');
+      await expect(loss.locator('.lp__bar--target:visible')).toHaveCount(0);
+      await openFold(loss, '.loss__comparison');
+      await expect(loss.getByRole('slider')).toHaveCount(2);
+      await expect(loss.locator('.lp__bar--target:visible')).toHaveCount(8);
+      await expect(loss.locator('.loss__comparison')).toContainText('0.628');
+      for (const selector of ['#numbers .lab--matmul', '#multi-head .lab--matmul']) {
+        const matrix = page.locator(selector);
+        await expect(matrix.locator('input:visible')).toHaveCount(0);
+        await expect(matrix.locator('.mgrid--score button').first()).toBeVisible();
+        await matrix.locator('.mgrid--score button').last().click();
+        await expect(matrix.locator('.terms__total')).not.toBeEmpty();
+        await openFold(matrix, '.matmul__inputs');
+        expect(await matrix.locator('input:visible').count()).toBe(selector.startsWith('#numbers') ? 20 : 28);
+      }
+    });
+
+    test(`${path}: default mask example has a working reset route after edits`, async ({ page }) => {
+      await page.goto(path);
+      await expect(page.locator('#positions')).toContainText(path===ARTICLE_KO ? '기본값 기준' : 'default inputs');
+      const lab = page.locator('.lab--attention');
+      await openFold(lab, '.lab__inputs');
+      await lab.locator('.lab__inputs [data-matrix="X"] input').first().fill('3');
+      await openFold(lab, '.lab__settings');
+      const on = lab.getByRole('button', { name: /켬 \(decoder|On \(decoder/ });
+      await on.click(); await chooseStep(lab, 6);
+      await expect(lab.locator('.mgrid--score .mgrid__value').first()).toHaveText('5.000');
+      await lab.getByRole('button', { name: /처음 값으로 되돌리기|Reset/ }).click();
+      await on.click(); await chooseStep(lab, 6);
+      await expect(lab.locator('.mgrid--score .mgrid__value').first()).toHaveText('3.000');
+    });
+
+    test(`${path}: selected score working reaches the scaled and masked cell`, async ({ page }) => {
+      await page.goto(path); const lab = page.locator('.lab--attention');
+      await chooseStep(lab, 3);
+      const trace = lab.locator('.attention__scoretrace');
+      await expect(trace).not.toContainText('S(1, 2) = 4.000 ÷ √2');
+      await expect(trace.locator('[data-score-stage="raw"]')).toHaveText('S(1, 2) = 4.000');
+      await expect(trace.locator('[data-score-stage="scaled"]')).toHaveText('S(1, 2) / √2 ≈ 2.828');
+      await expect(trace.locator('[data-score-stage="masked"]')).toHaveCount(0);
+      await chooseStep(lab, 4);
+      const masked = trace.locator('[data-score-stage="masked"]');
+      await expect(masked).toHaveText('S′(1, 2) = S(1, 2) / √2 + (0.000) ≈ 2.828');
+      await openFold(lab, '.lab__settings');
+      await lab.getByRole('button', { name: /켬 \(decoder|On \(decoder/ }).click();
+      await expect(masked).toHaveText('S′(1, 2) = S(1, 2) / √2 + (−∞) = −∞');
+      const finalGrid = lab.locator('.mgrid--score').last();
+      await finalGrid.locator('button[data-r="0"][data-c="0"]').click();
+      await expect(trace.locator('[data-score-stage="raw"]')).toHaveText('S(1, 1) = 0.000');
+      await expect(trace.locator('[data-score-stage="scaled"]')).toHaveText('S(1, 1) / √2 = 0.000');
+      await expect(masked).toHaveText('S′(1, 1) = S(1, 1) / √2 + (0.000) = 0.000');
+      await finalGrid.locator('button[data-r="0"][data-c="1"]').click();
+      await lab.getByRole('button', { name: /^(끔|Off)$/, exact: true }).click();
+      await expect(trace.locator('[data-score-stage="scaled"]')).toHaveText('S(1, 2) × 1 = 4.000');
+      await expect(masked).toHaveText('S′(1, 2) = S(1, 2) + (−∞) = −∞');
+      await lab.getByRole('button', { name: /끔 \(encoder|Off \(encoder/ }).click();
+      await expect(masked).toHaveText('S′(1, 2) = S(1, 2) + (0.000) = 4.000');
+      await lab.getByRole('button', { name: /켬 \(decoder|On \(decoder/ }).click();
+      await chooseStep(lab, 5);
+      await expect(lab.locator('.lab__what')).toContainText(path===ARTICLE_KO ? '허용된 유한 점수' : 'allowed finite scores');
+      await expect(lab.locator('.lab__what')).toContainText(path===ARTICLE_KO ? '0' : 'zero');
+    });
+
+    test(`${path}: decoder explanation has three matching operations and step units precede the curve`, async ({ page }) => {
+      await page.goto(path); const walk = page.locator('.lab--walk'); await chooseStep(walk, 5);
+      await expect(walk.locator('.walk__points > li')).toHaveCount(3);
+      await expect(walk.locator('.walk__points').nth(0)).toContainText(path===ARTICLE_KO ? '가려진 attention' : 'Masked attention');
+      await expect(walk.locator('.walk__points')).toContainText(path===ARTICLE_KO ? '다섯 행' : 'five source rows');
+      const training = page.locator('#training');
+      await expect(training).toContainText(path===ARTICLE_KO ? '계수를 한 번 갱신하는 단위' : 'updates the weights once');
+      const definition = training.locator('[data-training-step]');
+      expect(await definition.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('#training svg[aria-labelledby="lrc-t lrc-d"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+    });
+
+    test(`${path}: BLEU labels stay separate for both pairs and retain readable mobile size`, async ({ page }) => {
+      await page.goto(path); const lab = page.locator('.lab--bleucost');
+      for (const language of [/독일어|German/, /프랑스어|French/]) {
+        await lab.getByRole('button', { name: language }).click();
+        await page.evaluate(()=>document.fonts.ready);
+        const boxes = await lab.locator('svg > g').evaluateAll(groups=>groups.filter(g=>g.querySelectorAll(':scope > circle').length===1).map(g=>{
+          const text=g.querySelector(':scope > text') as SVGGraphicsElement;
+          const b=text.getBBox();return {name:text.textContent!,x:b.x,y:b.y,w:b.width,h:b.height};
+        }));
+        expect(boxes.length).toBeGreaterThan(5);
+        for (let i=0;i<boxes.length;i++) for (let j=i+1;j<boxes.length;j++) {
+          const a=boxes[i], b=boxes[j];
+          const overlap=a.x < b.x+b.w && b.x < a.x+a.w && a.y < b.y+b.h && b.y < a.y+a.h;
+          expect(overlap, `${a.name} and ${b.name} labels intersect`).toBe(false);
+        }
+        const geometry=await lab.locator('svg').evaluate(svg=>({actual:svg.getBoundingClientRect().width,view:(svg as SVGSVGElement).viewBox.baseVal.width}));
+        expect(geometry.actual).toBeGreaterThanOrEqual(geometry.view-1);
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+    });
+
+    test(`${path}: dense paper diagrams keep their intrinsic text size at 400px`, async ({ page }) => {
+      await page.setViewportSize({width:400,height:844}); await page.goto(path);
+      await openFold(page.locator('#big-picture'), '#paper-translation');
+      for (const id of ['lrc','xs','gl','gs']) {
+        const svg=page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`);
+        const b=await svg.evaluate(svg=>({actual:svg.getBoundingClientRect().width,view:(svg as SVGSVGElement).viewBox.baseVal.width}));
+        expect(b.actual,id).toBeGreaterThanOrEqual(b.view-1);
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(400);
+    });
+
+    test(`${path}: ReLU distinguishes new zeros and the exponential is limited by this number format`, async ({ page }) => {
+      await page.goto(path);
+      const desc=page.locator('#ffs-d');
+      await expect(desc).toContainText(path===ARTICLE_KO ? '음수 2칸' : '2 negative entries');
+      await expect(desc).toContainText(path===ARTICLE_KO ? '이미 0인 2칸' : '2 existing zeros');
+      await expect(page.locator('#proportion')).toContainText(path===ARTICLE_KO ? 'JavaScript 숫자 형식' : 'JavaScript number format');
+    });
+  }
+});
+
+
+test.describe('translation diagram readability', () => {
+  for (const path of ALL_PAGES) {
+    test(`${path}: 400px frames 2, 6 and 7 retain readable numbers and keyboard scrolling`, async ({ page }) => {
+      await page.setViewportSize({width:400,height:844}); await page.goto(path);
+      const walk=page.locator('.lab--walk');
+      await expect(walk.locator('button')).toHaveCount(9);
+      for (const index of [1,5,6]) {
+        await chooseStep(walk,index);
+        const svg=walk.locator('.walk__stage svg');
+        const size=await svg.evaluate(el=>el.getBoundingClientRect().width);
+        expect(size,`frame ${index+1} must retain its readable width`).toBeGreaterThanOrEqual(560);
+        const numbers=await svg.locator('.walk__frame[data-on="true"] text').evaluateAll(nodes=>nodes.filter(el=>/\d/.test(el.textContent??'')).map(el=>{
+          const matrix=(el as SVGGraphicsElement).getScreenCTM()!;
+          return {text:el.textContent,px:parseFloat(getComputedStyle(el).fontSize)*Math.hypot(matrix.a,matrix.b)};
+        }));
+        expect(numbers.length).toBeGreaterThan(3);
+        for (const number of numbers) expect(number.px,number.text??'number').toBeGreaterThanOrEqual(12);
+        const viewport=walk.locator('.walk__stage .scroll-region__viewport');
+        await expect(viewport).toHaveAttribute('tabindex','0');
+        await expect(viewport).toHaveAccessibleName(/번역 구조 도표|Translation diagram/);
+        await expect(walk.locator('.walk__stage .scroll-region__hint')).toBeVisible();
+        await viewport.focus();
+        const before=await viewport.evaluate(el=>el.scrollLeft);
+        await viewport.press('ArrowRight');
+        await expect.poll(()=>viewport.evaluate(el=>el.scrollLeft)).toBeGreaterThan(before);
+      }
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(400);
+    });
+
+    test(`${path}: scroll cues appear only for actual overflow and react to resize`, async ({ page }) => {
+      await page.setViewportSize({width:1440,height:900}); await page.goto(path);
+      const loss=page.locator('.lab--loss'); await openFold(loss,'.loss__comparison');
+      const region=loss.locator('.scroll-region'); const viewport=region.locator('.scroll-region__viewport');
+      await expect.poll(()=>viewport.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(false);
+      await expect(region).toHaveAttribute('data-overflow','false');
+      await expect(region.locator('.scroll-region__hint')).toHaveCount(0);
+      await page.setViewportSize({width:400,height:844});
+      await expect.poll(()=>viewport.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(true);
+      await expect(region).toHaveAttribute('data-overflow','true');
+      await expect(region.locator('.scroll-region__hint')).toBeVisible();
+      const bleu=page.locator('.lab--bleucost .scroll-region');
+      await expect(bleu).toHaveAttribute('data-overflow','true');
+      await expect(bleu.locator('.scroll-region__hint')).toBeVisible();
+      await expect(bleu.locator('.scroll-region__viewport')).toHaveAttribute('tabindex','0');
+      await page.setViewportSize({width:1440,height:900});
+      await expect(region).toHaveAttribute('data-overflow','false');
+      await expect(region.locator('.scroll-region__hint')).toHaveCount(0);
+    });
+  }
+});
+
+
+test.describe('final six diagram regressions', () => {
+  for (const path of ALL_PAGES) {
+    for (const width of [400, 1440]) {
+      test(`${path}: six diagrams preserve separate headings and readable labels at ${width}px`, async ({ page }) => {
+        await page.setViewportSize({width,height:900}); await page.goto(path);
+        await openFold(page.locator('#problem'), '.expand');
+        const walk=page.locator('.lab--walk');
+        await page.evaluate(()=>document.fonts.ready);
+        for (const index of [0,1]) {
+          await chooseStep(walk,index);
+          const frame=walk.locator('.walk__frame[data-on="true"]');
+          const label=frame.locator('.tmap__title').filter({hasText:path===ARTICLE_KO ? /^문장$/ : /^Sentence$/});
+          const sentenceBox=(await label.locator('..').locator('rect').boundingBox())!;
+          const labelBox=(await label.boundingBox())!;
+          const sentence=(await frame.locator('.tmap__label').filter({hasText:/^The animal didn’t cross$/}).boundingBox())!;
+          expect.soft(sentenceBox.x,`frame ${index+1}: sentence label has a clear gap before the box`).toBeGreaterThanOrEqual(labelBox.x+labelBox.width+8);
+          expect.soft(sentence.x,`frame ${index+1}: sentence keeps its left padding`).toBeGreaterThanOrEqual(sentenceBox.x+8);
+          expect.soft(sentence.x+sentence.width,`frame ${index+1}: sentence keeps its right padding`).toBeLessThanOrEqual(sentenceBox.x+sentenceBox.width-8);
+        }
+        const title=walk.locator('.walk__frame[data-on="true"] .tmap__title').filter({hasText:path===ARTICLE_KO ? /^숫자 한 줄$/ : /^A row of numbers$/});
+        const note=walk.locator('.walk__frame[data-on="true"] .tmap__note').filter({hasText:path===ARTICLE_KO ? /^실제로는 512칸$/ : /^really 512 cells$/});
+        const titleBox=(await title.boundingBox())!; const noteBox=(await note.boundingBox())!;
+        expect.soft(noteBox.y,'the 512-cell note occupies a separate line below its heading').toBeGreaterThanOrEqual(titleBox.y+titleBox.height+2);
+
+        const beam=page.locator('.lab--beam');
+        const figures=[
+          {name:'beam probabilities',svg:beam.locator('svg'),labels:'.tmap__note',region:beam.locator('.scroll-region__viewport')},
+          ...['pld','qkv','hb','sf'].map(id=>({
+            name:id,svg:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`),labels:'.tmap__note',
+            region:page.locator('.figure__frame').filter({has:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`)}),
+          })),
+        ];
+        for (const figure of figures) {
+          const text=await figure.svg.locator(figure.labels).evaluateAll(nodes=>nodes.map(el=>{
+            const ctm=(el as SVGGraphicsElement).getScreenCTM()!;
+            const box=(el as SVGGraphicsElement).getBBox();
+            const view=(el as SVGGraphicsElement).ownerSVGElement!.viewBox.baseVal;
+            return {text:el.textContent,px:parseFloat(getComputedStyle(el).fontSize)*Math.hypot(ctm.a,ctm.b),inside:box.x>=view.x && box.y>=view.y && box.x+box.width<=view.x+view.width && box.y+box.height<=view.y+view.height};
+          }));
+          expect(text.length,figure.name).toBeGreaterThan(1);
+          expect.soft(Math.min(...text.map(item=>item.px)),`${figure.name}: smallest annotation stays at least 12px`).toBeGreaterThanOrEqual(12);
+          for (const item of text) expect.soft(item.inside,`${figure.name}: ${item.text} stays inside its SVG`).toBe(true);
+          const regionCount=await figure.region.count();
+          expect.soft(regionCount,`${figure.name}: one scroll region`).toBe(1);
+          const tabIndex=regionCount===1 ? await figure.region.getAttribute('tabindex') : null;
+          expect.soft(tabIndex,`${figure.name}: scroll region accepts keyboard focus`).toBe('0');
+          if (width===400 && tabIndex==='0') {
+            await expect.poll(()=>figure.region.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(true);
+            await figure.region.scrollIntoViewIfNeeded();
+            await figure.region.focus();
+            const before=await figure.region.evaluate(el=>el.scrollLeft);
+            await figure.region.press('ArrowRight');
+            await expect.poll(()=>figure.region.evaluate(el=>el.scrollLeft),{message:`${figure.name}: ArrowRight moves the diagram`}).toBeGreaterThan(before);
+          }
+        }
+        await expect(beam.locator('button')).toHaveCount(3);
+        await beam.locator('button').nth(1).click();
+        await expect(beam.locator('.explorer__line').nth(1)).toContainText('0.342');
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+      });
+    }
   }
 });

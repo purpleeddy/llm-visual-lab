@@ -4,11 +4,14 @@ interface Props {
   /** A description for readers who cannot see the figure */
   describe?: string;
   wide?: boolean;
+  /** Preserve a readable SVG width within the normal prose column. */
+  scrollable?: boolean;
 }
-const { caption, describe, wide = false } = Astro.props;
+const { caption, describe, wide = false, scrollable = false } = Astro.props;
+const canScroll = wide || scrollable;
 ---
-<figure class={`figure${wide ? ' wide' : ''}`}>
-  <div class="figure__frame"><slot /></div>
+<figure class={`figure${wide ? ' wide' : ''}${scrollable ? ' figure--scrollable' : ''}`}>
+  <div class="figure__frame" tabindex={canScroll ? 0 : undefined} role={canScroll ? "region" : undefined} aria-label={canScroll ? caption : undefined}><slot /></div>
   <figcaption class="figure__caption">
     {caption}
     {describe ? <span class="visually-hidden"> {describe}</span> : null}

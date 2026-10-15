@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import { useCallback, useMemo, useState } from 'react';
 import { softmaxRow } from '../../lib/math/softmax';
 import { fmt, fmtPercent } from '../../lib/math/format';
@@ -50,17 +51,13 @@ export function SoftmaxExplorer({ locale, initialScores, labels }: SoftmaxExplor
               >
                 −
               </button>
-              <input
+              <NumberInput
                 className="softmax__score"
-                type="number"
                 step={0.5}
                 value={scores[i]}
                 aria-label={`${names[i]} ${ui.math.scores}`}
                 onFocus={(e) => e.currentTarget.select()}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n)) setScores((prev) => prev.map((s, j) => (j === i ? n : s)));
-                }}
+                onValueChange={n => setScores(prev => prev.map((s, j) => j === i ? n : s))}
               />
               <button
                 type="button"
@@ -101,7 +98,7 @@ export function SoftmaxExplorer({ locale, initialScores, labels }: SoftmaxExplor
             type="range"
             min={-10}
             max={10}
-            step={1}
+                step={1}
             value={shift}
             onChange={(e) => setShift(Number(e.target.value))}
           />

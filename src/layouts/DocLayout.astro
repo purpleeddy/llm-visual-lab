@@ -95,7 +95,7 @@ const statusNote =
         for (let node = target; node; node = node.parentElement) {
           if (node instanceof HTMLDetailsElement) node.open = true;
         }
-        requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }));
+        requestAnimationFrame(() => target.scrollIntoView({ block: 'start', behavior: 'instant' }));
       };
       reveal();
       window.addEventListener('load', reveal, { once: true });
@@ -232,6 +232,9 @@ const statusNote =
       // A section's end can intersect the viewport while the next heading is
       // already at the reading line. Use the latest section crossing that line.
       const markReadingUnit = () => {
+        // Do not replace an open stage while the reader is choosing a link.
+        // Hash navigation still updates the unit explicitly after a choice.
+        if (nav.contains(document.activeElement)) return;
         // The mobile contents sits after the article. Reading its controls must
         // retain the last unit, rather than count every off-screen unit as read.
         if (sections[sections.length - 1].getBoundingClientRect().bottom < 96) return;

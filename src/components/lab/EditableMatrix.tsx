@@ -1,6 +1,6 @@
 import { useId } from 'react';
 import type { Tone } from './MatrixGrid';
-import { fmtInput, parseNumber } from '../../lib/math/format';
+import { NumberInput } from './NumberInput';
 
 export interface EditableMatrixProps {
   matrix: number[][];
@@ -104,21 +104,16 @@ export function EditableMatrix({
                     .join(' ');
                   return (
                     <td key={c} data-r={r} data-c={c} className="emat__td">
-                      <input
+                      <NumberInput
                         id={`${id}-${r}-${c}`}
                         className={cls}
-                        type="number"
-                        inputMode="decimal"
                         step={step}
-                        value={fmtInput(value)}
+                        value={value}
                         aria-label={`${name} ${rowLabels ? rowLabels[r] : `row ${r + 1}`}, ${
                           colLabels ? colLabels[c] : `column ${c + 1}`
                         }`}
                         aria-describedby={describedBy}
-                        onChange={(e) => {
-                          const parsed = parseNumber(e.target.value);
-                          if (parsed !== null) onChange(r, c, parsed);
-                        }}
+                        onValueChange={v => onChange(r, c, v)}
                         onFocus={(e) => e.currentTarget.select()}
                       />
                     </td>

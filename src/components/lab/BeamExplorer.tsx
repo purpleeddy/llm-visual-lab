@@ -5,6 +5,7 @@ import { fmt } from '../../lib/math/format';
 import { t } from '../../lib/i18n/ui';
 import { EXPLORER_TEXT } from '../../lib/i18n/explorers';
 import type { Locale } from '../../lib/i18n/routing';
+import { ScrollRegion } from './ScrollRegion';
 
 /**
  * The toy tree with the beam width to choose.
@@ -65,45 +66,47 @@ export function BeamExplorer({ locale }: { locale: Locale }) {
       <p className="lab__note">{text.note}</p>
 
       <div className="explorer__panels">
-        <svg viewBox={`0 0 ${W} 300`} className="explorer__svg" aria-hidden="true">
-          <rect className="tmap__box tmap__box--embed" x={ROOT_X} y={yMid - NODE_H / 2} width={52} height={NODE_H} rx="4" />
-          <text className="tmap__note" x={ROOT_X + 26} y={yMid + 4} textAnchor="middle">
-            {locale === 'ko' ? '시작' : 'start'}
-          </text>
-          {level1.map(([tok, p], i) => (
-            <g key={tok}>
-              <path
-                className={`bt__edge${onPath([tok]) ? ' bt__edge--beam' : ''}`}
-                d={`M ${ROOT_X + 54} ${yMid} C ${ROOT_X + 100} ${yMid}, ${L1_X - 46} ${l1Y(i) + NODE_H / 2}, ${L1_X - 2} ${l1Y(i) + NODE_H / 2}`}
-              />
-              <text className="tmap__note" x={(ROOT_X + 54 + L1_X) / 2} y={(yMid + l1Y(i) + NODE_H / 2) / 2 - 6} textAnchor="middle">
-                {p}
-              </text>
-              <rect className="tmap__box tmap__box--head" x={L1_X} y={l1Y(i)} width={NODE_W} height={NODE_H} rx="4" />
-              <text className="tmap__head" x={L1_X + NODE_W / 2} y={l1Y(i) + 18} textAnchor="middle">
-                {tok}
-              </text>
-              {level2[i].children.map(([tok2, p2], j) => {
-                const y = l2Y(i, j, level2[i].children.length);
-                return (
-                  <g key={tok2}>
-                    <path
-                      className={`bt__edge${onPath([tok, tok2]) ? ' bt__edge--beam' : ''}`}
-                      d={`M ${L1_X + NODE_W + 2} ${l1Y(i) + NODE_H / 2} C ${L1_X + 80} ${l1Y(i) + NODE_H / 2}, ${L2_X - 56} ${y + 9}, ${L2_X - 2} ${y + 9}`}
-                    />
-                    <rect className={`tmap__box${tok2 === END ? ' tmap__box--norm' : ''}`} x={L2_X} y={y} width={NODE_W} height={18} rx="3" />
-                    <text className="hp__value" x={L2_X + NODE_W / 2} y={y + 13} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
-                      {tok2}
-                    </text>
-                    <text className="tmap__note" x={L2_X + NODE_W + 6} y={y + 13}>
-                      {p2}
-                    </text>
-                  </g>
-                );
-              })}
-            </g>
-          ))}
-        </svg>
+        <ScrollRegion className="beam__plot" locale={locale} label={text.title}>
+          <svg viewBox={`0 0 ${W} 300`} width={W} height={300} className="explorer__svg" aria-hidden="true">
+            <rect className="tmap__box tmap__box--embed" x={ROOT_X} y={yMid - NODE_H / 2} width={52} height={NODE_H} rx="4" />
+            <text className="tmap__note" x={ROOT_X + 26} y={yMid + 4} textAnchor="middle">
+              {locale === 'ko' ? '시작' : 'start'}
+            </text>
+            {level1.map(([tok, p], i) => (
+              <g key={tok}>
+                <path
+                  className={`bt__edge${onPath([tok]) ? ' bt__edge--beam' : ''}`}
+                  d={`M ${ROOT_X + 54} ${yMid} C ${ROOT_X + 100} ${yMid}, ${L1_X - 46} ${l1Y(i) + NODE_H / 2}, ${L1_X - 2} ${l1Y(i) + NODE_H / 2}`}
+                />
+                <text className="tmap__note" x={(ROOT_X + 54 + L1_X) / 2} y={(yMid + l1Y(i) + NODE_H / 2) / 2 - 6} textAnchor="middle">
+                  {p}
+                </text>
+                <rect className="tmap__box tmap__box--head" x={L1_X} y={l1Y(i)} width={NODE_W} height={NODE_H} rx="4" />
+                <text className="tmap__head" x={L1_X + NODE_W / 2} y={l1Y(i) + 18} textAnchor="middle">
+                  {tok}
+                </text>
+                {level2[i].children.map(([tok2, p2], j) => {
+                  const y = l2Y(i, j, level2[i].children.length);
+                  return (
+                    <g key={tok2}>
+                      <path
+                        className={`bt__edge${onPath([tok, tok2]) ? ' bt__edge--beam' : ''}`}
+                        d={`M ${L1_X + NODE_W + 2} ${l1Y(i) + NODE_H / 2} C ${L1_X + 80} ${l1Y(i) + NODE_H / 2}, ${L2_X - 56} ${y + 9}, ${L2_X - 2} ${y + 9}`}
+                      />
+                      <rect className={`tmap__box${tok2 === END ? ' tmap__box--norm' : ''}`} x={L2_X} y={y} width={NODE_W} height={18} rx="3" />
+                      <text className="hp__value" x={L2_X + NODE_W / 2} y={y + 13} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
+                        {tok2}
+                      </text>
+                      <text className="tmap__note" x={L2_X + NODE_W + 6} y={y + 13}>
+                        {p2}
+                      </text>
+                    </g>
+                  );
+                })}
+              </g>
+            ))}
+          </svg>
+        </ScrollRegion>
 
         <div className="lab__readout" aria-live="polite">
           <p className="explorer__line">

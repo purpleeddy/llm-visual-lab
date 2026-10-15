@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import { useCallback, useMemo, useState } from 'react';
 import { TermExpansion } from './TermExpansion';
 import { dotProduct } from '../../lib/math/matrix';
@@ -169,10 +170,9 @@ export function DotProductExplorer({
                 (
               </span>
               {vec.map((value, i) => (
-                <input
+                <NumberInput
                   key={i}
                   className={`vecinput__field${activeTerm === i ? ' is-active' : ''}`}
-                  type="number"
                   step={1}
                   value={value}
                   aria-label={`${name} ${i + 1}`}
@@ -181,10 +181,7 @@ export function DotProductExplorer({
                     setActiveTerm(i);
                   }}
                   onBlur={() => setActiveTerm(null)}
-                  onChange={(e) => {
-                    const n = Number(e.target.value);
-                    if (Number.isFinite(n)) set((prev) => prev.map((x, j) => (j === i ? n : x)));
-                  }}
+                  onValueChange={n => set(prev => prev.map((x, j) => j === i ? n : x))}
                 />
               ))}
               <span className="vecinput__paren" aria-hidden="true">
@@ -193,7 +190,7 @@ export function DotProductExplorer({
             </div>
           ))}
 
-          <dl className="lab__stats">
+          <details className="expand dot__geometry"><summary>{locale === 'ko' ? '길이와 각도 비교' : 'Compare length and angle'}</summary><dl className="lab__stats">
             <div>
               <dt>{`|${nameU}|`}</dt>
               <dd>{fmt(lenU)}</dd>
@@ -206,7 +203,7 @@ export function DotProductExplorer({
               <dt>cos θ</dt>
               <dd>{Number.isFinite(cos) ? fmt(cos) : '—'}</dd>
             </div>
-          </dl>
+          </dl></details>
         </div>
       </div>
 

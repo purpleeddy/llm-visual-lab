@@ -104,7 +104,8 @@ body {
   padding: var(--sp-3) var(--gutter);
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
 }
 .masthead__brand {
   font-size: var(--fs-300);
@@ -127,14 +128,19 @@ body {
   align-items: center;
   gap: var(--sp-2);
   flex: none;
+  margin-left: auto;
 }
 
 .masthead__contents,
-.lang-switch,
-.star-link {
-  font-size: var(--fs-100);
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2rem;
+  font-size: var(--fs-200);
   font-weight: var(--fw-medium);
-  padding: 0.35em 0.7em;
+  line-height: 1;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--line-2);
   border-radius: var(--r-md);
   color: var(--ink-2);
@@ -144,15 +150,13 @@ body {
   transition: color var(--motion-fast) var(--ease), border-color var(--motion-fast) var(--ease);
 }
 .masthead__contents:hover,
-.lang-switch:hover,
-.star-link:hover {
+.lang-switch:hover {
   color: var(--accent);
   border-color: var(--accent);
 }
-/* The GitHub star: a small mark and one word, in the same row as the other tools. */
-.star-link { display: inline-flex; align-items: center; gap: 0.35em; }
-.star-link__mark { flex: none; color: var(--status-warn); }
-.star-link:hover .star-link__mark { color: var(--accent); }
+.masthead__tools .theme-toggle { height: 2rem; padding: 2px; }
+.masthead__tools .theme-toggle button { height: 100%; min-width: 1.9rem; padding: 0 var(--sp-2); font-size: var(--fs-400); line-height: 1; }
+
 @media (min-width: 60rem) {
   .masthead__contents {
     display: none;
@@ -170,15 +174,11 @@ body {
     gap: var(--sp-2);
   }
   .masthead__contents,
-  .lang-switch,
-  .star-link {
-    padding: 0.3em 0.5em;
+  .lang-switch {
+    padding: 0 var(--sp-2);
   }
-  .star-link__text { display: none; }
-  .theme-toggle button {
-    min-width: 1.9rem;
-    padding: 0.3em 0.35em;
-  }
+  .masthead__tools .theme-toggle button { min-width: 1.75rem; padding: 0 var(--sp-1); }
+  .masthead__brand { font-size: var(--fs-200); }
 }
 
 .shell {
@@ -1331,7 +1331,7 @@ body {
 .sampling-bins > span:not(.sampling-bins__draw) { min-width: 0; padding: var(--sp-2) 0; text-align: center; border: 1px solid var(--line-3); background: var(--surface-raised); }
 .sampling-bins > span.is-active { background: var(--accent-wash); border-color: var(--accent); }
 .sampling-bins__draw { position: absolute; top: 100%; transform: translateX(-50%); }
-@media (max-width: 40rem) { .learning-outline ol { columns: 1; } .model-routes { grid-template-columns: 1fr; } .mini-flow { flex-direction: column; align-items: stretch; } .mini-flow > span { text-align: center; transform: rotate(90deg); } }
+@media (max-width: 40rem) { .learning-outline ol { columns: 1; } .model-routes { grid-template-columns: 1fr; } .mini-flow { flex-direction: column; align-items: stretch; } .mini-flow > span { align-self: center; text-align: center; transform: rotate(90deg); } }
 
 /* A coarse outline remains legible in the narrow contents rail. */
 .toc__list > .toc__group { margin: 0 0 var(--sp-2); padding: 0; border-left: 0; font-size: var(--fs-200); text-transform: none; letter-spacing: normal; }
@@ -1346,3 +1346,45 @@ body {
 .toc__details .toc__sublist { margin-top: var(--sp-2); }
 
 .expand[id] { scroll-margin-top: 5rem; }
+
+/* Static Q–K walk: colour follows a key row into its transposed column. */
+.qkw { margin-block: var(--sp-5); }
+.qkw__positions { display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-4); font-size: var(--fs-200); }
+.qkw__step { min-width: 0; }
+.prose .qkw__title { margin: 0 0 var(--sp-4); font-size: var(--fs-300); }
+.qkw .mgrid { --cell-w: 2.1rem; --cell-pad: 0.35rem 0.55rem; max-width: 100%; }
+.qkw .mgrid__cell--static { text-align: center; font-size: var(--fs-400); transition: none; }
+.qkw .mgrid__rowlabel, .qkw .mgrid__collabel { font-size: var(--fs-200); }
+.qkw__dot { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; font: var(--fw-medium) var(--fs-400)/1.8 var(--font-mono); }
+.qkw__term { white-space: nowrap; }
+.qkw__dot b, .qkw__selected-score { padding: 0.15rem 0.3rem; border-radius: var(--r-sm); color: var(--ink-1); }
+.qkw [data-query-value], .qkw [data-matrix="qkw-pair"] tr:first-child .mgrid__cell--static,
+.qkw [data-query="2"], .qkw [data-matrix="qkw-q"] tr:last-child .mgrid__cell--static { background-color: var(--data-q-wash); }
+.qkw [data-key-value="0"], .qkw [data-key="0"],
+.qkw [data-matrix="qkw-k"] tr:nth-child(1) .mgrid__cell--static,
+.qkw [data-matrix="qkw-pair"] tr:last-child .mgrid__cell--static,
+.qkw [data-matrix$="kt"] .mgrid__cell--static[data-c="0"] { background-color: var(--data-k-wash); }
+.qkw [data-key="1"], .qkw [data-matrix="qkw-k"] tr:nth-child(2) .mgrid__cell--static,
+.qkw [data-matrix$="kt"] .mgrid__cell--static[data-c="1"] { background-color: var(--data-v-wash); }
+.qkw [data-key="2"], .qkw [data-matrix="qkw-k"] tr:nth-child(3) .mgrid__cell--static,
+.qkw [data-matrix$="kt"] .mgrid__cell--static[data-c="2"] { background-color: var(--surface-inset); }
+.qkw [data-selected="true"], .qkw__selected-score { background-color: var(--data-q-wash); box-shadow: inset 0 0 0 2px var(--data-k); font-weight: var(--fw-bold); }
+.qkw__transpose, .qkw__product { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; justify-content: center; }
+.qkw__product { margin-top: var(--sp-5); }
+.qkw__arrow, .qkw__op { font: var(--fw-medium) var(--fs-400)/1.4 var(--font-mono); }
+.prose .qkw__matrix-label { margin: var(--sp-4) 0 var(--sp-2); font-weight: var(--fw-semi); }
+.qkw__matrix-label span { font-size: var(--fs-200); font-weight: var(--fw-normal); color: var(--ink-3); }
+.qkw__score-scroll { max-width: 100%; overflow-x: auto; }
+.prose .qkw__scores { width: 100%; margin: 0; border-collapse: collapse; font: var(--fs-400)/1.5 var(--font-mono); color: var(--ink-1); }
+.prose .qkw__scores th, .prose .qkw__scores td { text-align: center; padding: 0.4rem 0.6rem; border: 1px solid var(--grid-line); }
+.qkw [data-future="true"], .qkw__stripe { background-image: repeating-linear-gradient(135deg, transparent, transparent 4px, var(--line-2) 4px, var(--line-2) 5px); }
+.prose .qkw__legend { display: flex; align-items: flex-start; gap: var(--sp-2); margin: var(--sp-3) 0 0; font-size: var(--fs-200); line-height: 1.5; color: var(--ink-3); }
+.qkw__stripe { flex: 0 0 1.25rem; height: 1.25rem; border: 1px solid var(--line-2); }
+@media (max-width: 40rem) {
+  .qkw__transpose, .qkw__product { flex-direction: column; }
+  .qkw__arrow { transform: rotate(90deg); }
+}
+
+/* Dense diagrams retain readable labels; their frame scrolls within the page. */
+.figure.wide .figure__frame svg, .figure--scrollable .figure__frame svg { max-width: none; }
+.figure__frame:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }

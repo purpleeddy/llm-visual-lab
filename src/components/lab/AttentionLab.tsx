@@ -10,12 +10,12 @@ import {
   type AttentionResult,
   type AttentionStep,
 } from '../../lib/math/attention';
-import { defaultAttentionInput } from '../../lib/math/examples';
+import { defaultAttentionInput, LEARNING_EXAMPLE } from '../../lib/math/examples';
 import { cellDerivation, type Matrix } from '../../lib/math/matrix';
 import { fmt, fmtPercent } from '../../lib/math/format';
 import { t } from '../../lib/i18n/ui';
 import { formatCalcError } from '../../lib/i18n/calcError';
-import { LAB_TEXT } from '../../lib/i18n/labText';
+import { LAB_TEXT, attentionStepText } from '../../lib/i18n/labText';
 import type { Locale } from '../../lib/i18n/routing';
 
 type MatrixKey = 'Q' | 'K' | 'V' | 'S' | 'A' | 'O';
@@ -136,8 +136,8 @@ export function AttentionLab({ locale }: AttentionLabProps) {
   const result = computed.result;
 
   const tokenLabels = useMemo(
-    () => X.map((_, i) => ui.lab.tokenLabel.replace('{n}', String(i + 1))),
-    [X, ui],
+    () => X.map((_, i) => `${ui.lab.tokenLabel.replace('{n}', String(i + 1))} · ${LEARNING_EXAMPLE[locale].tokens[i]}`),
+    [X, ui, locale],
   );
   const shortTokens = useMemo(() => X.map((_, i) => `${i + 1}`), [X]);
 
@@ -207,7 +207,9 @@ export function AttentionLab({ locale }: AttentionLabProps) {
   };
 
   const dims = result?.dims;
-  const stepText = text[step];
+  const stepText = result ? attentionStepText(locale, step, result) : text[step];
+  const scoreName = `S(${selection.row + 1}, ${selection.col + 1})`;
+  const displayedRelation = (value: number) => Number.isFinite(value) && Number(value.toFixed(3)) !== value ? '≈' : '=';
 
   const stageRef = useRef<HTMLDivElement>(null);
 
@@ -256,7 +258,9 @@ export function AttentionLab({ locale }: AttentionLabProps) {
             ) : null}
           </p>
         </div>
-        <div className="lab__toggles">
+        <details className="lab__settings expand">
+          <summary>{locale === 'ko' ? '계산 설정' : 'Calculation settings'}</summary>
+          <div className="lab__toggles">
           <div className="lab__toggle">
             <span className="lab__toggle-label" id="lab-scale-label">
               {ui.lab.scaling}
@@ -283,10 +287,10 @@ export function AttentionLab({ locale }: AttentionLabProps) {
               </button>
             </div>
           </div>
-          <button type="button" className="btn lab__reset" onClick={reset}>
-            {ui.lab.reset}
-          </button>
-        </div>
+
+          </div>
+        </details>
+        <button type="button" className="btn lab__reset" onClick={reset}>{ui.lab.reset}</button>
       </header>
 
       <p className="lab__note">{ui.lab.kindNote}</p>
@@ -321,37 +325,8 @@ export function AttentionLab({ locale }: AttentionLabProps) {
           {/* ---- The stage: the matrices for this step ---- */}
           <div className="lab__stage" ref={stageRef}>
             {step === 'input' ? (
-              <div className="lab__row lab__row--inputs">
-                <EditableMatrix
-                  matrix={X}
-                  name="X"
-                  shape={`${dims!.n} × ${dims!.dModel}`}
-                  rowLabels={shortTokens}
-                  tone="input"
-                  onChange={editCell(setX)}
-                />
-                <EditableMatrix
-                  matrix={WQ}
-                  name="W_Q"
-                  shape={`${dims!.dModel} × ${dims!.dK}`}
-                  tone="q"
-                  onChange={editCell(setWQ)}
-                />
-                <EditableMatrix
-                  matrix={WK}
-                  name="W_K"
-                  shape={`${dims!.dModel} × ${dims!.dK}`}
-                  tone="k"
-                  onChange={editCell(setWK)}
-                />
-                <EditableMatrix
-                  matrix={WV}
-                  name="W_V"
-                  shape={`${dims!.dModel} × ${dims!.dV}`}
-                  tone="v"
-                  onChange={editCell(setWV)}
-                />
-              </div>
+              <MatrixGrid matrix={X} name="X" shape={`${dims!.n} × ${dims!.dModel}`}
+                rowLabels={tokenLabels} tone="input" compact />
             ) : null}
 
             {step === 'project' ? (
@@ -444,7 +419,7 @@ export function AttentionLab({ locale }: AttentionLabProps) {
                   rowLabels={shortTokens} colLabels={shortTokens} tone="neutral" compact
                   allowed={result.allowed} blockedLabel={ui.lab.blocked} />
                 <span className="lab__op" aria-hidden="true">=</span>
-                <MatrixGrid matrix={result.scaledScores} name="S′" shape={`${dims!.n} × ${dims!.n}`}
+                <MatrixGrid matrix={result.maskedScores} name="S′" shape={`${dims!.n} × ${dims!.n}`}
                   rowLabels={shortTokens} colLabels={shortTokens} tone="score" selectable
                   allowed={result.allowed} blockedLabel={ui.lab.blocked}
                   selected={selection.matrix === 'S' ? selection : null} onSelect={select('S')}
@@ -454,7 +429,7 @@ export function AttentionLab({ locale }: AttentionLabProps) {
 
             {step === 'softmax' ? (
               <div className="lab__row">
-                <MatrixGrid matrix={result.scaledScores} name="S′" shape={`${dims!.n} × ${dims!.n}`}
+                <MatrixGrid matrix={result.maskedScores} name="S′" shape={`${dims!.n} × ${dims!.n}`}
                   rowLabels={shortTokens} colLabels={shortTokens} tone="score" allowed={result.allowed}
                   blockedLabel={ui.lab.blocked} highlightRow={selection.row} />
                 <span className="lab__op" aria-hidden="true">→</span>
@@ -538,7 +513,7 @@ export function AttentionLab({ locale }: AttentionLabProps) {
                 </table>
               </div>
             </div>
-          ) : derivation ? (
+          ) : step !== 'input' && derivation ? (
             <div className="lab__readout">
               <TermExpansion
                 terms={derivation.d.terms}
@@ -551,10 +526,15 @@ export function AttentionLab({ locale }: AttentionLabProps) {
                 compact={selection.matrix !== 'O'}
                 labels={{ term: ui.lab.term, product: ui.lab.product, sum: ui.lab.sum }}
               />
+              {step === 'scale' || step === 'mask' ? <div className="attention__scoretrace explorer__line">
+                <p data-score-stage="raw">{scoreName} {displayedRelation(result.scores[selection.row][selection.col])} {fmt(result.scores[selection.row][selection.col])}</p>
+                <p data-score-stage="scaled">{scoreName}{scaled ? ` / √${dims!.dK}` : ' × 1'} {displayedRelation(result.scaledScores[selection.row][selection.col])} {fmt(result.scaledScores[selection.row][selection.col])}</p>
+                {step === 'mask' ? <p data-score-stage="masked">
+                  S′({selection.row + 1}, {selection.col + 1}) = {scoreName}{scaled ? ` / √${dims!.dK}` : ''} + ({fmt(result.M[selection.row][selection.col])}) {displayedRelation(result.maskedScores[selection.row][selection.col])} {fmt(result.maskedScores[selection.row][selection.col])}
+                </p> : null}
+              </div> : null}
             </div>
-          ) : (
-            <p className="lab__hint">{ui.lab.noSelection}</p>
-          )}
+          ) : null}
 
           {/* ---- Guidance ---- */}
           <div className="lab__guide">
@@ -570,7 +550,6 @@ export function AttentionLab({ locale }: AttentionLabProps) {
           </div>
 
           {/* ---- The editable inputs ---- */}
-          {step !== 'input' ? (
             <details className="expand lab__inputs">
               <summary>{ui.lab.inputs}</summary>
               <div className="expand__body">
@@ -590,7 +569,6 @@ export function AttentionLab({ locale }: AttentionLabProps) {
                 </div>
               </div>
             </details>
-          ) : null}
         </>
       ) : null}
     </section>

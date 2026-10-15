@@ -45,40 +45,43 @@ const products = d.terms.map((t) => `${t.a} × ${t.b}`).join(' + ');
 
 const L = ko
   ? {
-      a: `A (${A.length} × ${A[0].length})`,
-      b: `B (${B.length} × ${B[0].length})`,
-      c: `C = AB (${C.length} × ${C[0].length})`,
+      a: `입력 X (${A.length} × ${A[0].length})`,
+      b: `계수 W (${B.length} × ${B[0].length})`,
+      c: `새 표현 Y (${C.length} × ${C[0].length})`,
       row: `${I + 1}행`,
       col: `${J + 1}열`,
-      eq: `C 의 (${I + 1}, ${J + 1}) 칸 = ${products} = ${d.value}`,
-      title: '행렬곱의 한 칸: A 의 한 행과 B 의 한 열',
-      desc: `A 는 ${A.length} × ${A[0].length}, B 는 ${B.length} × ${B[0].length}, 곱 C 는 ${C.length} × ${C[0].length} 입니다. A 의 ${I + 1}행과 B 의 ${J + 1}열이 강조되어 있고, 같은 자리끼리 곱해 더한 ${products} = ${d.value} 가 C 의 (${I + 1}, ${J + 1}) 칸에 들어갑니다. C 의 다른 칸도 같은 식으로, 그 칸의 행과 열을 짝지어 만듭니다.`,
+      eq: `Y 의 (${I + 1}, ${J + 1}) 칸 = ${products} = ${d.value}`,
+      title: '입력 X에서 새로운 표현 Y의 한 칸 만들기',
+      learn: '학습에서 조합을 조정',
+      desc: `X는 입력으로 남고, 새 표현 Y를 만듭니다. X 는 ${A.length} × ${A[0].length}, W 는 ${B.length} × ${B[0].length}, 곱 Y 는 ${C.length} × ${C[0].length} 입니다. X 의 ${I + 1}행과 W 의 ${J + 1}열이 강조되어 있고, 같은 자리끼리 곱해 더한 ${products} = ${d.value} 가 Y 의 (${I + 1}, ${J + 1}) 칸에 들어갑니다. Y 의 다른 칸도 같은 식으로, 그 칸의 행과 열을 짝지어 만듭니다.`,
     }
   : {
-      a: `A (${A.length} × ${A[0].length})`,
-      b: `B (${B.length} × ${B[0].length})`,
-      c: `C = AB (${C.length} × ${C[0].length})`,
+      a: `Input X (${A.length} × ${A[0].length})`,
+      b: `Weights W (${B.length} × ${B[0].length})`,
+      c: `New Y (${C.length} × ${C[0].length})`,
       row: `row ${I + 1}`,
       col: `column ${J + 1}`,
-      eq: `cell (${I + 1}, ${J + 1}) of C = ${products} = ${d.value}`,
-      title: 'One cell of a matrix product: a row of A and a column of B',
-      desc: `A is ${A.length} by ${A[0].length}, B is ${B.length} by ${B[0].length}, and the product C is ${C.length} by ${C[0].length}. Row ${I + 1} of A and column ${J + 1} of B are highlighted; multiplied pairwise and summed, ${products} = ${d.value}, which fills cell (${I + 1}, ${J + 1}) of C. Every other cell of C is made the same way from its own row and column.`,
+      eq: `cell (${I + 1}, ${J + 1}) of Y = ${products} = ${d.value}`,
+      title: 'Create one value of Y from the input X',
+      learn: 'Adjusted during learning',
+      desc: `X remains available as the input while Y is created. X is ${A.length} by ${A[0].length}, W is ${B.length} by ${B[0].length}, and the product Y is ${C.length} by ${C[0].length}. Row ${I + 1} of X and column ${J + 1} of W are highlighted; multiplied pairwise and summed, ${products} = ${d.value}, which fills cell (${I + 1}, ${J + 1}) of Y. Every other cell of Y is made the same way from its own row and column.`,
     };
 ---
 <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} role="img" aria-labelledby="rc-t rc-d">
   <title id="rc-t">{L.title}</title>
   <desc id="rc-d">{L.desc}</desc>
 
+  <text class="tmap__note" data-learning-weights x={xB} y={yTop-34}>{L.learn}</text>
   <text class="tmap__label--sm" x={xA} y={yTop - 14} style="fill: var(--ink-1)">{L.a}</text>
   <text class="tmap__label--sm" x={xB} y={yTop - 14} style="fill: var(--ink-1)">{L.b}</text>
   <text class="tmap__label--sm" x={xC} y={yTop - 14} style="fill: var(--ink-1)">{L.c}</text>
 
-  {[...cellsA, ...cellsB, ...cellsC].map((c) => (
-    <g>
-      <rect class={`walk__cell${c.hit ? ' walk__cell--sum' : ''}`} x={c.x} y={c.y} width={CELL - GAP} height={CELL - GAP} rx="3" />
-      <text class="tp__num" x={c.x + (CELL - GAP) / 2} y={c.y + (CELL - GAP) / 2 + 4} text-anchor="middle">{c.v}</text>
-    </g>
-  ))}
+  {[{ name: 'X', cells: cellsA }, { name: 'W', cells: cellsB }, { name: 'Y', cells: cellsC }].map(({ name, cells }) => <g data-projection={name}>
+    {cells.map(c => <g>
+      <rect class={`walk__cell${c.hit ? ' walk__cell--sum' : ''}`} x={c.x} y={c.y} width={CELL-GAP} height={CELL-GAP} rx="3" />
+      <text class="tp__num" x={c.x+(CELL-GAP)/2} y={c.y+(CELL-GAP)/2+4} text-anchor="middle">{c.v}</text>
+    </g>)}
+  </g>)}
 
   <text class="tmap__note walk__same-text" x={xA - 8} y={yTop + I * CELL + (CELL - GAP) / 2 + 4} text-anchor="end">{L.row}</text>
   <text class="tmap__note walk__same-text" x={xB + J * CELL + (CELL - GAP) / 2} y={yTop + B.length * CELL + 12} text-anchor="middle">{L.col}</text>

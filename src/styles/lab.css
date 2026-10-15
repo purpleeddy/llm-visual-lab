@@ -847,3 +847,77 @@ button.mgrid__cell:hover { background: var(--surface-inset); }
 .layer-trace__position { margin-bottom: var(--sp-4); }
 .layer-trace__position-control { display: inline-flex; align-items: center; gap: var(--sp-2); min-height: 2.75rem; max-width: 100%; font-size: var(--fs-200); cursor: pointer; }
 .layer-trace__position-control input { flex: none; width: 1rem; height: 1rem; margin: 0; }
+
+/* Keep the prediction input and the appended result visible together. */
+.doc-section--opening { padding-top: 0; }
+.doc-section--opening .lab--next-token { margin-top: 0; }
+.lab--next-token { width: 100%; max-width: calc(100vw - 2 * var(--gutter)); scroll-margin-top: 5rem; }
+.lab--next-token .lab__header { padding-bottom: var(--sp-2); margin-bottom: var(--sp-2); }
+.lab--next-token .lab__title { margin: 0 0 var(--sp-2); font-size: var(--fs-500); }
+.next-token__story { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: var(--sp-3); align-items: stretch; }
+.next-token__context, .next-token__after { min-width: 0; padding: var(--sp-3); border: 1px solid var(--line-2); background: var(--surface-panel-inset); overflow-wrap: anywhere; }
+.next-token__context { border-top: 3px solid var(--accent); }
+.next-token__after { border-top: 3px solid var(--data-v); }
+.next-token__context > strong, .next-token__after > strong { display: block; color: var(--ink-2); font-size: var(--fs-200); }
+.prose .next-token__story p { margin: var(--sp-2) 0 0; color: var(--ink-3); font-size: var(--fs-100); }
+.next-token__input, .next-token__prefix { display: flex; flex-wrap: wrap; gap: var(--sp-1); align-items: center; margin-block: var(--sp-3); min-width: 0; }
+.next-token__start { color: var(--ink-3); font-size: var(--fs-100); }
+.next-token__input .next-token__token, .next-token__prefix .next-token__output-token { display: inline-flex; align-items: center; justify-content: center; min-width: min(2rem, 100%); max-width: 100%; white-space: normal; overflow-wrap: anywhere; padding: var(--sp-1); margin: 0; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--surface-panel); color: var(--ink-2); font-size: var(--fs-800); line-height: var(--lh-tight); font-weight: var(--fw-normal); }
+.next-token__prefix .next-token__token--new, .next-token__after .next-token__selected { border: 2px solid var(--accent); background: var(--accent-wash); color: var(--ink-strong); font-weight: var(--fw-bold); }
+.next-token__after .next-token__selected { display: inline-block; max-width: 100%; margin-block: var(--sp-3); padding: var(--sp-2); font-size: var(--fs-800); }
+.next-token__unselected { display: inline-block; margin-block: var(--sp-3); font-family: var(--font-mono); font-size: var(--fs-800); color: var(--ink-3); }
+.next-token__arrow { align-self: center; color: var(--accent); font-size: var(--fs-600); }
+.next-token__candidates { margin-top: var(--sp-3); min-width: 0; }
+.prose .next-token__table-title { margin: 0 0 var(--sp-2); color: var(--ink-2); font-size: var(--fs-100); overflow-wrap: anywhere; }
+.next-token__candidates .terms__tablewrap { width: 100%; max-width: 100%; margin: 0; }
+.next-token__candidates .terms__table { min-width: 0; width: 100%; font-size: var(--fs-100); }
+.next-token__candidates .terms__table th, .next-token__candidates .terms__table td { padding: var(--sp-2) var(--sp-1); white-space: normal; overflow-wrap: anywhere; }
+.next-token__candidates .terms__table td:last-child { width: 30%; }
+.next-token__candidates tr[data-selected='true'] th { font-weight: var(--fw-bold); }
+.next-token__candidates tr[data-selected='true'] .probability-bar { background: var(--accent); }
+.next-token__percent { font-size: var(--fs-300); }
+.next-token__probability { font-size: var(--fs-50); color: var(--ink-3); }
+.prose .next-token__narration { margin: var(--sp-3) 0; color: var(--ink-2); }
+.next-token__controls { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block: var(--sp-3); }
+.next-token__controls .btn { min-height: 2.75rem; max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.next-token__advance { border-color: var(--accent); color: var(--accent); background: var(--accent-wash); }
+.next-token__details { margin-top: var(--sp-3); }
+.lab--next-token .lab__note { font-size: var(--fs-100); color: var(--ink-2); }
+@media (max-width: 40rem) {
+  .next-token__story { gap: var(--sp-1); }
+  .next-token__context, .next-token__after { padding: var(--sp-2); }
+  .next-token__input .next-token__token, .next-token__prefix .next-token__output-token, .next-token__after .next-token__selected { font-size: 1.375rem; }
+}
+@media (max-width: 20rem) {
+  .next-token__story { grid-template-columns: minmax(0, 1fr); }
+  .next-token__arrow { justify-self: center; transform: rotate(90deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .lab--next-token[data-interacted='true'] .next-token__token--new { animation: next-token-arrive 400ms ease-out; }
+}
+@keyframes next-token-arrive { from { opacity: 0; transform: translateY(0.5rem); } to { opacity: 1; transform: translateY(0); } }
+
+
+/* Keep the current stage readable while optional jump controls stay folded. */
+.stepper__current { margin: 0; flex: 1 1 12rem; font-weight: var(--fw-bold); min-width: 0; }
+.stepper__jump { flex: 1 1 100%; min-width: 0; order: 4; }
+.stepper__jump > summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-200); }
+.stepper__jump[open] > .stepper__list { margin-top: var(--sp-3); }
+.lab__settings { margin: 0; }
+.emat__input { min-width: 5.5rem; width: 5.5rem; padding-inline: 0.5rem; }
+.emat__input::-webkit-outer-spin-button, .emat__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+.walk__points { margin: 0 0 var(--sp-3); padding-left: 1.5rem; line-height: 1.7; }
+.walk__points > li + li { margin-top: var(--sp-2); }
+.explorer__plot-scroll { min-width: 0; max-width: 100%; }
+.explorer__plot-scroll .scroll-region__viewport > .explorer__svg { width: auto; max-width: none; }
+
+.loss__basic-plot { max-width: 24rem; }
+
+/* The small map may fit its column; the numbered diagram retains readable text. */
+.walk__stage .walk__svg { width: 35rem; min-width: 560px; max-width: none; }
+.beam__plot .scroll-region__viewport > .explorer__svg { width: 35rem; min-width: 560px; max-width: none; }
+.scroll-region, .scroll-region__viewport { min-width: 0; max-width: 100%; }
+.scroll-region__viewport { overflow-x: auto; }
+.scroll-region__viewport:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.scroll-region__hint { margin: 0 0 var(--sp-2); color: var(--ink-2); font-size: var(--fs-100); }

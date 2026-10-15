@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Stepper } from './Stepper';
+import { ScrollRegion } from './ScrollRegion';
 import { t } from '../../lib/i18n/ui';
 import { WALK_STEPS, WALK_TEXT, type WalkStep } from '../../lib/i18n/labText';
 import type { Locale } from '../../lib/i18n/routing';
@@ -26,7 +27,7 @@ const CELL = 12;
 
 /** Illustrative numbers for the last frame. They sum to 1; nothing else about them is real. */
 const VOCAB_KO = ['길을', '건너지', '못했다', '동물은', '그', '…'];
-const VOCAB_EN = ['street', 'cross', "didn't", 'animal', 'the', '…'];
+const VOCAB_EN = ['überquerte', 'ging', 'sah', 'Tier', 'das', '…'];
 const VOCAB_P = [0.62, 0.18, 0.08, 0.05, 0.03, 0.04];
 const ATTN_P = [0.05, 0.55, 0.1, 0.05, 0.25];
 const OUT_SO_FAR_KO = ['<시작>', '그', '동물은'];
@@ -70,15 +71,16 @@ export function BigPictureWalk({ locale }: BigPictureWalkProps) {
         <div className="walk__map" aria-hidden="true">
           <MiniMap step={step} locale={locale} />
         </div>
-        <div className="walk__stage" aria-hidden="true">
+        <ScrollRegion className="walk__stage" locale={locale} label={`${locale === 'ko' ? '번역 구조 도표' : 'Translation diagram'}: ${stepText.name}`}>
           <Stage step={step} locale={locale} />
-        </div>
+        </ScrollRegion>
       </div>
 
       <div className="walk__text" data-step={step}>
         <p className="walk__what">
           <span className="walk__num">{index + 1}</span> {stepText.what}
         </p>
+        {stepText.points ? <ol className="walk__points">{stepText.points.map(point => <li key={point}>{point}</li>)}</ol> : null}
         <p className="walk__watch">
           <strong>{locale === 'ko' ? '기억할 것' : 'Hold on to'}</strong> {stepText.watch}
         </p>
@@ -222,7 +224,7 @@ function Stage({ step, locale }: { step: WalkStep; locale: Locale }) {
   const pipelineOn = i <= 3;
 
   return (
-    <svg viewBox="0 0 460 300" width="460" height="300" className="walk__svg">
+    <svg viewBox="0 0 460 300" width="460" height="300" className="walk__svg" aria-hidden="true">
       <defs>
         <marker id="bpw-arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--line-3)" />
@@ -315,11 +317,11 @@ function Pipeline({ step, F }: { step: WalkStep; F: Fig }) {
         <text className="tmap__title" x={xTok} y={22}>
           {F.sentence}
         </text>
-        <rect className="tmap__box" x={xTok + 50} y={6} width={168} height={24} rx="4" />
-        <text className="tmap__label" x={xTok + 60} y={22}>
+        <rect className="tmap__box" x={xTok + 90} y={6} width={168} height={24} rx="4" />
+        <text className="tmap__label" x={xTok + 100} y={22}>
           The animal didn’t cross
         </text>
-        <path className="tmap__line" d={`M ${xTok + 36} 30 V ${y0 - 6}`} markerEnd="url(#bpw-arrow2)" />
+        {step === 'tokens' && <path data-sentence-token-arrow className="tmap__line" d={`M ${xTok + 36} 30 V ${y0 - 6}`} markerEnd="url(#bpw-arrow2)" />}
       </g>
 
       {/* Column headings (frame 2) */}
@@ -330,10 +332,10 @@ function Pipeline({ step, F }: { step: WalkStep; F: Fig }) {
         <text className="tmap__title" x={xId + wId / 2} y={56} textAnchor="middle">
           {F.id}
         </text>
-        <text className="tmap__title" x={176} y={56}>
+        <text className="tmap__title" x={176} y={42}>
           {F.row}
         </text>
-        <text className="tmap__note" x={176 + COLS * CELL + 18} y={56}>
+        <text className="tmap__note" x={176} y={58}>
           {F.really512}
         </text>
       </g>
@@ -444,20 +446,20 @@ function chainLayerY(k: number, strips: number) {
   return CHAIN_TOP + (5 - k) * (layerH + CHAIN_LAYER_GAP);
 }
 
-function SixInSeries({ strips, F, input = true, feedFromY }: { strips: Array<'attn' | 'ffn'>; F: Fig; input?: boolean; feedFromY?: number }) {
+function SixInSeries({ strips, F, input = true, feedFromY, rows = TOKENS.length }: { strips: Array<'attn' | 'ffn'>; F: Fig; input?: boolean; feedFromY?: number; rows?: number }) {
   const layerH = strips.length * CHAIN_STRIP + (strips.length - 1) * CHAIN_GAP;
   const cx = CHAIN_X + CHAIN_W / 2;
   const bx = cx - (COLS * CELL) / 2;
   const yBottom = chainLayerY(0, strips.length) + layerH;
   const yIn = yBottom + 9;
-  const yOut = CHAIN_TOP - 9 - 25;
+  const yOut = CHAIN_TOP - 9 - rows * 5;
   return (
-    <g>
+    <g data-series-rows={rows}>
       <text className="tmap__label--sm" x={cx} y={yOut - 6} textAnchor="middle" style={{ fill: 'var(--ink-1)' }}>
-        {F.rowsOut} · {F.valuesChanged}
+        {F.rowsOut.replace('5', String(rows))} · {F.valuesChanged}
       </text>
-      <Cells x={bx} y={yOut} rows={TOKENS.length} h={5} kind="out" />
-      <path className="tmap__line" d={`M ${cx} ${CHAIN_TOP} V ${yOut + 25 + 3}`} markerEnd="url(#bpw-arrow2)" />
+      <Cells x={bx} y={yOut} rows={rows} h={5} kind="out" />
+      <path className="tmap__line" d={`M ${cx} ${CHAIN_TOP} V ${yOut + rows * 5 + 3}`} markerEnd="url(#bpw-arrow2)" />
       {Array.from({ length: 6 }, (_, k) => {
         const y = chainLayerY(k, strips.length);
         return (
@@ -481,7 +483,7 @@ function SixInSeries({ strips, F, input = true, feedFromY }: { strips: Array<'at
         );
       })}
       <path className="tmap__line" d={`M ${cx} ${yIn} V ${yBottom + 3}`} markerEnd="url(#bpw-arrow2)" />
-      {input ? <Cells x={bx} y={yIn} rows={TOKENS.length} h={5} /> : null}
+      {input ? <Cells x={bx} y={yIn} rows={rows} h={5} /> : null}
       {feedFromY !== undefined ? (
         <g>
           {/* the encoder's rows reach every layer's second part */}
@@ -650,7 +652,7 @@ function DecoderFrame({ F, locale }: { F: Fig; locale: Locale }) {
         {F.everyLayer}
       </text>
       <OneOfSix from={[xBox + wBox + 10, ys[0] + boxH / 2]} to={[CHAIN_X - 12, chainLayerY(0, 3) + 10]} F={F} label={false} />
-      <SixInSeries strips={['attn', 'attn', 'ffn']} F={F} input={false} feedFromY={yFeed} />
+      <SixInSeries strips={['attn', 'attn', 'ffn']} F={F} input={false} feedFromY={yFeed} rows={out.length} />
     </g>
   );
 }
@@ -718,7 +720,7 @@ function ProbsFrame({ F, locale }: { F: Fig; locale: Locale }) {
   const boxH = 22;
   return (
     <g>
-      {chart(16, F.nextWordProbs, null, F.vocabCount, vocab, VOCAB_P, 62, 150, 'vocab', 19)}
+      {chart(16, F.nextWordProbs, null, F.vocabCount, vocab, VOCAB_P, locale === 'ko' ? 62 : 74, locale === 'ko' ? 150 : 138, 'vocab', 19)}
       <text className="tmap__note walk__same-text" x={16} y={179}>
         {F.notPerRow}
       </text>

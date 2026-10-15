@@ -119,7 +119,7 @@ export interface UIStrings {
 
 const ko: UIStrings = {
   siteTitle: 'LLM Visual Lab',
-  siteTagline: '작은 숫자로 계산하고 실험하며 배우는 언어모델 원리',
+  siteTagline: '문장을 만드는 과정을 한 단계씩 따라가기',
   skipToContent: '본문으로 건너뛰기',
   nav: {
     paper: 'Attention Is All You Need',
@@ -149,9 +149,9 @@ const ko: UIStrings = {
   paperRef: { label: '원문 위치', version: '기준 판본' },
   lab: {
     title: 'Attention 계산 실험',
-    kind: '작은 예제의 실제 계산',
+    kind: '예시 값으로 직접 계산',
     kindNote:
-      '아래 숫자는 화면에서 직접 계산한 값입니다. 학습으로 얻은 가중치가 아니라 손으로 고른 작은 정수이고, 각 벡터가 단어의 뜻을 담고 있지도 않습니다.',
+      '입력 X와 계수 W는 이해를 돕기 위해 정한 예시 값입니다. Q·K·V, 점수, 비중과 출력은 이 값으로 직접 계산합니다. 벡터에 붙인 조각 이름은 입력 행을 구분하기 위한 것이며, 실제 모델이 학습한 표현은 아닙니다.',
     reset: '처음 값으로 되돌리기',
     resetDone: '처음 값으로 되돌렸습니다.',
     step: '단계',
@@ -160,7 +160,7 @@ const ko: UIStrings = {
     nextStep: '다음 단계',
     steps: {
       input: { name: '입력' },
-      project: { name: '투영' },
+      project: { name: '표현 변환' },
       scores: { name: '점수' },
       scale: { name: '나누기' },
       mask: { name: '가리기' },
@@ -174,7 +174,7 @@ const ko: UIStrings = {
     maskingOn: '켬 (decoder 방식)',
     maskingOff: '끔 (encoder 방식)',
     inputs: '입력값 바꾸기',
-    inputsHint: '숫자를 바꾸면 아래의 모든 계산과 그림이 같이 바뀝니다.',
+    inputsHint: '바꾼 값은 이 실습에만 적용됩니다.',
     editX: '입력 X (토큰 × d_model)',
     editWQ: 'W_Q (d_model × d_k)',
     editWK: 'W_K (d_model × d_k)',
@@ -269,7 +269,7 @@ const ko: UIStrings = {
 
 const en: UIStrings = {
   siteTitle: 'LLM Visual Lab',
-  siteTagline: 'Reading the paper, learning the math it needs, and running the numbers yourself',
+  siteTagline: 'Follow how a sentence is generated, step by step.',
   skipToContent: 'Skip to content',
   nav: {
     paper: 'Attention Is All You Need',
@@ -299,9 +299,9 @@ const en: UIStrings = {
   paperRef: { label: 'In the paper', version: 'Version used' },
   lab: {
     title: 'Attention, computed',
-    kind: 'A small example, actually computed',
+    kind: 'Computed from illustrative values',
     kindNote:
-      'These numbers are computed on this page. They are small integers chosen by hand, not weights from training, and none of these vectors carries the meaning of a word.',
+      'X and W contain illustrative starting values. Q, K, V, scores, weights and outputs are computed from them. Chunk labels identify the input rows; they do not make these trained representations.',
     reset: 'Reset to starting values',
     resetDone: 'Reset to the starting values.',
     step: 'Step',
@@ -324,7 +324,7 @@ const en: UIStrings = {
     maskingOn: 'On (decoder)',
     maskingOff: 'Off (encoder)',
     inputs: 'Change the inputs',
-    inputsHint: 'Change a number and every calculation and picture below follows it.',
+    inputsHint: 'Changes apply only to this lab.',
     editX: 'Input X (tokens × d_model)',
     editWQ: 'W_Q (d_model × d_k)',
     editWK: 'W_K (d_model × d_k)',
