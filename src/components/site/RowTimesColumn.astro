@@ -8,7 +8,7 @@
  */
 import type { Locale } from '../../lib/i18n/routing';
 import { matmul, cellDerivation } from '../../lib/math/matrix';
-import { DEFAULT_X, DEFAULT_WQ } from '../../lib/math/examples';
+import { DEFAULT_X, DEFAULT_WQ, LEARNING_EXAMPLE } from '../../lib/math/examples';
 
 interface Props {
   locale: Locale;
@@ -26,10 +26,10 @@ const d = cellDerivation(A, B, I, J);
 const CELL = 34;
 const GAP = 3;
 const yTop = 56;
-const xA = 60;
+const xA = 84;
 const xB = xA + A[0].length * CELL + 54;
 const xC = xB + B[0].length * CELL + 54;
-const W = xC + C[0].length * CELL + 40;
+const W = xC + C[0].length * CELL + 100;
 const yEq = yTop + Math.max(A.length, B.length) * CELL + 40;
 const H = yEq + 28;
 
@@ -83,7 +83,10 @@ const L = ko
     </g>)}
   </g>)}
 
-  <text class="tmap__note walk__same-text" x={xA - 8} y={yTop + I * CELL + (CELL - GAP) / 2 + 4} text-anchor="end">{L.row}</text>
+  {LEARNING_EXAMPLE[locale].tokens.map((token, r) => <>
+    <text class="tmap__label" data-projection-token="X" x={xA - 8} y={yTop + r * CELL + 20} text-anchor="end">{token}</text>
+    <text class="tmap__label" data-projection-token="Y" x={xC + C[0].length * CELL + 8} y={yTop + r * CELL + 20}>{token}</text>
+  </>)}
   <text class="tmap__note walk__same-text" x={xB + J * CELL + (CELL - GAP) / 2} y={yTop + B.length * CELL + 12} text-anchor="middle">{L.col}</text>
 
   <text class="tmap__label" x={xB - 27} y={yTop + (A.length * CELL) / 2 + 4} text-anchor="middle">×</text>

@@ -1,0 +1,73 @@
+---
+import type { Locale } from '../../lib/i18n/routing';
+import { DEFAULT_ATTENTION_INPUT, LEARNING_EXAMPLE } from '../../lib/math/examples';
+import { computeAttention } from '../../lib/math/attention';
+import { cellDerivation } from '../../lib/math/matrix';
+import { fmt, fmtPercent } from '../../lib/math/format';
+import { MatrixGrid } from '../lab/MatrixGrid';
+import Figure from './Figure.astro';
+interface Props { locale: Locale; stage: 'overview' | 'preparation' | 'scores' | 'shares' | 'mixture'; }
+const { locale, stage } = Astro.props;
+const ko = locale === 'ko';
+// Every view follows the first row of the same unmasked, scaled worked example.
+const result = computeAttention(DEFAULT_ATTENTION_INPUT);
+const tokens = LEARNING_EXAMPLE[locale].tokens;
+const row = 0;
+const terms = tokens.map((_, c) => cellDerivation(result.Q, result.KT, row, c));
+const sums = result.V[0].map((_, c) => cellDerivation([result.weights[row]], result.V, 0, c));
+const L = ko ? {
+  scope: '문장 세 조각이 모두 주어진, 미래를 가리기 전 비교입니다. 한 토큰씩 생성하는 장면의 미래 가리기는 다음 단원에서 배웁니다.',
+  steps: ['비교할 숫자 준비', '각 위치와 비교해 점수 만들기', '점수를 참고할 비중으로', '그 비중만큼 내용을 가져와 합치기'],
+  basis: '기준용 숫자 Y', candidate: '후보용 숫자', coefficients: '후보용의 다른 계수', content: '전달할 내용', shares: '가져올 비중', output: '나는의 새 값',
+} : {
+  scope: 'All three sentence chunks are available: this comparison is before future masking. The next unit covers the future mask used during token-by-token generation.',
+  steps: ['Prepare comparison numbers', 'Compare with each position to make scores', 'Turn scores into shares', 'Bring over content in those shares and add'],
+  basis: 'Current-position values Y', candidate: 'Candidate values', coefficients: 'Different candidate coefficients', content: 'Content to bring over', shares: 'Shares to bring over', output: 'New values for I',
+};
+---
+<div class="attention-story" data-attention-story={stage}>
+  {stage === 'overview' && <>
+    <p><strong>{ko ? '어텐션의 큰그림: “나는”이 문장의 다른 조각에서 내용을 가져와 새 값을 만드는 것' : 'Attention’s goal first: let “I” draw content from the sentence to make new values'}</strong></p>
+    <div class="attention-story__tokens">{tokens.map((token, i) => <span data-story-token={i}>{token}</span>)}</div>
+    <ol class="attention-story__flow">
+      {L.steps.map((step, i) => <li><strong>{step}</strong><p>{[
+        ko ? '나는의 기준용 (2, 0) · 각 후보의 숫자' : 'Current row for I: (2, 0), plus a row for each candidate',
+        `(0, 4, 2)`,
+        result.weights[row].map(v => fmtPercent(v)).join(' / '),
+        `(${result.output[row].map(v => fmt(v, 3)).join(', ')})`,
+      ][i]}</p></li>)}
+    </ol>
+    <p class="attention-story__scope">{L.scope}</p>
+  </>}
+  {stage === 'preparation' && <Figure caption={ko ? '같은 X에서 출발하지만 서로 다른 계수로 기준용과 후보용을 만듭니다. 후보용은 Y를 다시 이름 붙인 표가 아닙니다.' : 'Both start from the same X, using different coefficients. Candidate rows are a separate computation, not renamed Y rows.'}>
+    <div class="attention-story__matrices">
+      <MatrixGrid matrix={result.Q} name={L.basis} rowLabels={tokens} compact matrixId="story-basis" />
+      <MatrixGrid matrix={result.WK} name={L.coefficients} shape="4 × 2" compact matrixId="story-candidate-coefficients" />
+      <MatrixGrid matrix={result.K} name={L.candidate} rowLabels={tokens} compact matrixId="story-candidates" />
+    </div>
+    <p>{ko ? '학교에의 입력 (0, 1, 0, 1)에 다른 계수의 첫 열 (0, 1, 0, 1)을 곱해 더하면 2, 둘째 열에서는 0입니다. 따라서 후보용 줄은 (2, 0)입니다.' : 'For went, input (0, 1, 0, 1) paired with the other table’s first column (0, 1, 0, 1) gives 2, and its second column gives 0. Its candidate row is therefore (2, 0).'}</p>
+  </Figure>}
+  {stage === 'scores' && <Figure caption={ko ? '나는의 같은 기준 줄 (2, 0)을 세 후보와 비교합니다. 학교에와의 점수4를 그대로 포함한 한 줄입니다.' : 'Compare the same current row (2, 0) for I with all three candidates, retaining the score 4 for went.'}>
+    <div class="terms__tablewrap"><table class="terms__table"><thead><tr><th>{ko ? '후보' : 'Candidate'}</th><th>{ko ? '같은 자리의 곱과 합' : 'Matching-slot products and sum'}</th><th>{ko ? '점수' : 'Score'}</th></tr></thead>
+      <tbody>{terms.map((d, c) => <tr><th scope="row">{tokens[c]}</th><td>{d.terms.map(t => `${t.a}×${t.b}`).join(' + ')}</td><td data-story-score>{d.value}</td></tr>)}</tbody>
+    </table></div>
+    <p>{ko ? '이 (0, 4, 2)를 다음 단원에 그대로 넘깁니다.' : 'Carry these same scores (0, 4, 2) into the next unit.'}</p>
+  </Figure>}
+  {stage === 'shares' && <Figure caption={ko ? '앞의 점수 (0, 4, 2)를 숫자 두 개의 비교에 맞춰 √2로 나눈 뒤 softmax에 넣습니다. 반올림 전 값으로 계속 계산합니다.' : 'Divide the same scores (0, 4, 2) by √2 for the two comparison coordinates, then apply softmax. Continue with unrounded values.'}>
+    <div class="terms__tablewrap"><table class="terms__table"><thead><tr><th>{ko ? '위치' : 'Position'}</th><th>{ko ? '점수' : 'Score'}</th><th>÷ √2</th><th>softmax</th></tr></thead>
+      <tbody>{tokens.map((token, c) => <tr><th scope="row">{token}</th><td>{result.scores[row][c]}</td><td>{fmt(result.scaledScores[row][c], 3)}</td><td data-story-share>{fmt(result.weights[row][c], 6)}</td></tr>)}</tbody>
+    </table></div>
+    <p>{ko ? '나눈 점수마다 지수값을 구하고, 그 지수값들의 합으로 나눕니다. 세 비중의 합은 1입니다. 학교에의 내용을 약 76.8% 가져옵니다.' : 'Exponentiate each divided score, then divide by the sum of those exponentials. The shares sum to 1; about 76.8% goes to content from went.'}</p>
+  </Figure>}
+  {stage === 'mixture' && <Figure caption={ko ? '처음 그림의 계산 완성: 나는의 새 값은 약 (0.323, 2.490)입니다. 학교에의 전달값 (0, 3)을 가장 많이 가져온 결과입니다.' : 'Complete the opening picture: new values for I are about (0.323, 2.490), drawing most heavily from the content row (0, 3) for went.'}>
+    <p>{ko ? '가져올 내용도 같은 X에 전달용 계수를 곱해 따로 준비합니다. 비교용 숫자와 역할이 다릅니다.' : 'Prepare content separately by applying content coefficients to the same X. It has a different role from comparison values.'}</p>
+    <div class="attention-story__matrices">
+      <MatrixGrid matrix={result.WV} name={ko ? '전달용 계수' : 'Content coefficients'} shape="4 × 2" compact matrixId="story-content-coefficients" />
+      <MatrixGrid matrix={result.V} name={L.content} rowLabels={tokens} compact matrixId="story-content" />
+      <MatrixGrid matrix={[result.weights[row]]} name={L.shares} colLabels={tokens} decimals={6} compact matrixId="story-shares" />
+      <MatrixGrid matrix={[result.output[row]]} name={L.output} compact matrixId="story-output" />
+    </div>
+    {sums.map((d, c) => <p class="attention-story__sum" data-story-output-term={c}>{c + 1}: {d.terms.map(t => `${fmt(t.a, 6)}×${t.b}`).join(' + ')} ≈ <strong>{fmt(d.value, 3)}</strong></p>)}
+    <p>{ko ? '첫 값과 둘째 값을 각각 이렇게 합칩니다. 곱셈에는 반올림 전 비중을 씁니다. 이 비중은 이번 입력으로 계산한 결과이고, 학습으로 바꾸는 계수 표와 구분합니다.' : 'Sum the contributions separately for each output value, using unrounded shares. These shares are computed from this input; the coefficient tables are the values adjusted during learning.'}</p>
+  </Figure>}
+</div>

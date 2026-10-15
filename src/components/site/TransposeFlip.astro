@@ -1,15 +1,17 @@
 ---
 /** One existing pair, first as two rows and then as a row and a column. */
 import type { Locale } from '../../lib/i18n/routing';
-import { DEFAULT_X, DEFAULT_WQ, LEARNING_EXAMPLE } from '../../lib/math/examples';
-import { matmul, transpose, cellDerivation } from '../../lib/math/matrix';
+import { DEFAULT_ATTENTION_INPUT, LEARNING_EXAMPLE } from '../../lib/math/examples';
+import { transpose, cellDerivation } from '../../lib/math/matrix';
+
+import { computeAttention } from '../../lib/math/attention';
 
 interface Props { locale: Locale; }
 const { locale } = Astro.props;
 const ko = locale === 'ko';
-const Y = matmul(DEFAULT_X, DEFAULT_WQ);
-const left = Y[2];
-const right = Y[0];
+const comparison = computeAttention(DEFAULT_ATTENTION_INPUT);
+const left = comparison.Q[0];
+const right = comparison.K[1];
 const calculation = cellDerivation([left], transpose([right]), 0, 0);
 const tokens = LEARNING_EXAMPLE[locale].tokens;
 const CELL = 34;
@@ -18,8 +20,8 @@ const strokes = ['var(--data-q)', 'var(--data-k)'];
 const equation = calculation.terms.map(term => `${term.a} × ${term.b}`).join(' + ') + ` = ${calculation.value}`;
 const title = ko ? '같은 두 줄, 같은 점수: 오른쪽 줄만 세로로 놓기' : 'The same pair and score: stand only the right row in a column';
 const desc = ko
-  ? `앞의 Y에서 ${tokens[2]}의 행 (${left.join(', ')})과 ${tokens[0]}의 행 (${right.join(', ')})을 꺼냅니다. 왼쪽은 두 가로줄에서 같은 색의 자리를 곱해 더합니다. 오른쪽은 첫 줄을 그대로 두고 둘째 줄만 세로로 옮깁니다. ${equation}. 어느 배치든 점수는 ${calculation.value}입니다. 한 쌍씩 내적할 때는 전치 없이 계산할 수 있습니다.`
-  : `Take the ${tokens[2]} row (${left.join(', ')}) and the ${tokens[0]} row (${right.join(', ')}) from the preceding Y. On the left, multiply matching coloured slots in the two rows and add. On the right, keep the first row horizontal and stand only the second in a column. ${equation}. Both layouts give ${calculation.value}. A dot product of one pair needs no transpose.`;
+  ? `같은 X에 서로 다른 계수를 적용해 만든 ${tokens[0]}의 행 (${left.join(', ')})과 ${tokens[1]}의 후보용 행 (${right.join(', ')})을 꺼냅니다. 왼쪽은 두 가로줄에서 같은 색의 자리를 곱해 더합니다. 오른쪽은 첫 줄을 그대로 두고 둘째 줄만 세로로 옮깁니다. ${equation}. 어느 배치든 점수는 ${calculation.value}입니다. 한 쌍씩 내적할 때는 전치 없이 계산할 수 있습니다.`
+  : `Take the ${tokens[0]} row (${left.join(', ')}) and the ${tokens[1]} candidate row (${right.join(', ')}) from the same X using different coefficient tables. On the left, multiply matching coloured slots in the two rows and add. On the right, keep the first row horizontal and stand only the second in a column. ${equation}. Both layouts give ${calculation.value}. A dot product of one pair needs no transpose.`;
 ---
 <svg viewBox="0 0 560 250" width="560" height="250" role="img" aria-labelledby="tf-t tf-d" data-one-pair-transpose>
   <title id="tf-t">{title}</title>
@@ -28,8 +30,8 @@ const desc = ko
   <text class="tmap__head" x="22" y="26">{ko ? '① 한 쌍을 그대로 내적' : '① A dot product of two rows'}</text>
   <text class="tmap__head" x="296" y="26">{ko ? '② 오른쪽 줄만 세로로' : '② Stand the right row up'}</text>
   {[
-    {id: 'left', values: left, y: 54, label: tokens[2]},
-    {id: 'right', values: right, y: 112, label: tokens[0]},
+    {id: 'left', values: left, y: 54, label: tokens[0]},
+    {id: 'right', values: right, y: 112, label: tokens[1]},
   ].map(row => <g data-pair-row={row.id}>
     <text class="tmap__label" x="22" y={row.y + 22}>{row.label}</text>
     {row.values.map((value, slot) => <g>
@@ -45,7 +47,7 @@ const desc = ko
       <text class="hp__value" x={296 + slot * CELL + CELL / 2} y="104" text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
     </g>)}
   </g>
-  <text class="tmap__label" x="330" y="64" text-anchor="middle">{tokens[2]}</text>
+  <text class="tmap__label" x="330" y="64" text-anchor="middle">{tokens[0]}</text>
   <text class="tmap__op" x="381" y="105" text-anchor="middle">×</text>
   <g data-pair-product="right">
     {right.map((value, slot) => <g>
@@ -53,7 +55,7 @@ const desc = ko
       <text class="hp__value" x="419" y={86 + slot * CELL} text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{value}</text>
     </g>)}
   </g>
-  <text class="tmap__label" x="419" y="49" text-anchor="middle">{tokens[0]}</text>
+  <text class="tmap__label" x="419" y="49" text-anchor="middle">{tokens[1]}</text>
   <text class="tmap__op" x="456" y="105" text-anchor="middle">=</text>
   <rect class="walk__cell walk__cell--sum" x="477" y="82" width={CELL} height={CELL}></rect>
   <text class="hp__value" data-pair-result x="494" y="104" text-anchor="middle" style="fill: var(--ink-1); font-size: 16px;">{calculation.value}</text>

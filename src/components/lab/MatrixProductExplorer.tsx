@@ -18,6 +18,8 @@ export interface MatrixProductExplorerProps {
   rowLabelsA?: string[];
   colLabelsB?: string[];
   editable?: boolean;
+  /** Fixed worked examples have no controls or hydration. */
+  interactive?: boolean;
   /** A two-share mixture: edit p, with the other share always 1 − p. */
   complementaryWeights?: boolean;
   /** The cell selected to begin with */
@@ -39,6 +41,7 @@ export function MatrixProductExplorer({
   rowLabelsA,
   colLabelsB,
   editable = true,
+  interactive = true,
   complementaryWeights = false,
   initialCell = { row: 0, col: 0 },
 }: MatrixProductExplorerProps) {
@@ -92,8 +95,8 @@ export function MatrixProductExplorer({
   const innerNames = Array.from({ length: colsA }, (_, i) => `${i + 1}`);
 
   return (
-    <section className="lab lab--matmul" aria-label={ui.math.matrixProduct}>
-      {complementaryWeights ? <label className="explorer__control">{locale === 'ko' ? '첫 비중 p' : 'First share p'}: {fmt(a[0][0], 2)} · {locale === 'ko' ? '둘째 비중 1 − p' : 'Second share 1 − p'}: {fmt(a[0][1], 2)}
+    <section className={interactive ? "lab lab--matmul" : "matrix-example"} data-matmul-mode={interactive ? 'interactive' : 'fixed'} aria-label={ui.math.matrixProduct}>
+      {interactive && complementaryWeights ? <label className="explorer__control">{locale === 'ko' ? '첫 비중 p' : 'First share p'}: {fmt(a[0][0], 2)} · {locale === 'ko' ? '둘째 비중 1 − p' : 'Second share 1 − p'}: {fmt(a[0][1], 2)}
         <input className="explorer__range" type="range" min={0} max={1} step={0.05} value={a[0][0]}
           aria-label={locale === 'ko' ? '첫 비중 p' : 'First share p'}
           onChange={e => { const p = Number(e.target.value); setA([[p, 1 - p]]); }} />
@@ -139,7 +142,7 @@ export function MatrixProductExplorer({
           colLabels={colNames}
           tone="score"
           compact
-          selectable
+          selectable={interactive}
           selected={cell}
           onSelect={setCell}
           caption={ui.math.selectOutputCell}
@@ -165,7 +168,7 @@ export function MatrixProductExplorer({
         />
       </div>
 
-      {editable ? <details className="expand matmul__inputs">
+      {interactive && editable ? <details className="expand matmul__inputs">
         <summary>{locale === 'ko' ? '행렬값 직접 바꾸기' : 'Edit the matrix values'}</summary>
         <div className="expand__body">
           <p className="lab__hint">{ui.lab.inputsHint}</p>
@@ -180,12 +183,12 @@ export function MatrixProductExplorer({
         </div>
       </details> : null}
 
-      <div className="lab__footer">
+      {interactive ? <div className="lab__footer">
         <button type="button" className="btn" onClick={reset}>
           {ui.lab.reset}
         </button>
         <p className="lab__hint">{ui.lab.selectHint}</p>
-      </div>
+      </div> : null}
     </section>
   );
 }

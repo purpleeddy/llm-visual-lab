@@ -31,6 +31,7 @@ import TrainAndGenerate from '../../../components/site/TrainAndGenerate.astro';
 import GenerateSteps from '../../../components/site/GenerateSteps.astro';
 import PositionRows from '../../../components/site/PositionRows.astro';
 import CrossShape from '../../../components/site/CrossShape.astro';
+import AttentionStory from '../../../components/site/AttentionStory.astro';
 import RowTimesColumn from '../../../components/site/RowTimesColumn.astro';
 import { MatrixProductExplorer } from '../../../components/lab/MatrixProductExplorer';
 import { DotProductExplorer } from '../../../components/lab/DotProductExplorer';
@@ -225,6 +226,8 @@ Real embedding tables are learned, and mixing context through layers changes a t
 
 <Section id="numbers" locale="en">
 
+<AttentionStory locale="en" stage="overview" />
+
 ### Matrix product — creating new features from the input
 
 Next-token prediction needs useful patterns computed from the input. Learning adjusts **the combination coefficients (weights)** to reduce prediction errors.
@@ -244,10 +247,9 @@ $$
 $$
 
 **Multiply and add.** That is one cell of a matrix product.
-Change only coefficient three from 1 to 2: 1×1 + 0×0 + 1×2 + 0×0 = **3**. Set it to −1 and the result is **0**.
-These coefficients can be negative or exceed 1; they need not sum to 1.
 
-### Check it for yourself
+
+### Follow the fixed calculation
 
 Here four inputs become two outputs. Each output needs one column of coefficients, so the coefficient table is 4 × 2.
 All three token rows use the same table. A real model learns it; these values were chosen by hand.
@@ -255,7 +257,53 @@ All three token rows use the same table. A real model learns it; these values we
 Below is $X \times W = Y$. The three rows still correspond to our three sentence chunks, each transformed from four values to two.
 Multiplying $3 \times 4$ by $4 \times 2$ gives Y with shape $3 \times 2$.
 
-**Choose a cell of Y** and inspect the X row and W column that produced its value.
+Follow **the first value 2 in Y** to its four X-row/W-column pairs. Cell selection and editing are in the supplement.
+
+<MatrixProductExplorer
+  interactive={false}
+  editable={false}
+  locale="en"
+  initialA={DEFAULT_X}
+  initialB={DEFAULT_WQ}
+  nameA="X"
+  nameB="W"
+  nameC="Y"
+  rowLabelsA={LEARNING_EXAMPLE.en.tokens}
+  initialCell={{ row: 0, col: 0 }}
+/>
+
+The main route keeps these default coefficients and inputs fixed to the end. Follow the token row labels in X and Y.
+
+<AttentionStory locale="en" stage="preparation" />
+
+<div id="similarity">
+
+### Build a score for comparing two rows
+
+The current-position row for “I” is (2, 0). Applying **different coefficients to the same X** gives the candidate row (2, 0) for “went”. Pair matching slots in this one pair and add their products.
+
+**2×2 + 0×0 = 4.** The contributions 4 and 0 sum to the pair’s comparison score 4. This multiplication and addition is a **dot product**. We have not assigned human-defined meanings to coordinates.
+
+### Arrange the same pair as a row and a column
+
+One pair’s dot product needs no transpose. To write the same calculation as a row-by-column matrix product, stand **this very candidate row (2, 0)** in a column.
+
+<Figure scrollable caption="The current row for I and candidate row for went are both (2, 0). Standing only the right row up still gives 2×2 + 0×0 = 4.">
+  <TransposeFlip locale="en" />
+</Figure>
+
+Moving a row into a column without changing its values is a **transpose**. No move would be needed if the candidates were already columns.
+
+<Expand id="math-transpose" summary="Check the same pair’s layout with small numbers">
+Standing the right row (2, 0) up gives a 1 × 2 current row and a 2 × 1 candidate column: a 1 × 1 score, 4. The transpose symbol is the superscript ᵀ.
+</Expand>
+
+<AttentionStory locale="en" stage="scores" />
+</div>
+
+<Expand id="matrix-experiments" summary="Supplement: independent input and coefficient experiments">
+Change only coefficient three from 1 to 2: 1×1 + 0×0 + 1×2 + 0×0 = **3**. Set it to −1 and the result is **0**.
+These coefficients can be negative or exceed 1; they need not sum to 1.
 
 <MatrixProductExplorer
   client:load
@@ -265,17 +313,18 @@ Multiplying $3 \times 4$ by $4 \times 2$ gives Y with shape $3 \times 2$.
   nameA="X"
   nameB="W"
   nameC="Y"
+  rowLabelsA={LEARNING_EXAMPLE.en.tokens}
   initialCell={{ row: 0, col: 0 }}
 />
-
 <Note variant="try" title="Try this">
 Open **Edit the matrix values** and set the entire first column of $W$ to zero. The first **column** of the result becomes
 all zeros — the column, not the row.
 
 That is because one column of the result comes from exactly one column on the right.
-Change a row of $X$ instead and a whole row of the result changes.
+Changing a row of X can affect only the same row of Y. Some values may stay unchanged, for example where the relevant coefficient is zero.
 </Note>
-
+</Expand>
+<Expand id="numbers-details" summary="Supplement: Σ and general matrix shapes">
 <Expand id="math-sum" summary="How does Σ abbreviate a long addition?">
 
 First use a separate list (2, 3, 5) to learn the notation: 2 + 3 + 5 = 10.
@@ -340,17 +389,16 @@ $$
 
 <Figure
   scrollable
-  caption="The three matrices drawn as grids of cells. Edges painted the same colour are a pair; the edges joined by the dashed line are the ones that meet and cancel."
+  caption="The three matrices drawn as grids of cells. Edges painted the same colour are a pair; the dashed edges count the pairs summed into one cell."
   describe="The full description is in the diagram's alternative text."
 >
   <ShapeFlow locale="en" />
 </Figure>
 
-The two 4s meet and cancel; the outer 3 and 2 remain.
+The inner 4 counts the four paired products summed into each result cell. Each of three input rows produces two values.
 That one rule tells you how many of everything comes out of every step ahead.
-
-<div id="similarity">
-
+</Expand>
+<Expand id="dot-experiments" summary="Supplement: independent dot-product and direction experiments">
 ### Build a score for comparing two rows
 
 Predicting the next chunk requires deciding how much to draw from each context position. First we need **scores comparing positions**.
@@ -388,12 +436,12 @@ Simply adding all the values gives 4 in both cases, hiding which slots line up.
 />
 
 <Note variant="try" title="Try this">
-**One.** Change $k$ to $(0, 2)$. The arrows become perpendicular and the value goes to 0.
+**One.** Reset to q=(2, 0), k=(2, 0), then change $k$ to $(0, 2)$. The arrows become perpendicular and the value goes to 0.
 
-**Two.** Change $k$ to $(4, 0)$. Same direction, but the value doubles from 4 to 8 —
+**Two.** Reset again, then change $k$ to $(4, 0)$. Same direction, but the value doubles from 4 to 8 —
 the first positive contribution changed from 2×2=4 to 2×4=8. Check that $\cos\theta$ stays at 1.
 
-**Three.** Change $k$ to $(-2, 0)$. The value becomes −4.
+**Three.** Reset again, then change $k$ to $(-2, 0)$. The value becomes −4.
 Opposite directions give negative results. The next section deals with that.
 </Note>
 
@@ -443,50 +491,24 @@ and two mediocre ones give a large value if they are long. The dot product alone
 tell those apart.
 
 </Expand>
-
-### Use the score for the sentence
-
-Each position in “I / went / to school” needs scores for which positions to draw from. A real model learns transformations that make these comparisons useful for prediction. This does not assign a human-defined meaning to each coordinate.
-We can calculate one pair at a time, or bundle the same multiplication and addition for many pairs. The next diagram shows the layout that makes this possible.
-
-</div>
-
-### Arrange the same pair as a row and a column
-
-A dot product of one pair can use the two rows as they stand. Take the “to school” row (1, 1) and the “I” row (2, 0) from the Y we made earlier.
-To write the same calculation as a matrix product’s **horizontal row × vertical column**, stand only the right row (2, 0) in a column.
-
-<Figure scrollable caption="The two-row dot product and the row-by-column product both give 1×2 + 1×0 = 2. Follow the matching coloured slots.">
-  <TransposeFlip locale="en" />
-</Figure>
-
-Moving a row into a column is a **transpose**. The values, their order and the result 2 stay the same.
-If the right-hand list were already a column, no move would be needed. Attention later stores candidates as token rows, then places them in columns to bundle this same calculation across many pairs.
-
-<Expand id="math-transpose" summary="Check the same pair’s layout with small numbers">
-
-A transpose is written with $\top$ in the upper right. The right row (2, 0) becomes a column:
-
-$$
-\begin{pmatrix} 2 & 0 \end{pmatrix}^{\!\top}
-= \begin{pmatrix} 2 \\ 0 \end{pmatrix}
-$$
-
-Keep the left row (1, 1), so 1×2 + 1×0 = **2**. A **1 × 2 row** and a **2 × 1 column** give a **1 × 1 result**.
 </Expand>
 
 </Section>
 
 <Section id="proportion" locale="en">
 
-Comparison scores alone cannot retrieve content. **Turn them into shares, then use those shares to mix values.**
-Use (0, 4, 2), the scores of the first position against I / went / to school. The attention unit will compute them. These shares refer to input positions, not next-token vocabulary candidates.
+Continue with the same scores (0, 4, 2). Each comparison row has two values, so divide by √2≈1.414 before softmax. Keep raw and divided scores distinct.
 
-Take the three scores one token receives in the example we will compute shortly: $0$, $4$ and $2$.
-Where they come from is worked out two sections on; here only these three numbers matter.
+<AttentionStory locale="en" stage="shares" />
 
-Those have to become proportions. Two conditions: every value **at least 0**, and they have
-to add to **exactly 1**. Otherwise "mix in these proportions" does not mean anything.
+### Combine the actual content with the same shares
+
+<AttentionStory locale="en" stage="mixture" />
+
+This completes the opening picture’s calculation for “I”. The next unit names the current-position, candidate and content roles, and applies the same calculation to all rows.
+
+<Expand id="softmax-experiments" summary="Supplement: unscaled scores and softmax controls">
+This independent experiment uses (0, 4, 2) without division by √2. Its shares (0.016, 0.867, 0.117) differ from the main route’s scaled-score shares. Edits here do not change the fixed main calculation.
 
 ### Why not just divide?
 
@@ -623,6 +645,9 @@ fell from 87% to 77%. Dividing narrowed the gaps, and the exponential responds t
 Attention chooses a divisor from the **number of coordinates** in each query or key. With two coordinates it uses the **positive number whose square is 2**, about 1.414. This count differs from geometric length $|q|$. Write this as $\sqrt{d_k}$, where $d_k=2$ here.
 The aim is to keep the score spread comparable as feature counts grow. The optional explanation below gives the statistical assumptions.
 
+
+</Expand>
+<Expand id="weighted-two" summary="Supplement: a separate two-value weighted sum">
 ### Once you have shares, retrieve content
 
 Shares alone have not retrieved information. Multiply them by the **values** at the referenced positions, then add.
@@ -644,6 +669,8 @@ For a vector value, do this **for each feature**. The next unit computes all of 
 Softmax produces shares; the weighted sum mixes content. Their outputs are different objects.
 These shares are **computed from the current input** and sum to 1. W contained **multiplication coefficients changed by learning**. Attention shares are not an independently learned lookup table.
 
+
+</Expand>
 <Expand summary="Why divide by the square root of the dimension?">
 
 ### More terms means larger values
@@ -664,6 +691,7 @@ Strongly concentrated softmax can have small **derivatives with respect to its i
 The [normalization unit](#blocks) computes variance with actual numbers. You do not need to memorise this supplement now.
 
 </Expand>
+
 
 </Section>
 
@@ -825,7 +853,7 @@ Different $W$ matrices turn the same input into different numerical rows for eac
 
 ### Start with one pair’s score
 
-To decide which position to draw information from, first compare the Q row (1, 1) at “to school” with the K row (0, 2) at “I”. Add matching-slot products to get one score, then repeat the same calculation for other candidates.
+To decide which position to draw information from, first compare the Q row (2, 0) at “I” with the K row (2, 0) at “went”. Add matching-slot products to get one score, then repeat the same calculation for other candidates.
 
 <QKScoreWalk locale="en" />
 
@@ -874,15 +902,19 @@ K = \begin{pmatrix} 0 & 2 \\ 2 & 0 \\ 1 & 1 \end{pmatrix}, \quad
 V = \begin{pmatrix} 3 & 0 \\ 0 & 3 \\ 1 & 1 \end{pmatrix}
 $$
 
-**Scores.** The grid above has first row (0, 4, 2) and third row (2, 2, 2). The next two calculations turn these scores into shares.
+**Scores.** Continue with the same first row (0, 4, 2) for I. The next two calculations turn these scores into shares.
 
 **Dividing.** This limits the increase in score spread with dimension; it does not guarantee variance 1 for this particular small row. With $d_k = 2$, divide by $\sqrt{2} \approx 1.414$.
 The first row $(0, 4, 2)$ becomes $(0,\ 2.828,\ 1.414)$.
 
 **Proportions.** The previous section applied softmax to one token's three scores. Here one
 row is one token, so softmax applies to each row separately. The first row becomes
-$(0.045,\ 0.768,\ 0.187)$, which adds to 1. The third row had equal scores, so it splits
-into exact thirds. $(0.333,\ 0.333,\ 0.333)$ is a rounded display; its displayed sum is 0.999.
+$(0.045,\ 0.768,\ 0.187)$, which adds to 1. 
+
+**Weighted sum.** Apply the same first-row shares to V to obtain (0.323, 2.490). Giving about 76.8% to the V row (0, 3) for went completes the opening picture.
+
+<Expand id="attention-third-row" summary="Supplement: a tied comparison for another current row">
+The third score row (2, 2, 2) gives exact thirds. $(0.333,\ 0.333,\ 0.333)$ is a rounded display; only its displayed sum is 0.999.
 
 **Weighted sum.** Those proportions blend the rows of $V$. Taking the third row:
 
@@ -893,6 +925,9 @@ $$
 Three values blended in equal proportion gives their plain average. The first row, by
 contrast, gave 76.8% of its weight to token 2, so its result $(0.323,\ 2.490)$ leans
 heavily towards $V$'s second row, $(0, 3)$.
+
+
+</Expand>
 
 <Expand id="math-attention" summary="How does one line express the four steps from scores to content?">
 
@@ -1202,7 +1237,7 @@ These are hand-chosen values for checking arithmetic, not learned values.
 
 Select a result cell below. Watch how four features from both heads contribute to its products and sum.
 
-<MatrixProductExplorer client:load locale="en" initialA={computeMultiHead(defaultMultiHeadInput()).concat} initialB={DEFAULT_WO} nameA="Concat" nameB="W_O" nameC="MultiHead" />
+<MatrixProductExplorer client:load locale="en" initialA={computeMultiHead(defaultMultiHeadInput()).concat} initialB={DEFAULT_WO} nameA="Concat" nameB="W_O" nameC="MultiHead" rowLabelsA={LEARNING_EXAMPLE.en.tokens} />
 
 ```js
 const joined = concatColumns(headOutputs); // 3 × 4

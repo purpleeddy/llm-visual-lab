@@ -101,7 +101,7 @@ export function DotProductExplorer({
   }, [initialU, initialV]);
 
   const drawable = u.length === 2 && v.length === 2;
-  const extent = Math.max(3, ...u.map(Math.abs), ...v.map(Math.abs));
+  const extent = Math.max(5, ...u.map(Math.abs), ...v.map(Math.abs));
   const size = 210;
   const half = size / 2;
   const scale = (half - 26) / extent;
@@ -120,6 +120,7 @@ export function DotProductExplorer({
               viewBox={`${-half} ${-half} ${size} ${size}`}
               width={size}
               height={size}
+              data-axis-extent={extent}
               role="img"
               aria-label={`${nameU} = (${u.join(', ')}), ${nameV} = (${v.join(', ')}), ${ui.math.dotProduct} ${fmt(result.value)}`}
             >
@@ -156,6 +157,7 @@ export function DotProductExplorer({
               <Arrow x={u[0]} y={u[1]} scale={scale} color="var(--data-q)" label={nameU} markerId="arrow-u" layer="under" />
               <Arrow x={v[0]} y={v[1]} scale={scale} color="var(--data-k)" label={nameV} markerId="arrow-v" layer="over" />
             </svg>
+            <figcaption>{locale === 'ko' ? `눈금 한 칸 = 1. 학습 실험 범위는 −5~5로 고정하며, 이를 넘는 입력에서만 축을 넓힙니다. 현재 기준: ±${extent}.` : `One grid step = 1. The lesson uses a fixed −5 to 5 range; only larger inputs expand it. Current extent: ±${extent}.`}</figcaption>
           </figure>
         ) : null}
 

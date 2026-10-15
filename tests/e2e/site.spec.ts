@@ -42,7 +42,15 @@ async function chooseStep(lab: Locator, index: number | 'last') {
   const chips = lab.locator('.stepper__chip');
   await (index === 'last' ? chips.last() : chips.nth(index)).click();
 }
+async function revealSupplement(node: Locator) {
+  const parent=node.locator('xpath=ancestor::details[1]');
+  if (await parent.count()) {
+    await revealSupplement(parent);
+    if (!(await parent.evaluate(el=>(el as HTMLDetailsElement).open))) await parent.locator(':scope > summary').click();
+  }
+}
 async function openFold(lab: Locator, selector: string) {
+  await revealSupplement(lab);
   const fold = lab.locator(selector);
   if (!(await fold.evaluate(el => (el as HTMLDetailsElement).open))) await fold.locator('summary').click();
 }
@@ -517,7 +525,7 @@ test.describe('figures', () => {
     await page.goto(ARTICLE_KO);
     for (const f of FIGURES) {
       const svg = page.locator(`svg[aria-labelledby="${f.id}-t ${f.id}-d"]`);
-      if (!(await svg.isVisible())) await openFold(page.locator('#big-picture'), '#paper-translation');
+      await revealSupplement(svg);
       await svg.scrollIntoViewIfNeeded();
       const geometry = await svg.evaluate(el => {
         const frame = el.closest('.figure__frame') as HTMLElement;
@@ -562,7 +570,7 @@ test.describe('figures', () => {
       await expect(prep.locator('#sf-d')).toContainText(path === ARTICLE_KO ? '결과인 Y' : 'result Y');
       await expect(prep.locator('#sf-d')).not.toContainText('W_Q');
       await expect(prep).not.toContainText(/W[_₍\s]*Q/);
-      await expect(prep.locator('.lab--matmul').first().locator('.mgrid--score .mgrid__value')).toHaveText(['2', '0', '0', '2', '1', '1']);
+      await expect(prep.locator('.lab--matmul[data-matmul-mode=interactive]').first().locator('.mgrid--score .mgrid__value')).toHaveText(['2', '0', '0', '2', '1', '1']);
       await expect(page.locator('#attention')).toContainText('W_Q');
       await expect(page.locator('#attention')).toContainText('Q');
     }
@@ -1029,7 +1037,8 @@ test.describe('responsiveness and reading', () => {
 test.describe('the labs inside the article', () => {
   test('matrix product: choosing a cell highlights the row and column and opens the terms', async ({ page }) => {
     await page.goto(ARTICLE_KO);
-    const lab = page.locator('#numbers .lab--matmul');
+    const lab = page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
+    await revealSupplement(lab);
 
     // Y(2,2) = row 2 of X · column 2 of W = 0×0 + 1×1 + 0×0 + 1×1 = 2
     await lab.locator('.mgrid--score button.mgrid__cell').nth(3).click();
@@ -1044,7 +1053,8 @@ test.describe('the labs inside the article', () => {
 
   test('matrix product: editing the inputs updates the result, and reset works', async ({ page }) => {
     await page.goto(ARTICLE_KO);
-    const lab = page.locator('#numbers .lab--matmul');
+    const lab = page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
+    await revealSupplement(lab);
     const result = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
     expect(await result()).toEqual(['2', '0', '0', '2', '1', '1']);
 
@@ -1062,6 +1072,7 @@ test.describe('the labs inside the article', () => {
   test('dot product: changing a coordinate moves the value and cos θ with it', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('.lab--dot');
+    await revealSupplement(lab);
     const total = () => lab.locator('.terms__running').last();
     const cos = () => lab.locator('.lab__stats dd').nth(2);
 
@@ -1097,6 +1108,7 @@ test.describe('the labs inside the article', () => {
   test('softmax: raising one score lowers the others', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('.lab--softmax');
+    await revealSupplement(lab);
     const probs = () =>
       lab.locator('.terms__table tbody tr:not(.terms__sumrow) .terms__running').allInnerTexts();
 
@@ -1115,6 +1127,7 @@ test.describe('the labs inside the article', () => {
   test('softmax: adding the same number to every score leaves the probabilities alone', async ({ page }) => {
     await page.goto(ARTICLE_KO);
     const lab = page.locator('.lab--softmax');
+    await revealSupplement(lab);
     const probs = () =>
       lab.locator('.terms__table tbody tr:not(.terms__sumrow) .terms__running').allInnerTexts();
     const before = await probs();
@@ -1539,7 +1552,8 @@ test.describe('the complete learning progression', () => {
         await lookup.getByRole('button',{name:`${words[i]} · ID ${i}`,exact:true}).click();
         await expect(lookup.locator('.embedding-lookup__vector')).toHaveText(expectedRows[i]);
       }
-      const matrix=page.locator('#numbers .lab--matmul');
+      const matrix=page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
+      await revealSupplement(matrix);
       expect(await matrix.locator('.emat--q input').evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value))).toEqual(['1','0','1','0','0','1','0','1','1','1','0','0']);
       await expect(matrix.locator('.mgrid--score .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
       const trace=page.locator('.lab--layer-trace');
@@ -1725,17 +1739,17 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
 
 
 test.describe('visible static transpose explanation', () => {
-  test('one existing Y pair keeps the same values and score when its right row stands up', async ({ page }) => {
+  test('one shared comparison pair keeps the same values and score when its right row stands up', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       const diagram = page.locator('#numbers svg[aria-labelledby="tf-t tf-d"]');
-      await expect(diagram.locator('.hp__value')).toHaveText(['1','1','2','0','1','1','2','0','2']);
-      await expect(diagram.locator('[data-pair-row="left"] .hp__value')).toHaveText(['1','1']);
+      await expect(diagram.locator('.hp__value')).toHaveText(['2','0','2','0','2','0','2','0','4']);
+      await expect(diagram.locator('[data-pair-row="left"] .hp__value')).toHaveText(['2','0']);
       await expect(diagram.locator('[data-pair-row="right"] .hp__value')).toHaveText(['2','0']);
-      await expect(diagram.locator('[data-pair-product="left"] .hp__value')).toHaveText(['1','1']);
+      await expect(diagram.locator('[data-pair-product="left"] .hp__value')).toHaveText(['2','0']);
       await expect(diagram.locator('[data-pair-product="right"] .hp__value')).toHaveText(['2','0']);
-      await expect(diagram.locator('[data-pair-equation]')).toHaveText(['1 × 2 + 1 × 0 = 2','1 × 2 + 1 × 0 = 2']);
-      await expect(diagram.locator('[data-pair-result]')).toHaveText('2');
+      await expect(diagram.locator('[data-pair-equation]')).toHaveText(['2 × 2 + 0 × 0 = 4','2 × 2 + 0 × 0 = 4']);
+      await expect(diagram.locator('[data-pair-result]')).toHaveText('4');
       const row = await diagram.locator('[data-pair-row="right"] rect').evaluateAll(nodes=>nodes.map(el=>({x:el.getAttribute('x'),y:el.getAttribute('y'),fill:el.getAttribute('fill')})));
       const column = await diagram.locator('[data-pair-product="right"] rect').evaluateAll(nodes=>nodes.map(el=>({x:el.getAttribute('x'),y:el.getAttribute('y'),fill:el.getAttribute('fill')})));
       expect(row).toHaveLength(2); expect(column).toHaveLength(2);
@@ -1744,7 +1758,7 @@ test.describe('visible static transpose explanation', () => {
       expect(column.map(cell=>cell.fill)).toEqual(row.map(cell=>cell.fill));
       expect(new Set(row.map(cell=>cell.fill)).size).toBe(2);
       expect(await diagram.evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThanOrEqual(560);
-      await expect(diagram.locator('#tf-d')).toContainText('Y');
+      await expect(diagram.locator('#tf-d')).toContainText('X');
       await expect(diagram.locator('#tf-d')).not.toContainText('Q');
       await expect(diagram.locator('#tf-d')).not.toContainText('K');
     }
@@ -1762,34 +1776,34 @@ test.describe('static Q–K comparisons', () => {
       await expect(walk.locator('figure figcaption')).toHaveCount(3);
       await expect(walk.locator('button, input, select, details, astro-island')).toHaveCount(0);
       await expect(walk.locator('.qkw__positions span')).toHaveText(path===ARTICLE_KO ? ['1: 나는','2: 학교에','3: 갔다'] : ['1: I','2: went','3: to school']);
-      await expect(walk.locator('[data-pair-value]')).toHaveAttribute('data-pair-value','2');
-      await expect(walk.locator('[data-query-value]')).toHaveText(['1','1']);
-      await expect(walk.locator('[data-key-value]')).toHaveText(['0','2']);
-      await expect(walk.locator('[data-matrix="qkw-pair"] .mgrid__value')).toHaveText(['1','1','0','2']);
+      await expect(walk.locator('[data-pair-value]')).toHaveAttribute('data-pair-value','4');
+      await expect(walk.locator('[data-query-value]')).toHaveText(['2','0']);
+      await expect(walk.locator('[data-key-value]')).toHaveText(['2','0']);
+      await expect(walk.locator('[data-matrix="qkw-pair"] .mgrid__value')).toHaveText(['2','0','2','0']);
       await expect(walk.locator('[data-matrix="qkw-k"] .mgrid__value')).toHaveText(['0','2','2','0','1','1']);
       for (const id of ['qkw-kt','qkw-product-kt']) {
         await expect(walk.locator(`[data-matrix="${id}"] .mgrid__value`)).toHaveText(['0','2','1','2','0','1']);
         await expect(walk.locator(`[data-matrix="${id}"] .mgrid__shape`)).toHaveText('2 × 3');
       }
       await expect(walk.locator('[data-matrix="qkw-q"] .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
-      await expect(walk.locator('[data-product-value]')).toHaveText(path===ARTICLE_KO ? ['기여: 0','기여: 2'] : ['contribution: 0','contribution: 2']);
+      await expect(walk.locator('[data-product-value]')).toHaveText(path===ARTICLE_KO ? ['기여: 4','기여: 0'] : ['contribution: 4','contribution: 0']);
       const one = walk.locator('[data-step="2"]');
       await expect(one.locator('[data-comparison-shape]')).toHaveAttribute('data-comparison-shape','1 × 3');
-      await expect(one.locator('.qkw__score-value')).toHaveText(['2','2','2']);
-      await expect(one.locator('[data-candidate-calculation]')).toHaveText(['1×0 + 1×2','1×2 + 1×0','1×1 + 1×1']);
-      await expect(one.locator('[data-selected="true"] .qkw__score-value')).toHaveText('2');
+      await expect(one.locator('.qkw__score-value')).toHaveText(['0','4','2']);
+      await expect(one.locator('[data-candidate-calculation]')).toHaveText(['2×0 + 0×2','2×2 + 0×0','2×1 + 0×1']);
+      await expect(one.locator('[data-selected="true"] .qkw__score-value')).toHaveText('4');
       await expect(one.locator('[data-future="true"]')).toHaveCount(0);
       const all = walk.locator('[data-step="3"]');
       await expect(all.locator('[data-comparison-shape]')).toHaveAttribute('data-comparison-shape','3 × 3');
       await expect(all.locator('.qkw__scores tbody .qkw__score-value')).toHaveText(['0','4','2','4','0','2','2','2','2']);
-      await expect(all.locator('[data-selected="true"] .qkw__score-value')).toHaveText('2');
+      await expect(all.locator('[data-selected="true"] .qkw__score-value')).toHaveText('4');
       const future = all.locator('[data-future="true"]');
       await expect(future).toHaveCount(3);
       expect(await future.evaluateAll(cells => cells.map(cell => [cell.getAttribute('data-r'),cell.getAttribute('data-c')]))).toEqual([['0','1'],['0','2'],['1','2']]);
       await expect(all.locator('.qkw__legend')).toContainText(path===ARTICLE_KO ? '가리기 전 점수' : 'raw scores before masking');
-      await expect(all.locator('[data-desired-row]')).toHaveText('0, 2');
+      await expect(all.locator('[data-desired-row]')).toHaveText('2, 0');
       await expect(all.locator('[data-wrong-column]')).toHaveText('0, 2, 1');
-      await expect(all.locator('[data-matching-column]')).toHaveText('0, 2');
+      await expect(all.locator('[data-matching-column]')).toHaveText('2, 0');
       await expect(all.locator('[data-incompatible-shapes]')).toContainText(path===ARTICLE_KO ? '행렬곱을 할 수 없습니다' : 'cannot be multiplied');
       await expect(all.locator('[data-square-reason]')).toContainText(path===ARTICLE_KO ? '양쪽 토큰 수가 각각 3' : 'each side has 3 tokens');
       expect(await all.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-c="0"]').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).outlineStyle))).toEqual(['dashed','dashed','dashed']);
@@ -1809,7 +1823,7 @@ test.describe('static Q–K comparisons', () => {
           expect(row).toHaveLength(2); expect(column).toEqual(row); expect(repeated).toEqual(row);
           expect(row[0]).not.toBe('rgba(0, 0, 0, 0)');
         }
-        const keyColour = await walk.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-r="0"]').first().evaluate(node=>getComputedStyle(node).backgroundColor);
+        const keyColour = await walk.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-r="1"]').first().evaluate(node=>getComputedStyle(node).backgroundColor);
         expect(await walk.locator('[data-matrix="qkw-pair"] .mgrid__cell--static[data-r="1"]').first().evaluate(node=>getComputedStyle(node).backgroundColor)).toBe(keyColour);
         const numericStyles = await walk.locator('.mgrid__value, .qkw__scores tbody td').evaluateAll(nodes=>nodes.map(node=>({size:parseFloat(getComputedStyle(node).fontSize),colour:getComputedStyle(node).color})));
         expect(numericStyles.every(style=>style.size>=16)).toBe(true);
@@ -1891,7 +1905,7 @@ test('the projection creates one position’s new features while keeping X visib
     await expect(diagram.locator('[data-projection="Y"] .tp__num')).toHaveText(['2','0','0','2','1','1']);
     await expect(diagram.locator('#rc-d')).toContainText(ko ? 'X는 입력으로 남고' : 'X remains available as the input');
     await expect(diagram.locator('[data-learning-weights]')).toHaveText(ko ? '학습에서 조합을 조정' : 'Adjusted during learning');
-    const lab=numbers.locator('.lab--matmul').first();
+    const lab=numbers.locator('.lab--matmul[data-matmul-mode=interactive]').first();
     await openFold(lab, '.matmul__inputs');
     const x=lab.locator('[data-matrix="X"] input');
     const before=await x.evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value));
@@ -1913,11 +1927,12 @@ test.describe('review regressions: controls and current values', () => {
       ['.lab--dot .vecinput__field', '.lab--dot'],
       ['.lab--softmax .softmax__score', '.lab--softmax'],
       ['.lab--layernorm .softmax__score', '.lab--layernorm'],
-      ['#numbers .emat__input', '#numbers .lab--matmul'],
+      ['#numbers .emat__input', '#numbers .lab--matmul[data-matmul-mode=interactive]'],
     ];
     for (const [selector, labSelector] of cases) {
       const input = page.locator(selector).first();
       const lab = page.locator(labSelector).first();
+      await revealSupplement(lab);
       if (labSelector.startsWith('#numbers')) await openFold(lab, '.matmul__inputs');
       await input.click();
       await input.pressSequentially('-2');
@@ -1933,7 +1948,7 @@ test.describe('review regressions: controls and current values', () => {
       await expect(input).toHaveValue('-2');
     }
     await expect(page.locator('.lab--dot .terms__total')).toHaveText('−4');
-    await expect(page.locator('#numbers .mgrid--score .mgrid__value')).toHaveText(['−1','0','0','2','1','1']);
+    await expect(page.locator('#numbers .lab--matmul[data-matmul-mode=interactive] .mgrid--score .mgrid__value')).toHaveText(['−1','0','0','2','1','1']);
   });
 
   for (const path of ALL_PAGES) {
@@ -1977,7 +1992,8 @@ test.describe('review regressions: controls and current values', () => {
 
     test(`${path}: mixture shares stay nonnegative and sum to one`, async ({ page }) => {
       await page.goto(path);
-      const lab = page.locator('#proportion .lab--matmul');
+      const lab = page.locator('#proportion .lab--matmul[data-matmul-mode=interactive]');
+      await revealSupplement(lab);
       const p = lab.getByRole('slider');
       for (const key of ['Home', 'End', 'ArrowLeft']) {
         await p.focus(); await p.press(key);
@@ -2117,8 +2133,9 @@ test.describe('remaining review', () => {
       await expect(loss.getByRole('slider')).toHaveCount(2);
       await expect(loss.locator('.lp__bar--target:visible')).toHaveCount(8);
       await expect(loss.locator('.loss__comparison')).toContainText('0.628');
-      for (const selector of ['#numbers .lab--matmul', '#multi-head .lab--matmul']) {
+      for (const selector of ['#numbers .lab--matmul[data-matmul-mode=interactive]', '#multi-head .lab--matmul[data-matmul-mode=interactive]']) {
         const matrix = page.locator(selector);
+        await revealSupplement(matrix);
         await expect(matrix.locator('input:visible')).toHaveCount(0);
         await expect(matrix.locator('.mgrid--score button').first()).toBeVisible();
         await matrix.locator('.mgrid--score button').last().click();
@@ -2313,6 +2330,7 @@ test.describe('final six diagram regressions', () => {
           })),
         ];
         for (const figure of figures) {
+          await revealSupplement(figure.svg);
           const text=await figure.svg.locator(figure.labels).evaluateAll(nodes=>nodes.map(el=>{
             const ctm=(el as SVGGraphicsElement).getScreenCTM()!;
             const box=(el as SVGGraphicsElement).getBBox();
@@ -2354,7 +2372,7 @@ test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows t
     const transpose=headings.indexOf(ko ? '같은 한 쌍을 행 × 열로 놓아 보기' : 'Arrange the same pair as a row and a column');
     expect(dot).toBeGreaterThanOrEqual(0); expect(transpose).toBeGreaterThan(dot);
     await expect(numbers).not.toContainText('Query'); await expect(numbers).not.toContainText('Key');
-    await expect(numbers).toContainText(ko ? '두 경우 모두 4' : '4 in both cases');
+    await expect(numbers).toContainText(ko ? '2×2 + 0×0 = 4' : '2×2 + 0×0 = 4');
     await expect(numbers).toContainText('2×2=4'); await expect(numbers).toContainText('2×4=8');
     const order=await page.locator('[data-qk-score-walk]').evaluate(walk=>{
       const roles=document.querySelector('svg[aria-labelledby="qkv-t qkv-d"]')!;
@@ -2362,5 +2380,39 @@ test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows t
       return [Boolean(roles.compareDocumentPosition(walk)&Node.DOCUMENT_POSITION_FOLLOWING),Boolean(walk.compareDocumentPosition(lab)&Node.DOCUMENT_POSITION_FOLLOWING)];
     });
     expect(order).toEqual([true,true]);
+  }
+});
+
+
+test('the fixed attention story carries one first-row example from purpose to content', async ({ page }) => {
+  for (const path of ALL_PAGES) {
+    await page.goto(path);
+    const ko=path===ARTICLE_KO;
+    const overview=page.locator('[data-attention-story="overview"]');
+    await expect(overview.locator('[data-story-token]')).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
+    await expect(overview).toContainText('(0, 4, 2)');
+    await expect(overview).toContainText('(0.323, 2.490)');
+    await expect(overview).toContainText(ko ? '미래를 가리기 전' : 'before future masking');
+    const fixed=page.locator('#numbers [data-matmul-mode="fixed"]');
+    await expect(fixed.locator('button, input, details')).toHaveCount(0);
+    for (const matrix of ['X','Y']) await expect(fixed.locator(`[data-matrix="${matrix}"] .mgrid__rowlabel`)).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
+    const candidates=page.locator('[data-matrix="story-candidates"]');
+    await expect(candidates.locator('.mgrid__value')).toHaveText(['0','2','2','0','1','1']);
+    await expect(page.locator('[data-story-score]')).toHaveText(['0','4','2']);
+    await expect(page.locator('[data-story-share]')).toHaveText(['0.045388','0.767918','0.186694']);
+    await expect(page.locator('[data-matrix="story-content"] .mgrid__value')).toHaveText(['3','0','0','3','1','1']);
+    await expect(page.locator('[data-matrix="story-output"] .mgrid__value')).toHaveText(['0.323','2.490']);
+    const dot=page.locator('.lab--dot'); await revealSupplement(dot);
+    const arrow=dot.locator('svg g line[stroke-width="6"]');
+    const before=await arrow.getAttribute('x2');
+    await dot.getByLabel('k 1', {exact:true}).fill('4');
+    await expect(dot.locator('svg')).toHaveAttribute('data-axis-extent','5');
+    await expect(arrow).toHaveAttribute('x2',before!);
+    await expect(dot.locator('.terms__running').last()).toHaveText('8');
+    const experiment=page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
+    await openFold(experiment,'.matmul__inputs');
+    await experiment.locator('[data-matrix="X"] [data-r="0"][data-c="0"] input').fill('2');
+    await expect(experiment.locator('.mgrid--score .mgrid__value')).toHaveText(['3','0','0','2','1','1']);
+    await expect(fixed.locator('.mgrid--score .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
   }
 });

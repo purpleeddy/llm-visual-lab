@@ -11,8 +11,8 @@ const { locale } = Astro.props;
 const ko = locale === 'ko';
 // Raw comparisons; the final grid also marks positions a later causal mask excludes.
 const { Q, K, KT, scores, allowed } = computeAttention({ ...DEFAULT_ATTENTION_INPUT, masked: true });
-const query = Q.length - 1;
-const key = 0;
+const query = 0;
+const key = 1;
 const pair = cellDerivation(Q, KT, query, key);
 const comparisons = K.map((_, c) => cellDerivation(Q, KT, query, c));
 const tokens = LEARNING_EXAMPLE[locale].tokens;
@@ -21,17 +21,17 @@ const kLabels = K.map((_, i) => `K${i + 1}`);
 const L = ko ? {
   label: '한 쌍의 내적에서 모든 위치의 비교로',
   titles: ['① 한 쌍에서 점수 하나', '② 같은 줄로 세 후보 비교', '③ 같은 비교를 행 × 열로 묶기'],
-  captions: ['같은 자리의 두 곱은 0과 2입니다. 더한 2가 “갔다”에서 “나는”을 참고할 비교 점수입니다.', '기준 줄 하나를 후보 세 줄과 비교하면 점수 세 개, 즉 1 × 3입니다.', '같은 K 행이 같은 색의 열이 됩니다. 곱과 합은 그대로입니다.'],
-  pair: 'Q3와 K1의 비교',
+  captions: ['같은 자리의 두 곱은 4와 0입니다. 더한 4가 “나는”에서 “학교에”을 참고할 비교 점수입니다.', '기준 줄 하나를 후보 세 줄과 비교하면 점수 세 개, 즉 1 × 3입니다.', '같은 K 행이 같은 색의 열이 됩니다. 곱과 합은 그대로입니다.'],
+  pair: 'Q1과 K2의 비교',
   slots: ['자리 1', '자리 2'],
   contribution: '기여',
   oneRow: '기준 1줄 · 후보 3줄 → 점수 1 × 3',
   allRows: '기준 3줄 · 후보 3줄 → 점수 3 × 3',
-  meaning: '세 점수가 모두 2라서 이 줄에서는 세 후보가 동점입니다. 비중은 다음 softmax에서 만듭니다.',
-  desired: '원하는 K1 한 행',
+  meaning: '같은 “나는” 기준 줄의 점수는 (0, 4, 2)입니다. 다음에는 이 점수를 나누고 softmax로 비중을 만듭니다.',
+  desired: '원하는 K2 한 행',
   wrong: '점선 열: 세 후보의 첫 값',
   incompatible: '전치 전: Q 행은 2값, 원래 K 열은 3값입니다. 이 모양은 행렬곱을 할 수 없습니다.',
-  matching: '옮긴 K1 한 열',
+  matching: '옮긴 K2 한 열',
   placement: '한 쌍은 전치 없이 내적합니다. 여러 쌍을 행 × 열로 묶으려고 K를 옮깁니다.',
   shapeReason: '양쪽 토큰 수가 각각 3이라 3 × 3입니다. 전치는 값을 그대로 옮깁니다.',
   raw: '가리기 전 점수',
@@ -41,17 +41,17 @@ const L = ko ? {
 } : {
   label: 'From one dot product to comparisons at every position',
   titles: ['① One pair, one score', '② Compare the same row with three candidates', '③ Bundle comparisons as row × column'],
-  captions: ['The two matching-slot products are 0 and 2. Their sum, 2, scores “to school” looking at “I”.', 'One current row compared with three candidate rows gives three scores: 1 × 3.', 'Each K row becomes a column of the same colour; the arithmetic is unchanged.'],
-  pair: 'Q3 compared with K1',
+  captions: ['The two matching-slot products are 4 and 0. Their sum, 4, scores “I” looking at “went”.', 'One current row compared with three candidate rows gives three scores: 1 × 3.', 'Each K row becomes a column of the same colour; the arithmetic is unchanged.'],
+  pair: 'Q1 compared with K2',
   slots: ['slot 1', 'slot 2'],
   contribution: 'contribution',
   oneRow: '1 current row · 3 candidate rows → 1 × 3 scores',
   allRows: '3 current rows · 3 candidate rows → 3 × 3 scores',
-  meaning: 'All three scores are 2, so these candidates tie for this row. Softmax produces the shares next.',
-  desired: 'Wanted: the whole K1 row',
+  meaning: 'The same “I” row gives (0, 4, 2). Divide these scores, then use softmax to obtain shares.',
+  desired: 'Wanted: the whole K2 row',
   wrong: 'Dashed column: each candidate’s first value',
   incompatible: 'Before transpose: a Q row has 2 values, the original K column has 3. These shapes cannot be multiplied.',
-  matching: 'After: the whole K1 column',
+  matching: 'After: the whole K2 column',
   placement: 'A single pair needs no transpose. For many pairs, put each K row where row × column will select it.',
   shapeReason: 'The grid is 3 × 3 because each side has 3 tokens. Transpose keeps the values.',
   raw: 'Scores before masking',
@@ -69,7 +69,7 @@ const L = ko ? {
         <MatrixGrid matrix={[Q[query], K[key]]} name={L.pair} rowLabels={[`${qLabels[query]} · ${tokens[query]}`, `${kLabels[key]} · ${tokens[key]}`]} colLabels={L.slots} compact matrixId="qkw-pair" />
         <p class="qkw__dot" data-pair-value={pair.value}>{pair.terms.map((term, i) => <>
           {i > 0 && <span> + </span>}<span class="qkw__term" data-slot={i}>
-            <span><b data-query-value>{term.a}</b> × <b data-key-value="0">{term.b}</b></span>
+            <span><b data-query-value>{term.a}</b> × <b data-key-value={key}>{term.b}</b></span>
             <small data-product-value>{L.contribution}: {term.product}</small>
           </span>
         </>)}<span> = </span><strong class="qkw__selected-score">{pair.value}</strong></p>
