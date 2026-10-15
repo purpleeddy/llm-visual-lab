@@ -1403,12 +1403,29 @@ body {
 /* The fixed story and the optional controls use the same numerical example. */
 .matrix-example { margin: var(--sp-5) 0; padding: var(--sp-4); border: 1px solid var(--line-1); min-width: 0; max-width: 100%; }
 .attention-story { margin: var(--sp-5) 0; min-width: 0; }
-.attention-story__tokens, .attention-story__matrices { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-start; }
-.attention-story__tokens span { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line-2); border-radius: var(--r-sm); }
-.attention-story__tokens span:first-child { background: var(--data-q-wash); }
-.attention-story__flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: var(--sp-3); padding-left: 1.5rem; }
-.attention-story__flow li { padding: var(--sp-3); background: var(--surface-panel); border: 1px solid var(--line-1); }
-.prose .attention-story__flow p { margin: var(--sp-2) 0 0; }
+.attention-story__matrices { display: flex; flex-wrap: wrap; gap: var(--sp-4); align-items: flex-start; }
 .attention-story__matrices > * { min-width: 0; max-width: 100%; }
 .attention-story__scope { color: var(--ink-2); font-size: var(--fs-200); }
 .attention-story__sum { font-family: var(--font-mono); overflow-wrap: anywhere; }
+
+/* Only the opening attention overview: readable HTML labels over a weighted SVG flow. */
+.prose .attention-overview { max-width: 42rem; margin: var(--sp-4) 0; }
+.prose .attention-overview__lead { margin: 0 0 var(--sp-4); font-size: 1.125rem; line-height: 1.6; }
+.attention-overview__scroll { max-width: 100%; overflow-x: auto; }
+.attention-overview__scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.attention-overview__canvas { min-width: 19rem; }
+.attention-overview__headings, .attention-overview__diagram { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 8.5rem; column-gap: 0.5rem; }
+.attention-overview__headings { align-items: end; margin-bottom: var(--sp-2); font-size: 1rem; color: var(--ink-2); }
+.attention-overview__headings > :last-child { grid-column: 3; }
+.attention-overview__diagram { height: 15rem; }
+.attention-overview__sources { display: grid; grid-template-rows: repeat(3, 1fr); }
+.attention-overview__source { display: flex; align-items: center; justify-content: flex-end; padding-right: 0.25rem; font-size: 1.125rem; line-height: 1.5; color: var(--ink-1); }
+.attention-overview__links { position: relative; min-width: 0; }
+.attention-overview__links svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.attention-overview__weight { position: absolute; left: 40%; transform: translate(-50%, -50%); padding: 0.1rem 0.25rem; background: var(--surface-panel); font: 1rem/1.4 var(--font-mono); white-space: nowrap; color: var(--ink-1); }
+.attention-overview__output { align-self: center; display: flex; flex-direction: column; gap: 0.25rem; border-left: 3px solid var(--data-k); padding-left: 0.5rem; font-size: 1rem; line-height: 1.5; color: var(--ink-1); }
+.attention-overview__output strong { font-size: 1.25rem; }
+.prose .attention-overview > figcaption { margin-top: var(--sp-3); line-height: 1.6; }
+@media (max-width: 40rem) {
+  .attention-overview__headings, .attention-overview__diagram { grid-template-columns: 3.5rem minmax(0, 1fr) 7rem; column-gap: 0.25rem; }
+}

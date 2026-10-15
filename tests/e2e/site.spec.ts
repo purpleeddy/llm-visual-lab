@@ -2392,9 +2392,40 @@ test('the fixed attention story carries one first-row example from purpose to co
     await page.goto(path);
     const ko=path===ARTICLE_KO;
     const overview=page.locator('[data-attention-story="overview"]');
+    await revealSupplement(overview); await overview.scrollIntoViewIfNeeded();
+    await page.evaluate(()=>document.fonts.ready);
     await expect(overview.locator('[data-story-token]')).toHaveText(ko ? ['나는','학교에','갔다'] : ['I','went','to school']);
-    await expect(overview).toContainText('(0, 4, 2)');
-    await expect(overview).toContainText('(0.323, 2.490)');
+    await expect(overview.locator('ol, li, button, input, details, [role="button"], animate')).toHaveCount(0);
+    await expect(overview).not.toContainText('(2, 0)');
+    await expect(overview).not.toContainText('(0, 4, 2)');
+    await expect(overview).not.toContainText('(0.323, 2.490)');
+    await expect(overview.locator('[data-story-weight]')).toHaveText(['4.5%','76.8%','18.7%']);
+    await expect(overview.locator('[data-story-output-token]')).toHaveText(ko ? '나는' : 'I');
+    await expect(overview.locator('[data-story-output-context]')).toHaveText(ko ? '주변 정보를 반영한' : 'with context');
+    await expect(overview.locator('.attention-overview__headings span')).toHaveText(ko ? ['입력 토큰','새 표현'] : ['Input tokens','Output']);
+    const edges=overview.locator('[data-story-edge]'); await expect(edges).toHaveCount(3);
+    const directions=await edges.evaluateAll(nodes=>nodes.map(el=>{
+      const path=el as SVGPathElement; const start=path.getPointAtLength(0); const end=path.getPointAtLength(path.getTotalLength());
+      return {fromX:start.x,fromY:start.y,toX:end.x,toY:end.y};
+    }));
+    expect(directions.every(edge=>edge.toX>edge.fromX)).toBe(true);
+    expect(directions[0].fromY).toBeLessThan(directions[1].fromY); expect(directions[1].fromY).toBeLessThan(directions[2].fromY);
+    for (const edge of directions) expect(edge.toY).toBeCloseTo(directions[1].toY,4);
+    const widths=await edges.evaluateAll(nodes=>nodes.map(el=>Number(el.getAttribute('stroke-width'))));
+    expect(widths[1]).toBeGreaterThan(widths[2]); expect(widths[2]).toBeGreaterThan(widths[0]);
+    for (const edge of await edges.all()) await expect(edge).toHaveAttribute('marker-end','url(#story-overview-arrow)');
+    const labelSizes=await overview.locator('[data-story-weight], [data-story-token], [data-story-output-token], [data-story-output-context]').evaluateAll(nodes=>nodes.map(el=>parseFloat(getComputedStyle(el).fontSize)));
+    expect(labelSizes.every(size=>size>=16)).toBe(true);
+    const diagram=overview.locator('.attention-overview__diagram');
+    const bounds=(await diagram.boundingBox())!;
+    for (const label of await overview.locator('[data-story-token], [data-story-weight], [data-story-output-token], [data-story-output-context]').all()) {
+      const box=(await label.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(bounds.x-1); expect(box.x+box.width).toBeLessThanOrEqual(bounds.x+bounds.width+1);
+      expect(box.y).toBeGreaterThanOrEqual(bounds.y-1); expect(box.y+box.height).toBeLessThanOrEqual(bounds.y+bounds.height+1);
+    }
+    const input=(await overview.locator('[data-story-token]').first().boundingBox())!;
+    const output=(await overview.locator('[data-story-output]').boundingBox())!;
+    expect(output.x).toBeGreaterThan(input.x+input.width);
     await expect(overview).toContainText(ko ? '미래를 가리기 전' : 'before future masking');
     await expect(overview.locator('a[href="#positions"]')).toHaveText(ko ? '뒤의 위치와 가리기 단원' : 'later position and masking unit');
     const fixed=page.locator('#numbers [data-matmul-mode="fixed"]');

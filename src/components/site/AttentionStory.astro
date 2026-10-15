@@ -19,29 +19,43 @@ const exponentialSum = exponentials.reduce((sum, value) => sum + value, 0);
 const terms = tokens.map((_, c) => cellDerivation(result.Q, result.KT, row, c));
 const sums = result.V[0].map((_, c) => cellDerivation([result.weights[row]], result.V, 0, c));
 const L = ko ? {
-  scope: '문장 세 조각이 모두 주어진, 미래를 가리기 전 비교입니다.',
-  steps: ['비교할 숫자 준비', '각 위치와 비교해 점수 만들기', '점수를 참고할 비중으로', '그 비중만큼 내용을 가져와 합치기'],
+  scope: '문장 전체가 주어진, 미래를 가리기 전 예시입니다.',
   basis: '기준용 숫자 Y', candidate: '후보용 숫자', coefficients: '후보용의 다른 계수', content: '전달할 내용', shares: '가져올 비중', output: '나는의 새 값',
 } : {
-  scope: 'All three sentence chunks are available: this comparison is before future masking.',
-  steps: ['Prepare comparison numbers', 'Compare with each position to make scores', 'Turn scores into shares', 'Bring over content in those shares and add'],
+  scope: 'Full sentence given, before future masking.',
   basis: 'Current-position values Y', candidate: 'Candidate values', coefficients: 'Different candidate coefficients', content: 'Content to bring over', shares: 'Shares to bring over', output: 'New values for I',
 };
 ---
 <div class="attention-story" data-attention-story={stage}>
-  {stage === 'overview' && <>
-    <p><strong>{ko ? '어텐션의 큰그림: “나는”이 문장의 다른 조각에서 내용을 가져와 새 값을 만드는 것' : 'Attention’s goal first: let “I” draw content from the sentence to make new values'}</strong></p>
-    <div class="attention-story__tokens">{tokens.map((token, i) => <span data-story-token={i}>{token}</span>)}</div>
-    <ol class="attention-story__flow">
-      {L.steps.map((step, i) => <li><strong>{step}</strong><p>{[
-        ko ? '나는의 기준용 (2, 0) · 각 후보의 숫자' : 'Current row for I: (2, 0), plus a row for each candidate',
-        `(0, 4, 2)`,
-        result.weights[row].map(v => fmtPercent(v)).join(' / '),
-        `(${result.output[row].map(v => fmt(v, 3)).join(', ')})`,
-      ][i]}</p></li>)}
-    </ol>
-    <p class="attention-story__scope">{L.scope} {ko ? '생성할 때의 미래 가리기는 ' : 'For the future mask used in generation, see the '}<a href="#positions">{ko ? '뒤의 위치와 가리기 단원' : 'later position and masking unit'}</a>{ko ? '에서 배웁니다.' : '.'}</p>
-  </>}
+  {stage === 'overview' && <figure class="attention-overview" aria-labelledby="attention-overview-title">
+    <p class="attention-overview__lead" id="attention-overview-title">{ko ? '어텐션은 문장 속 정보를 모아 “나는”의 새 표현을 만듭니다.' : 'Attention gathers the sentence’s information to give “I” context.'}</p>
+    <div class="attention-overview__scroll" role="region" tabindex="0" aria-label={ko ? '토큰의 정보가 새 표현으로 모이는 그림' : 'Token information flowing into a new representation'}>
+      <div class="attention-overview__canvas">
+        <div class="attention-overview__headings"><span>{ko ? '입력 토큰' : 'Input tokens'}</span><span>{ko ? '새 표현' : 'Output'}</span></div>
+        <div class="attention-overview__diagram">
+          <div class="attention-overview__sources">
+            {tokens.map((token, i) => <div class="attention-overview__source"><span data-story-token={i}>{token}</span></div>)}
+          </div>
+          <div class="attention-overview__links">
+            <svg viewBox="0 0 200 240" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+              <defs><marker id="story-overview-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" markerUnits="userSpaceOnUse" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--data-k)"></path></marker></defs>
+              {result.weights[row].map((weight, i) => <path data-story-edge={i}
+                d={i === 1 ? 'M 0 120 H 196' : `M 0 ${40 + i * 80} H 110 C 150 ${40 + i * 80} 152 120 196 120`}
+                fill="none" stroke="var(--data-k)" stroke-width={1.5 + 8 * weight} vector-effect="non-scaling-stroke"
+                marker-end="url(#story-overview-arrow)" />)}
+            </svg>
+            {result.weights[row].map((weight, i) => <span class="attention-overview__weight" style={`top: ${(i + 0.5) / tokens.length * 100}%;`}>
+              <span class="visually-hidden">{ko ? `${tokens[i]}에서 나는의 새 표현으로 가져오는 비중: ` : `Share brought from ${tokens[i]} into the new I: `}</span><span data-story-weight={i}>{fmtPercent(weight)}</span>
+            </span>)}
+          </div>
+          <div class="attention-overview__output" data-story-output>
+            {ko ? <><span data-story-output-context>주변 정보를 반영한</span><strong data-story-output-token>{tokens[row]}</strong></> : <><strong data-story-output-token>{tokens[row]}</strong><span data-story-output-context>with context</span></>}
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption class="attention-story__scope">{L.scope} <a href="#positions">{ko ? '뒤의 위치와 가리기 단원' : 'later position and masking unit'}</a>.</figcaption>
+  </figure>}
   {stage === 'preparation' && <Figure caption={ko ? '같은 X에서 출발하지만 서로 다른 계수로 기준용과 후보용을 만듭니다. 후보용은 Y를 다시 이름 붙인 표가 아닙니다.' : 'Both start from the same X, using different coefficients. Candidate rows are a separate computation, not renamed Y rows.'}>
     <div class="attention-story__matrices">
       <MatrixGrid matrix={result.Q} name={L.basis} rowLabels={tokens} compact matrixId="story-basis" />
