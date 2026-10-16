@@ -58,23 +58,28 @@ import ModelRoutes from '../../../components/site/ModelRoutes.astro';
 import { MatrixGrid } from '../../../components/lab/MatrixGrid';
 import { EmbeddingLookupExplorer } from '../../../components/lab/EmbeddingLookupExplorer';
 import { GenerationJourney } from '../../../components/lab/GenerationJourney';
-import { NextTokenExplorer } from '../../../components/lab/NextTokenExplorer';
 import { LayerTraceExplorer } from '../../../components/lab/LayerTraceExplorer';
 import { LearningUpdateExplorer } from '../../../components/lab/LearningUpdateExplorer';
 import { TokenChoiceExplorer } from '../../../components/lab/TokenChoiceExplorer';
 import { SECTIONS } from '../../../lib/nav';
+import { LessonComputation } from '../../../components/lab/LessonComputation';
+import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
+import { LessonLearning } from '../../../components/lab/LessonLearning';
+import { LessonGeneration } from '../../../components/lab/LessonGeneration';
+import { docHref } from '../../../lib/i18n/routing';
 import { DEFAULT_WO, FFN_W2, defaultMultiHeadInput } from '../../../lib/math/examples';
 import { computeMultiHead } from '../../../lib/math/multihead';
 
 <Section id="language-model" locale="en">
-
-<div slot="opening">
+<div slot="opening" data-main-lesson>
   <GenerationJourney client:load locale="en" />
   <div data-model-intro>
     <p>A <strong>generative large language model (LLM)</strong> computes <strong>next-token probabilities</strong> from the text it is given.</p>
     <p>The journey follows the final input position, appends one choice, then <strong>predicts again from the longer input</strong>.</p>
   </div>
 </div>
+
+<div data-main-lesson>
 
 ### What does this computation show?
 
@@ -93,10 +98,12 @@ End is a special stopping token, not an ordinary period. High probability does n
 <Steps title="Now learn these operations in more detail">
 
 1. **Look up numbers for text.** Assign IDs and retrieve table rows. Start with (1, 0, 1, 0) for “I” in the [next unit](#tokens).
-2. **Transform numbers and gather context.** Learn multiply-and-add, row comparisons and content retrieval using reference shares. [Detailed arithmetic](#numbers) is a separate exercise with all three tokens supplied.
-3. **Go from the final representation to next candidates.** Separate probabilities for “I / went / to school / end” from the selection rule. [Connect the calculations](#big-picture) also compares a different configuration that adds positions.
+2. **Transform numbers and gather context.** Learn multiply-and-add, row comparisons and content retrieval using reference shares. [Detailed arithmetic](#numbers) follows the final position of these same two inputs.
+3. **Go from the final representation to next candidates.** Separate probabilities for “I / went / to school / end” from the selection rule. [Connect the calculations](#big-picture) uses the same final representation for next-candidate probabilities.
 
 </Steps>
+</div>
+
 </div>
 
 <Expand id="math-conditional" summary="Which context does this probability belong to?">
@@ -106,12 +113,9 @@ The journey computes different end probabilities for “I went” and “I went 
 
 </Expand>
 
-<Expand id="table-generation" summary="Supplement: compare selection rules with chosen probability tables">
+<Expand id="table-generation" summary="Optional: open a probability-table selection exercise">
 
-This separate exercise uses **chosen example probability tables** to practice choice and appending alone.
-Keep it separate from the computed journey above. Its values are set in advance: 70% for “to school”, then 100% for end.
-
-<NextTokenExplorer client:load locale="en" initialRound={2} />
+The chosen-table selection exercise is available on <a href={docHref('en', 'exercises/next-token')}>a separate exercise page</a>.
 
 </Expand>
 
@@ -131,6 +135,31 @@ Lab inputs and coefficients are illustrative values; outputs are calculated from
 </details>
 
 <Section id="tokens" locale="en">
+
+<div data-main-lesson>
+
+### Look up numbers for the two given chunks
+
+The input is **I / went**. Each chunk’s ID locates one row in the embedding table. An ID is an address; the four retrieved numbers represent that chunk.
+
+<LessonComputation locale="en" stage="tokens" />
+
+A list of numbers in order is a **vector**; a grid of such rows is a **matrix**. Two tokens give two rows, and four values per token give four columns.
+Pass the **final row of this 2 × 4 input X** to the next calculation.
+
+<Expand id="math-shape" summary="2 × 4: which number counts tokens?">
+
+The first number, 2, counts the token rows. The second, 4, counts features per token. ID 1 and its four retrieved values are different kinds of numbers.
+
+</Expand>
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-tokens" data-legacy-exercise="tokens">
+<summary>Try changes: embedding lookup for three chunks</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 ### Give the sentence chunks IDs
 
@@ -177,7 +206,7 @@ $$
 A horizontal line is a **row**. Vertically aligned cells form a **column**.
 Three chunks give three rows; four values per row give four columns. Write rows first: **3 × 4**.
 
-<Expand id="math-shape" summary="What does 3 × 4 mean in this table?">
+<Expand id="math-shape-three" summary="What does 3 × 4 mean in this table?">
 
 1. X has **three horizontal rows**, corresponding to “I”, “went” and “to school”.
 2. Each row has **four numerical cells**. The first is 1, 0, 1, 0. Aligning matching slots vertically gives four columns.
@@ -211,14 +240,48 @@ Each X row currently contains only its chunk’s values. **Predicting the next c
 As preparation, the next unit uses a matrix product to turn four values into two, and a dot product to compare two rows with one score. Then we turn scores into shares and mix content.
 Real embedding tables are learned, and mixing context through layers changes a token’s representation.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="numbers" locale="en">
 
-<Note>
-This is an <strong>independent advanced exercise with all three tokens supplied</strong>. Follow the first position, “I”, in “I / went / to school”, with future masking off.
-It is a different run from the opening, which predicts after the final input “went”. Its scores (0, 4, 2) do not continue the opening's (4, 0).
-</Note>
+<div data-main-lesson>
+
+### Transform four input values into two comparison values
+
+To retrieve context, we need numbers for comparing the current position with reference positions. Start with **(0, 1, 0, 1) for went**.
+Multiply each input value by a fixed coefficient and add to make one output. Repeating this for output columns is matrix multiplication.
+
+<LessonComputation locale="en" stage="projection" />
+
+<div id="similarity">
+
+### Compare matching entries of the values just produced
+
+The current comparison values are **(0, 2)**. Compare them with **(0, 2) for I** and **(2, 0) for went** by multiplying matching entries and adding.
+
+<LessonComputation locale="en" stage="comparison" />
+
+### Arrange the same dot product as row times column
+
+Keep the comparison unchanged and stand the reference row up as a column. Add reference columns beside it to compare several positions from the same current row.
+
+<LessonComputation locale="en" stage="transpose" />
+<LessonComputation locale="en" stage="scores" />
+
+</div>
+
+Pass **the two scores (4, 0)** to the next unit. They are not yet retrieved content or next-vocabulary probabilities.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-numbers" data-legacy-exercise="numbers">
+<summary>Try changes: matrix products, dot products and three tokens</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 <AttentionStory locale="en" stage="overview" />
 
@@ -270,7 +333,7 @@ The three-token reference exercise keeps these default coefficients and inputs f
 
 <AttentionStory locale="en" stage="preparation" />
 
-<div id="similarity">
+<div data-legacy-comparison>
 
 ### Build a score for comparing two rows
 
@@ -489,9 +552,36 @@ tell those apart.
 </Expand>
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="proportion" locale="en">
+
+<div data-main-lesson>
+
+### Turn comparison scores into reference shares
+
+Use **(4, 0)** from the preceding unit to decide how much content to retrieve from each input position. **Softmax** turns scores into shares summing to 1.
+
+<LessonComputation locale="en" stage="shares" />
+
+### Use those shares to gather content from the same input
+
+Retrieve **94.4%** from I and **5.6%** from went. Apply content coefficients to the same input, then multiply and add matching content coordinates using those shares.
+
+<LessonComputation locale="en" stage="aggregation" />
+
+The output **(2.833, 0.167)** is content gathered by the first head at the went position. Next, name the three roles in the calculation just completed.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-proportion" data-legacy-exercise="proportion">
+<summary>Try changes: scores, softmax and weighted sums</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 Continue with the same scores (0, 4, 2). Dividing limits the increase in score spread as comparisons use more values. Here each row has two values, so divide by √2≈1.414 before softmax. Keep raw and divided scores distinct.
 
@@ -688,10 +778,32 @@ The [normalization unit](#blocks) computes variance with actual numbers. You do 
 
 </Expand>
 
+</div>
+</details>
 
 </Section>
 
 <Section id="attention" locale="en">
+
+<div data-main-lesson>
+
+### Name the roles we have already used: Q · K · V
+
+**Q** compares from the current position, **K** supplies reference comparison values, and **V** supplies content to retrieve.
+Three coefficient tables produce these values from the same input. Use them in the order already followed: compare → reference shares → gather content.
+
+<LessonComputation locale="en" stage="attention" />
+
+Positions within one sequence retrieve content from each other, hence **self-attention**. The output row still belongs to went.
+Before joining this head with another one, inspect which input positions it is allowed to read.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-attention" data-legacy-exercise="attention">
+<summary>Try changes: full attention and reading patterns</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 We represented the three chunks as X and learned to turn comparison scores into shares. Now connect those calculations so **each row receives context and produces a new representation**.
 Comparing and mixing the shared sentence’s three positions is self-attention. First calculate this operation, then add order and future masking in the next unit.
@@ -960,13 +1072,40 @@ Restricting generation to earlier context is taught in [positions and masks](#po
 **The score table is 3 × 3** because three positions meet three positions. Later we check how this grows with input length.
 Attention across two separate sequences is compared after translation architecture is introduced in the [whole-route unit](#big-picture).
 
+</div>
+</details>
+
 </Section>
 
 <Section id="positions" locale="en">
 
-<Note>
-The opening omitted position calculation. Here we introduce a <strong>new operation</strong>: adding position vectors to embeddings. The changed input numbers can change later comparisons, reference shares and candidate probabilities.
-</Note>
+<div data-main-lesson>
+
+### Which positions can be referenced now?
+
+Predicting a next chunk must not read later information in advance. Each row can therefore reference **itself and preceding positions only**.
+This **causal mask** has been applied throughout the calculation.
+
+<LessonComputation locale="en" stage="mask" />
+
+The mask restricts what can be read. Position information is a separate operation that identifies where chunks occur.
+In the extension below, add position vectors to the input and recompute comparisons, shares, content, block outputs and vocabulary probabilities.
+
+<Expand id="lesson-position-extension" summary="Optional extension: add positions and recompute to the output">
+
+<LessonPositionExtension client:load locale="en" />
+
+</Expand>
+
+Pass the first head’s output at the final input position to the next unit.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-positions" data-legacy-exercise="positions">
+<summary>Advanced: position functions and masking</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 The shared chunks need **positions as well as IDs**. An ID identifies a chunk; it is not its current position.
 For a separate order example, compare “the dog bites the man / the man bites the dog”: the word lists match, but the roles differ.
@@ -1119,9 +1258,31 @@ and the remaining positions share a full 1 again.
 
 This **causal** mask belongs to the decoder. The encoder can access the whole source sentence; padding positions may still be masked.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="multi-head" locale="en">
+
+<div data-main-lesson>
+
+### Read the same input again using other coefficients
+
+The first head produced **(2.833, 0.167)**. A second head compares and gathers content from the same input using its own coefficients.
+Keep the two results, concatenate them, then mix the joined row using output coefficients **W_O** to get four values again.
+
+<LessonComputation locale="en" stage="heads" />
+
+The attention output just calculated and **the original four input values for went** are the two inputs to the next unit.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-multi-head" data-legacy-exercise="multi-head">
+<summary>Try changes: heads and output coefficients</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 One head can attend to several tokens. But a single weighted mixture can blur distinctions in the original information.
 Multi-head attention projects the same input in different ways, makes separate mixtures and combines them.
@@ -1297,9 +1458,42 @@ heads **appear** to exhibit such behaviour; it does not claim that attention wei
 explain what the model decided.
 </Note>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="blocks" locale="en">
+
+<div data-main-lesson>
+
+### Preserve the original input by adding it
+
+Passing attention output alone may lose information from the input. Adding matching input entries provides a **residual connection**.
+Then layer normalization adjusts the scale of values within this token.
+
+<LessonComputation locale="en" stage="residual" />
+
+### Transform the normalized values within this token
+
+Attention has already gathered information between tokens. The **FFN** now widens and narrows the values of each token separately.
+Its input is exactly the preceding normalization output. ReLU replaces negative entries with zero.
+
+<LessonComputation locale="en" stage="feed-forward" />
+
+### Add and normalize again
+
+Add the row entering the FFN to the row leaving it, then normalize again. This produces **the final representation at went**, ready to score next candidates.
+
+<LessonComputation locale="en" stage="hidden" />
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-blocks" data-legacy-exercise="blocks">
+<summary>Try changes: FFN, residuals and normalization</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 After mixing context, calculate within each token, add an input path and control numeric scale to form a block.
 The isolated FFN below uses I’s original vector (1, 0, 1, 0). Normalization uses a separate four-value row to make mean and variance easy to follow. The next unit connects these operations in their actual order.
@@ -1511,16 +1705,45 @@ const next = layerNorm(sum).output;
 Passing only sublayerOutput onward would omit the bypass in the paper’s post-norm arrangement.
 The matrices being added need matching shapes; normalization treats each row’s features separately.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="big-picture" locale="en">
+
+<div data-main-lesson>
+
+### Use the block’s final representation to compare vocabulary candidates
+
+Receive the final representation from the preceding unit unchanged. Multiplying by vocabulary coefficients gives scores for **I / went / to school / end**.
+Softmax converts those scores into probabilities for the next chunk.
+
+<LessonComputation locale="en" stage="readout" />
+
+**To school has the largest probability, 71.8%.** The input still contains only I / went; to school is a next candidate.
+Training compares this prediction with a target. Generation chooses a chunk from these probabilities and appends it.
+
+<Expand id="math-readout" summary="How do input-position shares differ from vocabulary probabilities?">
+
+The two attention shares retrieve content from the two given positions. These four probabilities refer to four next-vocabulary candidates. The vocabulary coefficients turn the final representation into candidate scores.
+
+</Expand>
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-big-picture" data-legacy-exercise="big-picture">
+<summary>Advanced: a configurable block and the paper’s translation model</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 Connect the calculations using the **shared sentence I / went / to school** and follow one block to next-token probabilities. Then compare this with the original paper’s translation architecture.
 
 ### Connect the calculations — input to token probabilities
 
-Connect the operations explored separately, starting from **the same 3 × 4 input X**. Add positions, use two causally masked heads, and then an FFN.
-The three rows continue to refer to the same chunks. Earlier basic attention omitted positions and the causal mask, so intermediate values can differ here.
+Connect the operations explored separately, starting from **a 3 × 4 input X**. Add positions, use two causally masked heads, and then an FFN.
+The three input rows receive position vectors and a causal mask. The final vocabulary readout is the identity matrix.
 Predict each shape before advancing and compare one row’s values across stages.
 
 | Chosen setting | Integrated toy example | Original paper’s base model |
@@ -1532,13 +1755,9 @@ Predict each shape before advancing and compare one row’s values across stages
 | Blocks | 1 | 6 each in encoder and decoder |
 | Output vocabulary | Four entries: I, went, to school, end | Tens of thousands of translation tokens |
 
-<Note>
-This integrated exercise uses different settings from the opening: all three tokens are supplied, position vectors are added, and the vocabulary readout is the identity matrix. The opening omitted positions and used −1 as the first readout coefficient, so these probabilities belong to a separate run.
-</Note>
-
 <LayerTraceExplorer client:load locale="en" />
 
-<Expand id="math-readout" summary="How do the final row’s four values become next-chunk probabilities?">
+<Expand id="math-readout-identity" summary="How do the final row’s four values become next-chunk probabilities?">
 
 At the default settings, the final “to school” row is about (0.288, −0.064, −1.506, 1.282). The readout is a 4 × 4 identity matrix: diagonal entries 1, all others 0. Multiplication passes the values directly to the four candidate scores.
 The hidden width and candidate count both being 4 is an illustrative choice; real models need not have equal counts.
@@ -1708,9 +1927,39 @@ A GPT-style language model predicts the next token from its context using a deco
 This experiment connects the paper’s post-norm parts to illustrate one decoder block.
 It does not reproduce every GPT design choice or the complete encoder–decoder translator. The GPT connection follows [section 3.1 of its paper](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf).
 
+</div>
+</details>
+
 </Section>
 
 <Section id="training" locale="en">
+
+<div data-main-lesson>
+
+### Compare the same prediction with a separate target
+
+The input is **I / went**, and the target label is **to school**. Do not put that target into the input in advance.
+Convert the probability already assigned to the target into one loss value to measure how much this prediction needs correcting.
+
+<LessonComputation locale="en" stage="loss" />
+
+Learning adjusts coefficients to reduce loss. Below, keep **the same four candidates and final representation**, and update one vocabulary coefficient once. Other coefficients remain fixed.
+
+<Expand id="lesson-readout-learning" summary="Try a learning step: update one vocabulary coefficient">
+
+<LessonLearning client:load locale="en" />
+
+</Expand>
+
+Training repeats this process over many input–target pairs. Next, keep the coefficients and use the calculated probabilities to choose chunks for generation.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-training" data-legacy-exercise="training">
+<summary>Advanced: losses, two-candidate learning and paper settings</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 The earlier coefficients were illustrative values. Learning requires **scoring the prediction against a target and adjusting coefficients to reduce loss**.
 Training from scratch typically starts with small random values and repeatedly compares predictions with targets in the data.
@@ -1950,9 +2199,36 @@ large difference for something this article only names in passing.
 
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="generation" locale="en">
+
+<div data-main-lesson>
+
+### Choose and append one chunk from the computed probabilities
+
+Start with the vocabulary scores and probabilities at **temperature 1**. Choosing the largest probability appends to school to the input.
+Recompute the final representation and vocabulary probabilities for that longer input: **end has the largest probability, 49.4%**.
+
+<LessonGeneration client:load locale="en" />
+
+End is a stopping token, distinct from an ordinary period. Choosing it stops without another embedding lookup.
+Alongside greedy selection, generation can sample according to probabilities. Either rule appends its choice and **computes again from the longer input**.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-generation" data-legacy-exercise="generation">
+<summary>Advanced: sampling, beam search and other vocabularies</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
+
+<p><a href={docHref('en', 'exercises/next-token')}>Separate page: compare selection rules using chosen probability tables</a></p>
+
+
 
 The connected block computes four candidate probabilities from context; learning changes its coefficients. **Generation uses the coefficients to choose and append one candidate.**
 The changed input requires a new probability calculation. Revisit the opening generation loop using the computed final row.
@@ -2091,9 +2367,29 @@ Finding a high-probability path and producing a good answer for a person require
 
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="results" locale="en">
+
+<div data-main-lesson>
+
+### Separate next-chunk probability from model performance
+
+Comparison values, reference shares, content, final representations and vocabulary probabilities formed one computation. Each appended chunk led to a new prediction.
+These probabilities select a next chunk; they do not give the probability that generated content is factual.
+
+Evaluate models using prediction loss, accuracy and compute cost on the same data under the same conditions. The optional material below examines translation evaluation and the paper’s experiments.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-results" data-legacy-exercise="results">
+<summary>Advanced: the paper’s translation evaluation, experiments and cost</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
 
 That is the architecture. Now for what it actually achieved.
 
@@ -2268,6 +2564,9 @@ Context pieces become IDs and vectors; attention mixes information from other po
 A final readout and softmax produce vocabulary probabilities. Generation chooses and appends a token; training changes weights using target loss.
 Choose a connection you still cannot explain and revisit its experiment. Confirm arithmetic and conceptual understanding separately.
 </Note>
+
+</div>
+</details>
 
 </Section>
 

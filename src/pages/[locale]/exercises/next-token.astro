@@ -1,0 +1,17 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { NextTokenExplorer } from '../../../components/lab/NextTokenExplorer';
+import { docHref, type Locale } from '../../../lib/i18n/routing';
+export function getStaticPaths() {
+  return (['ko', 'en'] as const).map(locale => ({ params: { locale }, props: { locale } }));
+}
+const { locale } = Astro.props as { locale: Locale };
+const title = locale === 'ko' ? '선택 규칙을 위한 확률표 실습' : 'Probability-table selection exercise';
+---
+<BaseLayout locale={locale} title={title} description={title} docId="exercises/next-token">
+  <main id="main" class="prose" style="max-width:52.5rem;margin-inline:auto;padding:var(--gutter);min-width:0;">
+    <nav id="doc-nav"><a href={`${docHref(locale, '')}#generation`}>{locale === 'ko' ? '계산으로 생성하기로 돌아가기' : 'Return to computed generation'}</a></nav>
+    <h1>{title}</h1>
+    <NextTokenExplorer client:load locale={locale} initialRound={2} />
+  </main>
+</BaseLayout>

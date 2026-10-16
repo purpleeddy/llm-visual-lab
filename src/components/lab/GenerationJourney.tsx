@@ -3,6 +3,7 @@ import { advanceLesson, lessonSnapshot, LESSON_INITIAL_IDS, LESSON_END_ID, LESSO
 import { LEARNING_EXAMPLE, FFN_W1, FFN_B1, FFN_W2, FFN_B2 } from '../../lib/math/examples';
 import { fmt, fmtCompact, fmtPercent } from '../../lib/math/format';
 import { MatrixGrid } from './MatrixGrid';
+import { LessonToken as Token, LessonNumbers, LessonContributions, LessonProbabilities } from './LessonPrimitives';
 import type { Locale } from '../../lib/i18n/routing';
 import '../../styles/journey.css';
 
@@ -14,9 +15,6 @@ const TITLES = {
 const vector = (values: number[], decimals = 3) => `(${values.map(value => fmtCompact(value, decimals)).join(', ')})`;
 const products = (left: number[], right: number[]) => left.map((value, i) => `${fmtCompact(value)} × ${fmtCompact(right[i])}`).join(' + ');
 
-function Token({ id, locale, focus = false, newly = false }: { id: number; locale: Locale; focus?: boolean; newly?: boolean }) {
-  return <span className="journey-token" data-token-id={id} data-focused={focus} data-new={newly}>{id === LESSON_END_ID ? (locale === 'ko' ? '[끝]' : '[end]') : LEARNING_EXAMPLE[locale].tokens[id]}</span>;
-}
 
 /** One manually advanced board. Every numerical view reads the current decoder snapshot. */
 export function GenerationJourney({ locale }: { locale: Locale }) {
@@ -32,7 +30,6 @@ export function GenerationJourney({ locale }: { locale: Locale }) {
   const firstK = head.K[0];
   const names = ids.map(id => LEARNING_EXAMPLE[locale].tokens[id]);
   const finalName = names[last];
-  const probabilityRow = run.probabilities[last];
   const railIndex = step === 0 ? -1 : step === 1 ? 1 : step <= 8 ? 2 : step === 9 ? 3 : step === 10 ? 4 : 5;
   const rail = ko ? ['주어진 글', '숫자로', '문맥 반영', '마지막 표현', '다음 후보 확률', '선택·붙이기'] : ['Given text', 'Numbers', 'Use context', 'Final representation', 'Next-candidate probabilities', 'Choose · append'];
   const path = mode === 'overview' ? [0, 11, 12] : STAGES.map((_, i) => i).slice(1);
@@ -58,12 +55,7 @@ export function GenerationJourney({ locale }: { locale: Locale }) {
     : step === 11 ? (ko ? '새 확률에서 끝 고르기' : 'Choose end from the new probabilities')
     : (ko ? '다음 장면' : 'Next scene');
 
-  const probabilityDisplay = <div className="journey__probabilities" role="group" aria-label={ko ? '다음 어휘 후보의 확률' : 'Next-vocabulary probabilities'} data-journey-probabilities>
-    <p>{ko ? '지금 입력 바로 뒤에 올 한 조각의 확률' : 'Probabilities for one chunk immediately after this input'}</p>
-    <dl>{probabilityRow.map((p, id) => <div className="journey__probability-row" key={id} data-vocabulary-id={id} data-largest={id === run.nextId}>
-      <dt><Token id={id} locale={locale} /></dt><dd><strong data-journey-probability>{fmtPercent(p, 1)}</strong><span className="journey__bar-track" aria-hidden="true"><span className="journey__bar" style={{ width: `${100 * p}%` }} /></span></dd>
-    </div>)}</dl>
-  </div>;
+  const probabilityDisplay = <LessonProbabilities locale={locale} run={run} />;
 
   return <section id="generation-opening" className="lab lab--generation-journey" aria-label={ko ? '입력부터 다음 조각까지 한 계산 여정' : 'One computation from input to next chunk'} data-mode={mode} data-progress={`${pathIndex + 1}/${path.length}`} data-stage={stage} data-prefix={ids.join(',')} data-finished={stage === 'finished'}>
     <header className="lab__header"><h3 className="lab__title">{ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?'}</h3></header>
@@ -85,7 +77,7 @@ export function GenerationJourney({ locale }: { locale: Locale }) {
         <p>{ko ? '가장 큰 확률의 조각을 미리 보여줍니다. 아래 버튼으로 실제로 붙이면, 늘어난 입력으로 다시 계산합니다.' : 'This previews the highest-probability choice. Append it with the button below, then compute again using the longer input.'}</p>
       </>}
       {step === 1 && <>
-        <div className="journey__lookup">{ids.map((id, row) => <div key={id}><Token id={id} locale={locale} /><span aria-hidden="true">→</span><span className="journey__digits" data-journey-embedding={id}>{run.stages.embedding[row].map((value, feature) => <span key={feature} aria-label={`${ko ? '값' : 'Entry'} ${feature + 1}: ${value}`}>{fmtCompact(value)}</span>)}</span></div>)}</div>
+        <div className="journey__lookup">{ids.map((id, row) => <div key={id}><Token id={id} locale={locale} /><span aria-hidden="true">→</span><LessonNumbers locale={locale} values={run.stages.embedding[row]} data-journey-embedding={id} /></div>)}</div>
         <p>{ko ? '각 조각의 번호로 표를 찾아 숫자를 꺼냅니다. 두 입력 자리는 그대로 남습니다. 마지막 자리인 “학교에”를 끝까지 따라가겠습니다.' : 'Use each chunk’s ID to retrieve its numbers from a table. Both input positions remain. We will follow the final position, “went”, all the way through.'}</p>
         <p>{ko ? '이 여정에서는 위치 숫자를 더하지 않아, 꺼낸 숫자가 그대로 다음 계산에 들어갑니다.' : 'This journey adds no position numbers: the retrieved numbers enter the next calculation unchanged.'}</p>
       </>}
@@ -97,8 +89,8 @@ export function GenerationJourney({ locale }: { locale: Locale }) {
       {step === 3 && <>
         <p>{ko ? '먼저 “학교에”의 숫자 네 개를 다른 숫자 두 개로 바꿉니다. 비교에 쓸 특징을 만들기 위해, 각 입력값을 얼마만큼 사용할지 계수로 정합니다. 두 번째 출력 하나를 계산해 봅니다.' : 'First transform the four numbers for “went” into two numbers. Coefficients combine input entries into features for comparison. Calculate the second output first.'}</p>
         <div className="journey__projection-inputs">
-          <div><span>{ko ? '이번 입력' : 'Selected input'} · <Token id={ids[last]} locale={locale} focus /></span><span className="journey__digits" data-journey-projection-input>{head.X[last].map((value, feature) => <span key={feature}>{fmtCompact(value)}</span>)}</span></div>
-          <div><span>{ko ? '이 출력에 곱할 고정 계수' : 'Fixed coefficients for this output'}</span><span className="journey__digits" data-journey-projection-coefficients>{head.WQ.map((row, feature) => <span key={feature}>{fmtCompact(row[1])}</span>)}</span></div>
+          <div><span>{ko ? '이번 입력' : 'Selected input'} · <Token id={ids[last]} locale={locale} focus /></span><LessonNumbers locale={locale} values={head.X[last]} data-journey-projection-input /></div>
+          <div><span>{ko ? '이 출력에 곱할 고정 계수' : 'Fixed coefficients for this output'}</span><LessonNumbers locale={locale} values={head.WQ.map(row => row[1])} data-journey-projection-coefficients /></div>
         </div>
         <div className="journey__equation" data-journey-projection>{products(head.X[last], head.WQ.map(row => row[1]))} = <strong>{fmtCompact(q[1])}</strong></div>
         <p>{ko ? '첫 번째 출력도 같은 방법으로 구하면' : 'Compute the first output in the same way:'} <strong data-journey-query>{vector(q)}</strong>. {ko ? '이것이 현재 자리에서 비교에 쓸 두 숫자입니다.' : 'These two numbers will compare from the current position.'}</p>
@@ -140,21 +132,7 @@ export function GenerationJourney({ locale }: { locale: Locale }) {
       </>}
       {step === 8 && <>
         <p>{ko ? '각 자리의 내용을 참고 비중만큼 가져온 뒤, 왼쪽 값끼리·오른쪽 값끼리 더합니다. 색을 따라 두 자리의 기여가 어디에 모이는지 보세요.' : 'Retrieve each position’s content in proportion to its reference share, then add matching coordinates. Follow the colors to see where each contribution goes.'}</p>
-        <figure className="journey__mixture" data-journey-mixture>
-          <div className="journey__contributions">{ids.map((id, j) => <div className="journey__contribution" key={id} data-source-id={id}>
-            <Token id={id} locale={locale} />
-            <div className="journey__coordinates" data-source-values>{head.V[j].map((value, feature) => <span key={feature} data-contribution-source>{fmtCompact(value)}</span>)}</div>
-            <strong className="journey__multiply">× <span data-contribution-share>{fmtPercent(head.weights[last][j], 1)}</span></strong>
-            <span className="journey__contribution-arrow" aria-hidden="true">→</span>
-            <div className="journey__coordinates" data-weighted-values>{head.V[j].map((value, feature) => {
-              const contribution = value * head.weights[last][j];
-              return <span key={feature} className="journey__coordinate"><strong data-contribution-value>{fmtCompact(contribution, 3)}</strong><span className="journey__contribution-bar" style={{ width: `${head.output[last][feature] === 0 ? 0 : 100 * contribution / head.output[last][feature]}%` }} aria-hidden="true" /></span>;
-            })}</div>
-          </div>)}</div>
-          <div className="journey__merge"><span aria-hidden="true">↓ + ↓</span><span>{ko ? '같은 자리끼리 더하기' : 'Add matching coordinates'}</span></div>
-          <div className="journey__mixture-result"><Token id={ids[last]} locale={locale} focus /><div className="journey__coordinates">{head.output[last].map((value, feature) => <span key={feature} className="journey__coordinate"><strong data-journey-head-output>{fmtCompact(value, 3)}</strong><span className="journey__sum-bar" aria-hidden="true">{ids.map((id, j) => <span key={id} data-source-id={id} style={{ width: `${value === 0 ? 0 : 100 * head.V[j][feature] * head.weights[last][j] / value}%` }} />)}</span></span>)}</div></div>
-          <figcaption>{ko ? '학교에 자리에 모은 첫 head의 내용입니다. 다음 토큰 확률은 이 뒤의 계산을 거쳐 따로 만듭니다.' : 'This is content gathered by the first head at “went”. Next-token probabilities are computed separately after the remaining operations.'}</figcaption>
-        </figure>
+        <LessonContributions locale={locale} run={run} />
         <details className="expand" key={stage}><summary>{ko ? '정확한 곱·합과 내용 계수 펼치기' : 'Open the precise products, sums and content coefficients'}</summary><div className="expand__body">
           {q.map((_, feature) => <p className="journey__equation" key={feature}>{ids.map((id, j) => `${fmt(head.weights[last][j], 6)} × ${fmtCompact(head.V[j][feature])}`).join(' + ')} = <strong data-journey-exact-head-output>{fmt(head.output[last][feature], 6)}</strong></p>)}
           <MatrixGrid matrix={head.WV} name={ko ? '고정 내용 계수' : 'Fixed content coefficients'} compact /><MatrixGrid matrix={head.V} name="V" rowLabels={names} compact />

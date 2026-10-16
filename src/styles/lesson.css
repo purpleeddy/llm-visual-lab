@@ -1,0 +1,42 @@
+/* Read directly through one decoder run. Independent controls live in closed exercises. */
+.lesson-computation { min-width: 0; max-width: 100%; margin-block: 1.5rem; padding-block: 1rem; border-block: 1px solid var(--line-2); overflow-wrap: anywhere; }
+.lesson-computation h4 { margin-block: 0 0.75rem; font-size: 1.2rem; line-height: 1.5; }
+.prose .lesson-computation p, .lesson-computation summary, .lesson-computation .mgrid__name, .lesson-computation .mgrid__rowlabel, .lesson-computation .mgrid__collabel, .lesson-computation .mgrid__table { font-size: 1rem; }
+.lesson-context { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.lesson-value { display: grid; gap: 0.5rem; min-width: 0; margin-block: 0.75rem; }
+.lesson-value > span:first-child { color: var(--ink-2); }
+.lesson-computation .journey__digits { width: min(100%,24rem); }
+.journey__digits[data-size='2'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.lesson-rows { display: grid; gap: 0.75rem; }
+.lesson-rows > div { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; min-width: 0; padding-block: 0.25rem; }
+.lesson-projections, .lesson-comparisons { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 1rem; }
+.lesson-projections > div, .lesson-comparisons > div { min-width: 0; padding-inline-start: 0.75rem; border-inline-start: 2px solid var(--line-3); }
+.lesson-equation { font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.lesson-reference-columns { display: flex; flex-wrap: wrap; gap: 1.5rem; }
+.lesson-reference-columns > div { display: grid; justify-items: center; gap: 0.75rem; }
+.lesson-mask { display: grid; gap: 0.75rem; }
+.lesson-mask > div { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 0.5rem; }
+.lesson-mask [data-mask-allowed='false'] { background: var(--blocked-surface); border-inline-start: 3px solid var(--blocked-ink); }
+.lesson-mask [role='cell'] { padding: 0.5rem; }
+.lesson-computation .mgrid { min-width: 0; max-width: 100%; }
+.lesson-computation .mgrid__name { overflow-wrap: anywhere; max-width: 100%; min-width: 0; }
+.lesson-position-addition { display: grid; grid-template-columns: minmax(0,1fr); gap: 0.75rem; }
+.lesson-position-extension, .lesson-learning { min-width: 0; max-width: 100%; }
+.lesson-position-extension label { font-size: 1rem; }
+.prose .lesson-legacy { margin-block: 1.5rem; padding: 0.75rem 0; border: 0; border-block: 1px solid var(--line-2); background: var(--surface-panel); }
+.lesson-legacy > summary { font-size: 1rem; font-weight: 600; padding-inline: 1rem; }
+.lesson-legacy > .expand__body { min-width: 0; }
+@media (max-width: 40rem) {
+  .lesson-projections, .lesson-comparisons, .lesson-mask > div { grid-template-columns: minmax(0,1fr); }
+  .lesson-legacy > summary { padding-inline: 0.75rem; }
+}
+@media (max-width: 40rem) {
+  .lesson-computation .journey__digits[data-size='4'], .lesson-computation .journey__digits[data-size='8'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media (max-width: 20rem) {
+  .lesson-computation .journey__digits { grid-template-columns: minmax(0,1fr); }
+}
+
+.lesson-computation .journey__pair .journey__digits[data-size='2'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.lesson-learning, .lesson-generation, .lesson-position-extension { overflow-wrap: anywhere; }
+.lesson-learning .btn, .lesson-generation .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 1rem; min-height: 2.75rem; margin-block: 0.5rem; }

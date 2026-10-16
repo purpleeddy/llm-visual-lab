@@ -42,7 +42,7 @@ export const GROUPS: SectionGroup[] = [
       "en": "Context and order"
     },
     "summary": {
-      "ko": "비중 → attention → 위치와 가리기",
+      "ko": "비중 → attention → 가리기와 위치 확장",
       "en": "Shares → attention → positions and masks"
     },
     "paper": {
@@ -123,8 +123,8 @@ export const SECTIONS: SectionItem[] = [
       "language-model"
     ],
     "goal": {
-      "ko": "토큰, 번호, 벡터를 구분하고 토큰 세 개가 3 × 4 행렬이 되는 이유를 설명합니다.",
-      "en": "Distinguish tokens, IDs and vectors, and explain why three tokens become a 3 × 4 matrix."
+      "ko": "토큰, 번호, 벡터를 구분하고 두 입력이 2 × 4 행렬이 되는 이유를 설명합니다.",
+      "en": "Distinguish tokens, IDs and vectors, and explain why two inputs become a 2 × 4 matrix."
     },
     "check": {
       "question": {
@@ -158,12 +158,12 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "3 × 4 입력과 4 × 2 가중치를 곱하면 무엇이 몇 개 나올까요?",
-        "en": "What does multiplying a 3 × 4 input by 4 × 2 weights produce?"
+        "ko": "2 × 4 입력과 4 × 2 계수를 곱하면 무엇이 몇 개 나올까요?",
+        "en": "What does multiplying a 2 × 4 input by 4 × 2 coefficients produce?"
       },
       "answer": {
-        "ko": "3 × 2 행렬입니다. 토큰 행 세 개는 유지되고, 토큰마다 새 값 두 개가 생깁니다. 첫 칸은 1×1 + 0×0 + 1×1 + 0×0 = 2입니다.",
-        "en": "A 3 × 2 matrix: three token rows remain, each with two new features. The first cell is 1×1 + 0×0 + 1×1 + 0×0 = 2."
+        "ko": "2 × 2 행렬입니다. 입력 두 행은 유지되고 각 행에 새 값 두 개가 생깁니다. 학교에의 행은 (0, 2)이며, 둘째 값은 0×0 + 1×1 + 0×0 + 1×1 = 2입니다.",
+        "en": "A 2 × 2 matrix: two input rows remain, each with two new features. The went row is (0, 2); its second entry is 0×0 + 1×1 + 0×0 + 1×1 = 2."
       }
     },
     "navTitle": {
@@ -188,12 +188,12 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "값 2와 8을 비중 0.25와 0.75로 섞으면 얼마일까요?",
-        "en": "What is the mixture of values 2 and 8 with weights 0.25 and 0.75?"
+        "ko": "내용 (3, 0)과 (0, 3)을 약 94.4%와 5.6%로 모으면 무엇이 될까요?",
+        "en": "What content results from mixing (3, 0) and (0, 3) with shares of about 94.4% and 5.6%?"
       },
       "answer": {
-        "ko": "0.25×2 + 0.75×8 = 6.5입니다. softmax는 비중을 만들고, 가중합은 그 비중으로 내용을 가져오는 서로 다른 계산입니다.",
-        "en": "0.25×2 + 0.75×8 = 6.5. Softmax produces the shares; the weighted sum uses them to retrieve content."
+        "ko": "약 (2.833, 0.167)입니다. 각 좌표에 참고 비중을 곱해 더합니다. softmax의 비중은 주어진 자리에서 내용을 가져오는 몫입니다.",
+        "en": "About (2.833, 0.167). Multiply and add matching coordinates using the reference shares. These softmax shares retrieve content from the given positions."
       }
     },
     "navTitle": {
@@ -219,12 +219,12 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "3 × 3 attention 비중과 3 × 2 value를 곱한 출력은 무엇을 나타낼까요?",
-        "en": "What does multiplying 3 × 3 attention weights by 3 × 2 values represent?"
+        "ko": "2 × 2 attention 비중과 2 × 2 내용을 곱한 출력은 무엇을 나타낼까요?",
+        "en": "What does multiplying 2 × 2 attention shares by 2 × 2 content values represent?"
       },
       "answer": {
-        "ko": "토큰마다 다른 토큰의 내용을 섞은 숫자 두 개, 즉 3 × 2 출력입니다. attention 비중은 토큰 위치를 보는 비중이며 다음 단어의 확률이 아닙니다.",
-        "en": "A 3 × 2 output: two mixed features per token. Attention weights refer to context positions; they are not next-word probabilities."
+        "ko": "토큰마다 두 자리의 내용을 모은 숫자 두 개, 즉 2 × 2 출력입니다. 학교에 자리의 첫 head 출력은 약 (2.833, 0.167)입니다.",
+        "en": "A 2 × 2 output: two gathered features per token. The first-head output at went is about (2.833, 0.167)."
       }
     },
     "navTitle": {
@@ -235,8 +235,8 @@ export const SECTIONS: SectionItem[] = [
   {
     "id": "positions",
     "title": {
-      "ko": "순서와 미래 정보 — 위치 표현·causal mask",
-      "en": "Order and future information: positions and causal masks"
+      "ko": "읽을 수 있는 범위 — causal mask와 위치 확장",
+      "en": "Allowed context: causal masking and position extensions"
     },
     "group": "attention",
     "status": "complete",
@@ -258,8 +258,8 @@ export const SECTIONS: SectionItem[] = [
       }
     },
     "navTitle": {
-      "ko": "위치와 가리기",
-      "en": "Positions and masks"
+      "ko": "가리기와 위치 확장",
+      "en": "Mask and position extension"
     }
   },
   {
@@ -279,12 +279,12 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "3 × 2 결과 두 개를 합칠 때 왜 위아래로 쌓지 않을까요?",
-        "en": "Why not stack two 3 × 2 head outputs vertically?"
+        "ko": "2 × 2 결과 두 개를 합칠 때 왜 위아래로 쌓지 않을까요?",
+        "en": "Why not stack two 2 × 2 head outputs vertically?"
       },
       "answer": {
-        "ko": "토큰마다 한 행이라는 대응을 유지해야 합니다. 옆으로 붙여 3 × 4를 만들고 W_O로 feature를 섞습니다. head는 토큰이나 층의 개수가 아닙니다.",
-        "en": "Each token must keep one row. Joining sideways gives 3 × 4; W_O mixes the features. Heads are not extra tokens or layers."
+        "ko": "토큰마다 한 행이라는 대응을 유지해야 합니다. 옆으로 붙여 2 × 4를 만들고 W_O로 feature를 섞습니다. head는 토큰이나 층의 개수가 아닙니다.",
+        "en": "Each token must keep one row. Joining sideways gives 2 × 4; W_O mixes the features. Heads are not extra tokens or layers."
       }
     },
     "navTitle": {
@@ -336,8 +336,8 @@ export const SECTIONS: SectionItem[] = [
       "blocks"
     ],
     "goal": {
-      "ko": "배운 부품을 하나의 계산 경로로 연결하고 번역 구조와 언어모델 구조를 구분합니다.",
-      "en": "Connect the parts into one computation and distinguish translation and language-model architectures."
+      "ko": "앞에서 구한 마지막 표현을 같은 어휘 출력 계수에 넣어 다음 후보 확률로 바꿉니다.",
+      "en": "Pass the final representation through the same vocabulary readout to compute next-candidate probabilities."
     },
     "check": {
       "question": {
@@ -367,17 +367,17 @@ export const SECTIONS: SectionItem[] = [
       "proportion"
     ],
     "goal": {
-      "ko": "작은 숫자로 손실을 비교하고 기울기의 반대 방향으로 가중치 한 개를 갱신합니다.",
-      "en": "Compare losses on small numbers and update one weight opposite to its gradient."
+      "ko": "두 입력의 예측을 별도 정답 라벨과 비교하고, 같은 네 후보의 손실을 줄이도록 출력 계수 하나를 고칩니다.",
+      "en": "Compare the two-input prediction with a separate target and update one readout coefficient to reduce the four-candidate loss."
     },
     "check": {
       "question": {
-        "ko": "w=0, 기울기 −0.5, 학습률 0.2이면 새 w는 얼마일까요?",
-        "en": "For w=0, gradient −0.5 and learning rate 0.2, what is the new w?"
+        "ko": "정답 갔다를 입력에 붙인 뒤 확률을 계산해야 할까요?",
+        "en": "Should the target to school be appended before computing its prediction probability?"
       },
       "answer": {
-        "ko": "0 − 0.2×(−0.5) = 0.1입니다. 두 후보 예제의 정답 확률은 0.500에서 약 0.525로, 손실은 약 0.693에서 0.644로 바뀝니다. 전체 LLM 학습의 결과가 아니라 한 가중치 예제입니다.",
-        "en": "0 − 0.2×(−0.5) = 0.1. In the two-candidate example the correct probability rises from 0.500 to about 0.525 and loss changes from about 0.693 to 0.644. This is one-weight arithmetic, not full LLM training."
+        "ko": "아닙니다. 입력은 나는 / 학교에이고 정답은 별도의 라벨입니다. 현재 정답 확률 약 71.8%를 손실로 바꾸고, 기울기의 반대 방향으로 출력 계수를 고칩니다.",
+        "en": "No. The input is I / went and the target is a separate label. Use its current probability, about 71.8%, to compute loss, then update a readout coefficient opposite to its gradient."
       }
     },
     "navTitle": {

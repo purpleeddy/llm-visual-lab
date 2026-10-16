@@ -58,23 +58,28 @@ import ModelRoutes from '../../../components/site/ModelRoutes.astro';
 import { MatrixGrid } from '../../../components/lab/MatrixGrid';
 import { EmbeddingLookupExplorer } from '../../../components/lab/EmbeddingLookupExplorer';
 import { GenerationJourney } from '../../../components/lab/GenerationJourney';
-import { NextTokenExplorer } from '../../../components/lab/NextTokenExplorer';
 import { LayerTraceExplorer } from '../../../components/lab/LayerTraceExplorer';
 import { LearningUpdateExplorer } from '../../../components/lab/LearningUpdateExplorer';
 import { TokenChoiceExplorer } from '../../../components/lab/TokenChoiceExplorer';
 import { SECTIONS } from '../../../lib/nav';
+import { LessonComputation } from '../../../components/lab/LessonComputation';
+import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
+import { LessonLearning } from '../../../components/lab/LessonLearning';
+import { LessonGeneration } from '../../../components/lab/LessonGeneration';
+import { docHref } from '../../../lib/i18n/routing';
 import { DEFAULT_WO, FFN_W2, defaultMultiHeadInput } from '../../../lib/math/examples';
 import { computeMultiHead } from '../../../lib/math/multihead';
 
 <Section id="language-model" locale="ko">
-
-<div slot="opening">
+<div slot="opening" data-main-lesson>
   <GenerationJourney client:load locale="ko" />
   <div data-model-intro>
     <p><strong>생성형 LLM(대규모 언어 모델)</strong>은 주어진 글을 계산해 <strong>다음 토큰의 확률</strong>을 만듭니다.</p>
     <p>위 여정은 마지막 입력 자리를 따라 계산하고, 하나를 붙인 뒤 <strong>늘어난 문장으로 다시 예측</strong>합니다.</p>
   </div>
 </div>
+
+<div data-main-lesson>
 
 ### 이 계산은 무엇을 보여 주나요?
 
@@ -93,10 +98,12 @@ import { computeMultiHead } from '../../../lib/math/multihead';
 <Steps title="이제 같은 종류의 계산을 더 자세히 배웁니다">
 
 1. **글에서 숫자 꺼내기.** 조각에 번호를 붙이고 표에서 값을 찾습니다. “나는”의 (1, 0, 1, 0)부터 [다음 단원](#tokens)에서 직접 확인합니다.
-2. **숫자를 바꾸고 문맥 모으기.** 곱해서 더하기, 두 줄 비교, 참고 비중으로 내용을 모으는 계산을 차례로 배웁니다. [계산 자세히](#numbers)는 세 토큰을 모두 준 별도 실습입니다.
-3. **마지막 표현에서 다음 후보로.** 어휘 “나는 / 학교에 / 갔다 / 끝”의 확률과 선택 규칙을 구분합니다. [이어서 해보기](#big-picture)에서는 위치 정보까지 더한 다른 설정도 비교합니다.
+2. **숫자를 바꾸고 문맥 모으기.** 곱해서 더하기, 두 줄 비교, 참고 비중으로 내용을 모으는 계산을 차례로 배웁니다. [계산 자세히](#numbers)에서 이 두 입력의 마지막 자리를 따라갑니다.
+3. **마지막 표현에서 다음 후보로.** 어휘 “나는 / 학교에 / 갔다 / 끝”의 확률과 선택 규칙을 구분합니다. [전체 계산](#big-picture)에서 같은 마지막 표현으로 다음 후보 확률을 만듭니다.
 
 </Steps>
+</div>
+
 </div>
 
 <Expand id="math-conditional" summary="이 확률은 어떤 문맥의 값인가요?">
@@ -106,12 +113,9 @@ P(끝 \| 나는 학교에)처럼 쓰면 세로선 뒤는 **지금 주어진 입�
 
 </Expand>
 
-<Expand id="table-generation" summary="보충: 정해 놓은 확률표로 선택 규칙만 비교하기">
+<Expand id="table-generation" summary="선택: 확률표 선택 규칙 실습 열기">
 
-이 접힌 실습은 **정해 놓은 예시 확률표**로 선택과 붙이기만 연습하는 별도 모형입니다.
-위 여정의 계산값과 섞지 마세요. 이 표는 “갔다” 70%, 그다음 끝 100%처럼 값을 미리 정해 두었습니다.
-
-<NextTokenExplorer client:load locale="ko" initialRound={2} />
+정한 확률표의 선택 규칙 실습은 <a href={docHref('ko', 'exercises/next-token')}>별도 실습 페이지</a>에서 엽니다.
 
 </Expand>
 
@@ -131,6 +135,31 @@ P(끝 \| 나는 학교에)처럼 쓰면 세로선 뒤는 **지금 주어진 입�
 </details>
 
 <Section id="tokens" locale="ko">
+
+<div data-main-lesson>
+
+### 주어진 두 조각을 숫자로 찾기
+
+계산할 입력은 **나는 / 학교에**입니다. 각 조각의 번호(ID)로 embedding 표의 한 행을 찾습니다. ID는 주소이고, 꺼낸 네 숫자가 그 조각의 표현입니다.
+
+<LessonComputation locale="ko" stage="tokens" />
+
+숫자를 순서대로 놓은 한 줄을 **벡터**, 여러 줄을 쌓은 표를 **행렬**이라고 부릅니다. 두 토큰이므로 두 행, 토큰마다 네 값이므로 네 열입니다.
+다음에는 이 **2 × 4 입력 X의 마지막 행**을 그대로 받아 비교에 쓸 새 숫자를 만듭니다.
+
+<Expand id="math-shape" summary="2 × 4: 어느 쪽이 토큰 수인가요?">
+
+먼저 적은 2는 토큰 두 개의 행 수입니다. 뒤의 4는 각 토큰을 표현하는 값의 개수입니다. ID 1 하나와 그 행의 네 값은 같은 종류의 숫자가 아닙니다.
+
+</Expand>
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-tokens" data-legacy-exercise="tokens">
+<summary>직접 바꿔 보기: 세 조각의 embedding 조회</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 ### 문장의 조각에 번호 붙이기
 
@@ -177,7 +206,7 @@ $$
 가로로 놓인 한 줄을 **행**, 같은 위치의 칸들을 위아래로 모은 세로줄을 **열**이라고 합니다.
 조각이 세 개라 가로줄은 3개이고, 각 줄에 숫자가 네 개라 세로줄은 4개예요. 줄 수를 먼저 적어 **3 × 4**라고 씁니다.
 
-<Expand id="math-shape" summary="3 × 4는 이 표에서 무엇을 뜻하나요?">
+<Expand id="math-shape-three" summary="3 × 4는 이 표에서 무엇을 뜻하나요?">
 
 1. 위의 X에서 **가로로 놓인 줄은 세 개**입니다. 첫 줄은 “나는”, 둘째 줄은 “학교에”, 셋째 줄은 “갔다”에 대응합니다.
 2. 각 줄에는 **숫자 칸이 네 개** 있습니다. 예를 들어 첫 줄은 1, 0, 1, 0입니다. 같은 위치의 칸을 위아래로 모으면 세로줄 네 개가 됩니다.
@@ -211,14 +240,48 @@ const vector = embeddingTable[0]; // [1, 0, 1, 0]
 그 준비로 다음 단원에서는 한 줄의 네 값을 새 값 두 개로 바꾸는 행렬곱과, 두 줄을 비교할 점수 하나를 만드는 내적을 배웁니다. 그다음 비중을 만들어 내용을 섞습니다.
 실제 모델에서는 embedding 표도 학습 대상이며, 층을 지나 문맥을 섞으면 같은 토큰의 표현도 달라집니다.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="numbers" locale="ko">
 
-<Note>
-여기부터는 <strong>세 토큰을 모두 준 독립 심화 실습</strong>입니다. “나는 / 학교에 / 갔다”의 첫 자리 “나는”을 따라가고 미래 가리기를 끕니다.
-오프닝에서 마지막 입력 “학교에”로 다음 조각을 예측한 실행과 다릅니다. 따라서 비교 점수 (0, 4, 2)도 오프닝의 (4, 0)을 이어 계산한 값이 아닙니다.
-</Note>
+<div data-main-lesson>
+
+### 입력의 네 값을 비교하기 좋은 두 값으로 바꾸기
+
+문맥을 참고하려면 현재 자리와 각 참고 자리를 비교할 숫자가 필요합니다. **학교에의 입력 (0, 1, 0, 1)**에서 시작합니다.
+고정 계수를 각 입력값에 곱해 더하면 새 값 하나가 됩니다. 이를 출력마다 반복하는 것이 행렬곱입니다.
+
+<LessonComputation locale="ko" stage="projection" />
+
+<div id="similarity">
+
+### 방금 만든 두 값으로 같은 자리끼리 비교하기
+
+현재 자리의 기준은 **(0, 2)**입니다. 참고할 나는의 숫자 **(0, 2)**, 학교에의 숫자 **(2, 0)**에 각각 같은 자리끼리 곱해 더합니다.
+
+<LessonComputation locale="ko" stage="comparison" />
+
+### 같은 내적을 행 × 열로 놓기
+
+한 쌍의 비교는 그대로 두고, 참고할 오른쪽 줄만 열로 놓습니다. 그 줄을 옆에 더 늘리면 현재 기준 하나로 여러 자리를 비교할 수 있습니다.
+
+<LessonComputation locale="ko" stage="transpose" />
+<LessonComputation locale="ko" stage="scores" />
+
+</div>
+
+다음 단원에 넘길 출력은 **두 점수 (4, 0)**입니다. 아직 내용을 합친 값이나 다음 어휘의 확률은 아닙니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-numbers" data-legacy-exercise="numbers">
+<summary>직접 바꿔 보기: 행렬곱·내적·세 토큰 그림</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 <AttentionStory locale="ko" stage="overview" />
 
@@ -271,7 +334,7 @@ $3 \times 4$와 $4 \times 2$를 곱한 결과 Y는 $3 \times 2$입니다.
 
 <AttentionStory locale="ko" stage="preparation" />
 
-<div id="similarity">
+<div data-legacy-comparison>
 
 ### 두 숫자 줄을 비교하는 점수 만들기
 
@@ -494,9 +557,36 @@ $\cos\theta$ 는 각도에 따라 −1 과 1 사이 값을 갖습니다.
 </Expand>
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="proportion" locale="ko">
+
+<div data-main-lesson>
+
+### 비교 점수에서 참고 비중으로
+
+앞에서 넘긴 **(4, 0)**으로 어느 입력 자리의 내용을 얼마나 가져올지 정합니다. 점수 두 개를 합이 1인 비중으로 바꾸는 계산이 **softmax**입니다.
+
+<LessonComputation locale="ko" stage="shares" />
+
+### 그 비중으로 같은 입력의 내용을 모으기
+
+나는에서 **94.4%**, 학교에에서 **5.6%**를 가져옵니다. 같은 입력을 내용용 계수로 바꾼 뒤, 각 좌표에 이 비중을 곱해 더합니다.
+
+<LessonComputation locale="ko" stage="aggregation" />
+
+출력 **(2.833, 0.167)**은 학교에 자리에 모인 첫 갈래의 내용입니다. 다음에서는 방금 계산에 쓴 세 역할의 이름을 붙입니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-proportion" data-legacy-exercise="proportion">
+<summary>직접 바꿔 보기: 점수·softmax·가중합</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 위에서 얻은 점수 (0, 4, 2)를 그대로 이어갑니다. 비교할 숫자가 많아질 때 점수 폭이 커지는 것을 줄이려고 나누는 조정을 합니다. 여기서는 각 줄에 숫자 두 개이므로 √2≈1.414로 나눈 뒤 softmax로 비중을 만듭니다. 원점수와 나눈 점수를 구분해 보세요.
 
@@ -694,10 +784,32 @@ softmax가 한 항에 매우 쏠리면 **softmax 자체의 입력 점수에 대�
 
 </Expand>
 
+</div>
+</details>
 
 </Section>
 
 <Section id="attention" locale="ko">
+
+<div data-main-lesson>
+
+### 이미 해 본 계산에 Q · K · V라는 이름 붙이기
+
+현재 자리에서 비교할 기준이 **Q**, 참고할 자리의 비교 숫자가 **K**, 가져올 내용이 **V**입니다.
+같은 입력에서 계수 세 벌로 만든 이 숫자들을, 방금 한 비교 → 참고 비중 → 내용 모으기 순서로 사용합니다.
+
+<LessonComputation locale="ko" stage="attention" />
+
+한 문장 안의 자리끼리 내용을 모으므로 **self-attention**이라고 부릅니다. 출력 행은 계속 학교에 자리에 대응합니다.
+이 한 갈래의 결과를 다른 갈래와 합치기 전에, 지금 볼 수 있는 입력의 범위를 확인합니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-attention" data-legacy-exercise="attention">
+<summary>직접 바꿔 보기: 전체 attention과 읽기 방식 비교</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 입력 X의 세 줄을 만들고 비교 점수를 비중으로 바꾸는 계산을 배웠습니다. 이제 **각 줄이 문맥의 정보를 받아 새 표현을 만드는 과정**을 연결합니다.
 공통 문장의 세 위치를 비교하고 그 비중대로 내용을 섞는 것이 self-attention입니다. 먼저 같은 세 조각으로 계산한 뒤, 다음 단원에서 순서와 미래 가리기를 더합니다.
@@ -965,13 +1077,40 @@ $d_k$ 가 2 뿐이라 차이가 작습니다. 원래 논문 기본 모델의 $d_
 **점수 표는 3 × 3입니다.** 세 위치를 세 위치와 모두 짝지었기 때문입니다. 더 긴 입력의 비용은 마지막 단원에서 확인합니다.
 서로 다른 두 문장 사이의 attention은 번역 구조를 배운 뒤 [전체 구조 단원](#big-picture)에서 비교합니다.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="positions" locale="ko">
 
-<Note>
-오프닝 여정에서는 위치 계산을 생략했습니다. 여기서는 embedding에 위치 벡터를 더하는 <strong>새 연산</strong>을 배웁니다. 입력 숫자가 바뀌므로 이후 비교·비중·후보 확률도 달라질 수 있습니다.
-</Note>
+<div data-main-lesson>
+
+### 지금 어느 자리를 참고할 수 있나요?
+
+다음 조각을 예측할 때는 현재 자리 뒤의 정보를 미리 읽으면 안 됩니다. 그래서 각 행은 **자신과 앞의 자리만** 참고하도록 가립니다.
+앞의 모든 계산에는 이 **causal mask**가 이미 적용되어 있습니다.
+
+<LessonComputation locale="ko" stage="mask" />
+
+가리기는 읽을 수 있는 범위를 정합니다. 위치 표현은 각 조각이 놓인 자리를 알려 주는 별도의 연산입니다.
+아래 확장에서는 입력에 위치 벡터를 더하고, 바뀐 입력으로 비교·비중·내용·층 출력·어휘 확률까지 다시 계산합니다.
+
+<Expand id="lesson-position-extension" summary="선택 확장: 위치 벡터를 더해 끝까지 다시 계산하기">
+
+<LessonPositionExtension client:load locale="ko" />
+
+</Expand>
+
+이제 두 입력의 마지막 자리에서 모은 첫 갈래 출력을 다음 단원으로 넘깁니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-positions" data-legacy-exercise="positions">
+<summary>심화: 위치 함수와 가리기 계산</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 공통 문장의 각 조각이 **어느 위치에 놓였는지**도 알려 줘야 합니다. ID는 조각의 종류를 찾는 번호이며 위치 번호가 아닙니다. “나는”이 다른 자리에 나와도 ID는 그대로예요.
 순서가 역할을 바꾸는 예로 영어의 “the dog bites the man / the man bites the dog”를 보세요. 단어 목록은 같지만 누가 누구를 무는지가 달라집니다.
@@ -1118,9 +1257,31 @@ softmax 를 통과한 뒤 그 확률에 0 을 곱하거나, 들어가기 전 점
 
 이 미래 가리기는 decoder self-attention에 씁니다. encoder는 주어진 원문 전체를 읽을 수 있습니다. 길이를 맞춘 빈 칸을 숨기는 padding mask와는 구분합니다. 입력 문장은 처음부터 다 주어져 있으니까요.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="multi-head" locale="ko">
+
+<div data-main-lesson>
+
+### 같은 입력을 다른 계수로 한 번 더 읽기
+
+첫 head는 **(2.833, 0.167)**을 만들었습니다. 둘째 head는 같은 입력을 자기 계수로 비교하고 내용을 모읍니다.
+두 출력을 따로 유지한 뒤 옆으로 붙이고, 출력 계수 **W_O**로 섞어 다시 네 값으로 만듭니다.
+
+<LessonComputation locale="ko" stage="heads" />
+
+방금 구한 attention 출력 네 값과 **원래 학교에 입력 네 값**이 다음 단원의 두 입력입니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-multi-head" data-legacy-exercise="multi-head">
+<summary>직접 바꿔 보기: 여러 head와 출력 계수</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 앞에서 배운 비교·비중·가중합을 한 벌로 묶어 <strong>갈래(head)</strong>라고 부릅니다. 한 갈래도 여러 토큰을 함께 볼 수 있지만, 하나로 섞은 결과에서는 서로 다른 패턴을 구분하기 어려울 수 있어요.
 공통 입력을 서로 다른 변환으로 처리해 여러 결과를 따로 유지한 뒤 합치는 것이 **multi-head attention**입니다.
@@ -1288,9 +1449,42 @@ $h = 1$ 이면 BLEU 가 24.9 로 떨어집니다. BLEU 는 번역 품질 점수�
 attention 가중치가 모델의 판단을 설명한다고 주장하지는 않습니다.
 </Note>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="blocks" locale="ko">
+
+<div data-main-lesson>
+
+### 원래 입력을 더해 보존하기
+
+attention 출력만 넘기면 원래 입력의 정보가 사라질 수 있습니다. 같은 칸끼리 원래 입력을 더하는 길을 **잔차 연결(residual)**이라고 부릅니다.
+그다음 한 토큰의 값 크기를 정리하는 층 정규화를 합니다.
+
+<LessonComputation locale="ko" stage="residual" />
+
+### 방금 정규화한 값을 토큰 안에서 바꾸기
+
+토큰 사이의 정보는 이미 attention으로 모았습니다. 이제 토큰 하나의 네 값을 넓혔다가 다시 좁히는 **FFN**으로 바꿉니다.
+입력은 직전 정규화의 출력이며, 음수를 0으로 만드는 연산이 ReLU입니다.
+
+<LessonComputation locale="ko" stage="feed-forward" />
+
+### 다시 더하고 정규화하기
+
+FFN에 들어간 행과 FFN에서 나온 행을 더하고, 다시 정규화합니다. 이 결과가 다음 후보의 점수를 만들 **학교에 자리의 마지막 표현**입니다.
+
+<LessonComputation locale="ko" stage="hidden" />
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-blocks" data-legacy-exercise="blocks">
+<summary>직접 바꿔 보기: FFN·잔차·정규화</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 attention으로 문맥을 섞었습니다. **토큰별로 그 표현을 다시 계산하고, 입력을 더할 경로를 두며, 숫자의 크기를 조절하면** 한 층을 만들 수 있습니다.
 먼저 계산을 하나씩 해봅니다. FFN은 공통 예제의 첫 조각 “나는”의 처음 벡터 (1, 0, 1, 0)을 사용하고, 정규화는 평균·분산을 보기 쉬운 별도 네 값을 사용합니다. 다음 단원에서 실제 순서대로 연결합니다.
@@ -1490,16 +1684,45 @@ const next = layerNorm(sum).output;
 원래 모델의 post-norm 순서에서 sublayerOutput만 다음 부품에 넣으면 건너뛰는 길을 빠뜨린 것입니다.
 더할 두 행렬은 모양이 같아야 하고, 정규화는 각 행의 표현값들을 따로 다룹니다.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="big-picture" locale="ko">
+
+<div data-main-lesson>
+
+### 한 층의 마지막 표현으로 다음 어휘를 비교하기
+
+직전 단원의 마지막 표현을 그대로 받습니다. 어휘 출력 계수를 곱하면 각 값이 **나는 / 학교에 / 갔다 / 끝** 후보의 점수가 됩니다.
+그 점수에 softmax를 적용하면 다음 한 조각의 확률이 나옵니다.
+
+<LessonComputation locale="ko" stage="readout" />
+
+가장 큰 확률은 **갔다 71.8%**입니다. 입력은 여전히 나는 / 학교에 두 조각이며, 갔다는 다음에 고를 후보입니다.
+학습에서는 이 예측을 정답과 비교하고, 생성에서는 이 확률에서 조각 하나를 골라 붙입니다.
+
+<Expand id="math-readout" summary="입력 위치의 비중과 어휘 확률은 무엇이 다른가요?">
+
+attention의 비중 두 개는 이미 주어진 입력 두 자리에서 내용을 가져오는 몫입니다. 여기의 확률 네 개는 다음에 고를 어휘 네 후보의 몫입니다. 어휘 출력 계수가 마지막 표현을 후보별 점수로 바꿉니다.
+
+</Expand>
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-big-picture" data-legacy-exercise="big-picture">
+<summary>심화: 설정을 바꾸는 한 층과 논문의 번역 구조</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 배운 계산을 <strong>공통 문장 “나는 / 학교에 / 갔다”</strong>에 연결해 다음 조각의 확률까지 따라갑니다. 먼저 한 층을 직접 계산하고, 그다음 원래 논문의 번역 구조와 비교하겠습니다.
 
 ### 이어서 해보기 — 입력부터 토큰 확률까지
 
-하나씩 해보기에서 익힌 계산을 연결합니다. **같은 3 × 4 입력 X**에서 출발해 위치 정보를 더하고, 미래를 가린 두 갈래 attention과 FFN을 차례로 계산합니다.
-처음의 세 행은 끝까지 세 조각에 대응합니다. 앞의 기본 attention은 위치·미래 가리기가 꺼져 있었으므로, 이 연결 계산의 중간값은 달라질 수 있어요.
+하나씩 해보기에서 익힌 계산을 연결합니다. **3 × 4 입력 X**에서 출발해 위치 정보를 더하고, 미래를 가린 두 갈래 attention과 FFN을 차례로 계산합니다.
+입력 세 행에 위치 벡터를 더하고 미래를 가립니다. 마지막 어휘 출력에는 단위행렬을 사용합니다.
 각 단계를 넘기기 전에 모양을 예측하고, 같은 행의 숫자를 다음 단계와 비교하세요.
 
 | 선택한 설정 | 이 연결 예제 | 원래 논문의 기본 모델 |
@@ -1511,13 +1734,9 @@ const next = layerNorm(sum).output;
 | 쌓은 층 | 1 | encoder·decoder 각각 6 |
 | 출력 어휘 | 나는, 학교에, 갔다, 끝 표시 네 개 | 번역 데이터의 수만 토큰 |
 
-<Note>
-이 종합 실습은 오프닝과 다른 설정입니다. 세 토큰을 처음부터 넣고 위치 벡터를 더하며, 어휘 출력에는 단위행렬을 씁니다. 오프닝은 위치를 생략하고 첫 어휘 계수만 −1인 표를 썼으므로, 여기의 확률과 직접 이어 읽지 않습니다.
-</Note>
-
 <LayerTraceExplorer client:load locale="ko" />
 
-<Expand id="math-readout" summary="마지막 행의 네 값이 다음 조각의 확률이 되는 계산은?">
+<Expand id="math-readout-identity" summary="마지막 행의 네 값이 다음 조각의 확률이 되는 계산은?">
 
 초기 설정에서 마지막 조각 “갔다”의 층 출력은 약 (0.288, −0.064, −1.506, 1.282)입니다. 마지막 계수 표는 4 × 4 단위행렬, 즉 대각선만 1이고 나머지는 0인 표입니다. 곱하면 값이 그대로 네 후보의 점수가 됩니다.
 이 예제에서 표현값 개수와 후보 개수가 모두 4인 것은 설명을 위한 선택입니다. 실제 모델에서 두 개수가 같아야 하는 것은 아닙니다.
@@ -1685,9 +1904,39 @@ GPT 방식에서는 문맥 토큰열로 다음 토큰을 예측하는 decoder �
 이어서 해보기는 decoder 한 층을 설명하려고 원래 논문의 post-norm 부품을 연결한 것입니다.
 실제 GPT의 모든 구조 선택이나 encoder–decoder 번역기 전체를 재현한 것은 아닙니다. GPT 연결의 근거는 [원문 3.1절](https://cdn.openai.com/research-covers/language-unsupervised/language_understanding_paper.pdf)입니다.
 
+</div>
+</details>
+
 </Section>
 
 <Section id="training" locale="ko">
+
+<div data-main-lesson>
+
+### 같은 예측을 별도로 주어진 정답과 비교하기
+
+입력은 **나는 / 학교에**, 정답 라벨은 **갔다**입니다. 정답은 입력에 미리 붙이지 않습니다.
+앞에서 구한 정답 확률을 손실로 바꾸면, 이번 예측을 얼마나 고쳐야 할지 숫자 하나로 비교할 수 있습니다.
+
+<LessonComputation locale="ko" stage="loss" />
+
+학습은 손실을 줄이는 방향으로 계수를 고치는 과정입니다. 아래에서는 **같은 네 후보와 같은 마지막 표현**을 두고 어휘 출력 계수 하나만 한 번 고칩니다. 다른 계수는 유지합니다.
+
+<Expand id="lesson-readout-learning" summary="직접 학습시켜 보기: 어휘 출력 계수 하나 고치기">
+
+<LessonLearning client:load locale="ko" />
+
+</Expand>
+
+실제 학습은 많은 입력·정답으로 이 과정을 반복합니다. 다음 단원에서는 계수를 고치는 대신, 계산한 확률에서 하나를 골라 글을 이어 씁니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-training" data-legacy-exercise="training">
+<summary>심화: 손실·두 후보 학습·논문의 학습 설정</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 지금까지 계산한 계수는 설명용 예시 값이었습니다. 실제로 학습하려면 **예측이 얼마나 틀렸는지 채점하고, 손실을 줄이는 쪽으로 계수를 조정**해야 합니다.
 처음부터 모델을 학습할 때는 작은 무작위 값으로 시작해, 데이터의 정답과 예측을 비교하며 반복해서 바꿉니다.
@@ -1920,9 +2169,36 @@ $\min$ 안의 두 값 중 작은 쪽이 이깁니다.
 
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="generation" locale="ko">
+
+<div data-main-lesson>
+
+### 계산한 확률에서 한 조각을 골라 붙이기
+
+앞에서 얻은 어휘 점수와 **온도 1**의 확률로 시작합니다. 가장 큰 확률의 후보를 고르면 갔다가 입력 뒤에 붙습니다.
+그 새 입력으로 마지막 표현과 어휘 확률을 다시 계산하면 **끝 49.4%**가 가장 커집니다.
+
+<LessonGeneration client:load locale="ko" />
+
+끝은 일반 마침표와 구분하는 종료 토큰입니다. 끝을 고르면 다음 embedding을 조회하지 않고 멈춥니다.
+가장 큰 확률을 고르는 greedy 외에도 확률에 따라 뽑는 sampling을 쓸 수 있습니다. 어느 규칙이든 선택한 조각을 붙인 뒤 **늘어난 입력으로 다시 계산**합니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-generation" data-legacy-exercise="generation">
+<summary>심화: sampling·beam search·다른 어휘의 선택</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
+
+<p><a href={docHref('ko', 'exercises/next-token')}>별도 페이지: 정한 확률표에서 선택 규칙 비교하기</a></p>
+
+
 
 앞의 한 층은 문맥을 받아 네 후보의 확률을 계산했고, 학습은 계수를 바꾸는 과정이었습니다. **생성에서는 그 계수를 사용해 후보 하나를 고른 뒤 입력에 붙입니다.**
 입력이 달라졌으니 확률을 다시 계산합니다. 첫 단원의 생성 고리를, 이제 실제로 계산한 마지막 행의 값으로 이어 봅니다.
@@ -2060,9 +2336,29 @@ P(b)는 첫 후보의 확률이고 P(a | b)는 b가 이미 있을 때 다음이 
 
 </Expand>
 
+</div>
+</details>
+
 </Section>
 
 <Section id="results" locale="ko">
+
+<div data-main-lesson>
+
+### 다음 조각의 확률과 모델의 성능 구분하기
+
+입력의 비교 숫자부터 참고 비중·내용·마지막 표현·어휘 확률까지 계산이 이어지고, 선택한 조각을 붙일 때마다 새 예측을 만들었습니다.
+이 확률은 다음 조각을 선택하기 위한 값이며, 생성한 내용이 참일 확률과 같지 않습니다.
+
+모델을 평가하려면 같은 조건의 데이터에서 예측 손실과 정답률, 필요한 계산 비용을 비교합니다. 논문의 번역 평가와 실험 결과는 아래 심화에서 살펴봅니다.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-results" data-legacy-exercise="results">
+<summary>심화: 논문의 번역 평가·실험·비용</summary>
+<div class="expand__body">
+
+입력과 계수는 아래 각 실습의 표에 표시합니다.
 
 여기까지가 구조입니다. 이제 이 구조가 실제로 무엇을 해냈는지 봅니다.
 
@@ -2228,6 +2524,9 @@ dropout의 상세 계산, BLEU의 전체 정의, 그리고 최신 모델의 모�
 마지막 변환과 softmax가 어휘 확률을 만듭니다. 생성은 그 확률에서 토큰을 골라 문맥에 붙이고, 학습은 정답의 손실에서 가중치를 고칩니다.
 아직 막히는 연결 하나를 골라 해당 단원의 실습에서 설명해 보세요. 숫자 계산이 되는 것과 모든 개념을 이해한 것은 구분해서 확인합니다.
 </Note>
+
+</div>
+</details>
 
 </Section>
 

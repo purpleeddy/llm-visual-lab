@@ -73,7 +73,7 @@ for (const locale of ['ko', 'en'] as const) {
     await expect(lab.locator('[data-focused=true]')).toHaveText(words[locale][1]);
     await expect(page.locator('#generation-opening')).toHaveCount(1);
     await expect(page.locator('#table-generation')).not.toHaveAttribute('open');
-    await expect(page.locator('.lab--next-token')).not.toBeVisible();
+    await expect(page.locator('.lab--next-token')).toHaveCount(0);
     expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#tokens')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     await expect(lab.getByRole('button', { name: /^(?:자동으로 보기|재생|일시정지|Play|Pause)$/i })).toHaveCount(0);
     await page.clock.install();
@@ -182,8 +182,10 @@ for (const locale of ['ko', 'en'] as const) {
     await lab.locator('.journey__overview').click();
     await expect(lab).toHaveAttribute('data-stage', 'purpose');
     await expect(lab).toHaveAttribute('data-progress', '1/3');
-    await expect(page.locator('#numbers > .note').first()).toContainText(locale === 'ko' ? '독립 심화 실습' : 'independent advanced exercise');
-    await expect(page.locator('#positions > .note').first()).toContainText(locale === 'ko' ? '새 연산' : 'new operation');
+    await expect(page.locator('#legacy-numbers')).not.toHaveAttribute('open');
+    await expect(page.locator('#numbers [data-lesson-stage=projection]')).toHaveAttribute('data-lesson-prefix', '0,1');
+    await expect(page.locator('#lesson-position-extension')).not.toHaveAttribute('open');
+    await expect(page.locator('#positions [data-lesson-stage=mask]')).toHaveAttribute('data-lesson-mask', 'on');
   });
 
   for (const layout of [{ width: 360, zoom: 100 }, { width: 280, zoom: 200 }]) {
