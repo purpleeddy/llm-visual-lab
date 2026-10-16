@@ -26,7 +26,7 @@ const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/llm-visua
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
   'language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions',
-  'multi-head', 'blocks', 'big-picture', 'training', 'generation', 'results',
+  'multi-head', 'blocks', 'big-picture', 'generation', 'training', 'results',
 ];
 // Every section is written now. These stay so that adding a placeholder later
 // only means moving the split, not rewriting the checks.
@@ -96,7 +96,7 @@ test.describe('deployment paths and assets', () => {
 
   test('the root path sends you to the default language', async ({ page }) => {
     await visitWithExercises(page, './');
-    await page.waitForURL(/\/llm-visual-lab\/ko\/$/, { timeout: 10_000 });
+    await page.waitForURL(new URL(ARTICLE_KO, BASE).href, { timeout: 10_000 });
     await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
   });
 
@@ -127,15 +127,17 @@ test.describe('deployment paths and assets', () => {
       await visitWithExercises(page, path);
       const hrefs = await page
         .locator('a[href]')
-        .evaluateAll((els) =>
-          els.map((e) => (e as HTMLAnchorElement).href).filter((h) => h.startsWith('http://localhost')),
+        .evaluateAll((els, origin) =>
+          els.map((e) => (e as HTMLAnchorElement).href).filter((h) => new URL(h).origin === origin),
+          new URL(BASE).origin,
         );
       for (const h of hrefs) seen.add(h.split('#')[0]);
     }
-    // The article is the home page, so the only internal targets are the two
-    // language versions of it. The menu, the masthead and the language switch
-    // all have to lead here.
-    expect([...seen].sort()).toEqual([`${BASE}en/`, `${BASE}ko/`]);
+    // Each locale links to the article and its separate optional choice exercise.
+    expect([...seen].sort()).toEqual([
+      `${BASE}en/`, `${BASE}en/exercises/next-token/`,
+      `${BASE}ko/`, `${BASE}ko/exercises/next-token/`,
+    ]);
     for (const url of seen) {
       const res = await request.get(url);
       expect(res.status(), `${url} has to resolve`).toBe(200);
@@ -150,6 +152,11 @@ test.describe('deployment paths and assets', () => {
       .locator('#doc-nav [data-section-link]')
       .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.sectionLink));
     expect(sectionIds, 'one anchor per written section').toEqual(WRITTEN_IDS);
+
+    // The compact opening has no fine headings. A later unit supplies those links.
+    await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(0);
+    await page.locator('#numbers').scrollIntoViewIfNeeded();
+    await expect(page.locator('#doc-nav .toc__sublist')).toHaveAttribute('data-toc-sublist', 'numbers');
 
     // Every link in the contents, sub-headings included, has to point at
     // something that exists. Hangul slugs are percent-encoded in the href, so
@@ -167,7 +174,7 @@ test.describe('deployment paths and assets', () => {
   });
 
   test('the contents is grouped by prerequisite-based learning stage', async ({ page }) => {
-    const FIRST_OF_GROUP = ['language-model', 'proportion', 'multi-head', 'training'];
+    const FIRST_OF_GROUP = ['language-model', 'proportion', 'multi-head', 'generation'];
     for (const [path, locale] of [
       [ARTICLE_KO, 'ko'],
       [ARTICLE_EN, 'en'],
@@ -231,11 +238,24 @@ test.describe('the single-page structure', () => {
         words: (el.textContent ?? '').trim().length,
         subHeadings: el.querySelectorAll('h3[id]').length,
         visuals: el.querySelectorAll('.figure__frame svg, .lab').length,
+        openingInputs: el.querySelectorAll('[data-journey-input] .journey-token').length,
+        openingProbabilities: [...el.querySelectorAll('[data-journey-probability]')].map(value => value.textContent),
+        openingExplanation: el.querySelector('[data-model-intro]')?.textContent ?? '',
+        modelScope: el.querySelector('#lesson-model-scope')?.textContent ?? '',
       })),
     );
     for (const s of report) {
-      expect(s.words, `#${s.id} is too short: ${JSON.stringify(s)}`).toBeGreaterThan(900);
-      expect(s.subHeadings, `#${s.id} has no sub-headings`).toBeGreaterThan(1);
+      if (s.id === 'language-model') {
+        // The opening is intentionally compact: assert a complete example, not prose length.
+        expect(s.openingInputs).toBe(2);
+        expect(s.openingProbabilities).toEqual(['11.5%', '11.6%', '71.8%', '5.2%']);
+        expect(s.openingExplanation).toContain('다음 토큰의 확률');
+        expect(s.modelScope).toContain('설명용 모형');
+        expect(s.modelScope).toContain('종료용 토큰');
+      } else {
+        expect(s.words, `#${s.id} is too short: ${JSON.stringify(s)}`).toBeGreaterThan(900);
+        expect(s.subHeadings, `#${s.id} has no sub-headings`).toBeGreaterThan(1);
+      }
       expect(s.visuals, `#${s.id} has nothing to look at`).toBeGreaterThan(0);
     }
   });
@@ -289,8 +309,8 @@ test.describe('learning path on the left, contents on the right', () => {
   test('the contents opens the sub-headings of the section being read', async ({ page }) => {
     await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
 
-    // Only one section's sub-headings are open at a time
-    await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(1);
+    // The opening has no h3s; fine headings appear when a later section is read.
+    await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(0);
 
     await page.locator('#numbers').scrollIntoViewIfNeeded();
     await expect
@@ -306,7 +326,7 @@ test.describe('learning path on the left, contents on the right', () => {
     const subs = await page.locator('#doc-nav .toc__sublist a').allTextContents();
     const inSection = await page
       .locator('#numbers h3[id]')
-      .evaluateAll((els) => els.map((e) => e.textContent!.trim()));
+      .evaluateAll((els) => els.filter(e => !e.closest('[data-legacy-exercise]')).map((e) => e.textContent!.trim()));
     expect(subs, 'the open sub-headings must match that section\'s h3s').toEqual(inSection);
 
     // The sub-heading link really goes there
@@ -619,11 +639,11 @@ test.describe('switching between Korean and English', () => {
   test('lands on the other language version of the same document', async ({ page }) => {
     await visitWithExercises(page, ARTICLE_KO);
     await page.locator('.lang-switch').click();
-    await page.waitForURL(/\/llm-visual-lab\/en\/$/);
+    await page.waitForURL(new URL(ARTICLE_EN, BASE).href);
     await expect(page.locator('#doc-nav')).toContainText('Tokens and vectors');
 
     await page.locator('.lang-switch').click();
-    await page.waitForURL(/\/llm-visual-lab\/ko\/$/);
+    await page.waitForURL(new URL(ARTICLE_KO, BASE).href);
     await expect(page.locator('#doc-nav')).toContainText('토큰과 벡터');
   });
 
@@ -1242,7 +1262,7 @@ test.describe('the complete learning progression', () => {
       await visitWithExercises(page, path);
       const intro = page.locator('[data-model-intro]');
       await expect(intro).not.toContainText('**');
-      await expect(intro.locator('strong').first()).toContainText('LLM');
+      await expect(intro.locator('strong').first()).toContainText(/다음 토큰의 확률|next-token probabilities/);
       const weight = await intro.locator('strong').first().evaluate(node => Number(getComputedStyle(node).fontWeight));
       expect(weight).toBeGreaterThanOrEqual(600);
       await expect(page.locator('.doc-header__lead')).not.toContainText('**');
@@ -1260,58 +1280,64 @@ test.describe('the complete learning progression', () => {
     }
   });
 
-  test('the opening starts with one computed two-input journey before explaining the route', async ({ page }) => {
+  test('the opening shows one two-input choice and keeps optional scope in a closed explanation', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await page.goto(path);
       const ko = path === ARTICLE_KO;
       const intro = page.locator('[data-model-intro]');
       const lab = page.locator('.lab--generation-journey');
       await expect(intro).toBeVisible();
-      await expect(intro.locator('p')).toHaveCount(2);
-      await expect(intro.locator('strong')).toHaveCount(3);
-      await expect(intro.locator('p').first()).toContainText(ko ? '생성형 LLM' : 'generative large language model');
-      await expect(intro.locator('p').first()).toContainText(ko ? '다음 토큰의 확률' : 'next-token probabilities');
-      await expect(intro.locator('p').last()).toContainText(ko ? '늘어난 문장으로 다시 예측' : 'predicts again from the longer input');
+      await expect(intro).toHaveCount(1);
+      await expect(intro.locator('strong')).toHaveCount(1);
+      await expect(intro).toContainText(ko ? '다음 토큰의 확률' : 'next-token probabilities');
+      await expect(intro).toContainText(ko ? '늘어난 입력으로 다시 계산' : 'recompute with the longer input');
       await expect(page.locator('.doc-header__lead')).toHaveText(ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.');
       await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
       await expect(lab).toHaveCount(1);
       await expect(page.locator('#language-model .lab--generation-journey')).toHaveCount(1);
       await expect(lab).toHaveAttribute('data-mode', 'overview');
       await expect(lab).toHaveAttribute('data-progress', '1/3');
-      await expect(lab.locator('[data-journey-preview] .journey-token')).toHaveText(ko ? '갔다' : 'to school');
       await expect(lab.locator('[data-journey-probability]')).toHaveText(['11.5%', '11.6%', '71.8%', '5.2%']);
+      await expect(lab.locator('[data-journey-preview], .lab__title')).toHaveCount(0);
+      await expect(page.locator('[data-learning-overview]')).toHaveCount(0);
       await expect(page.locator('#table-generation')).not.toHaveAttribute('open');
       await expect(page.locator('.lab--next-token')).toHaveCount(0);
       expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-model-intro]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-      expect(await intro.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-learning-overview]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-      expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#language-model > h2')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-      expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('[data-learning-overview]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-      const explanation = (await page.locator('#language-model > [data-main-lesson] > p').allTextContents()).join(' ');
-      expect(explanation).toContain(ko ? '단어 하나나 단어의 일부' : 'a word or part of a word');
-      expect(explanation).toContain(ko ? '가장 큰 확률을 고르는 규칙' : 'chooses the highest probability');
-      expect(explanation).toContain(ko ? '확률에 따라 뽑는 규칙' : 'Sampling according to the probabilities');
-      expect(explanation).toContain(ko ? '늘어난 문맥' : 'whole longer context');
-      expect(explanation).toContain(ko ? '가중치' : 'weights');
-      await expect(page.locator('[data-learning-overview] li')).toHaveCount(3);
-      await expect(page.locator('[data-learning-overview]')).toContainText('(1, 0, 1, 0)');
-      await expect(page.locator('[data-learning-overview]')).toContainText(ko ? '나는 / 학교에 / 갔다 / 끝' : 'I / went / to school / end');
+      const scope = page.locator('#lesson-model-scope');
+      await expect(scope).not.toHaveAttribute('open');
+      await scope.locator('summary').click();
+      await expect(scope).toContainText(ko ? '단어 전체 또는 일부' : 'whole words or word parts');
+      await expect(scope).toContainText(ko ? '종료용 토큰' : 'stopping token');
+      await expect(scope).toContainText(ko ? '계수' : 'coefficients');
+      await expect(scope).toContainText(ko ? '위치 계산은 생략' : 'omits position calculations');
+      await expect(scope).toContainText(ko ? '앞의 자리와 자기 자신만' : 'earlier positions and the current one');
+      await expect(scope).toContainText(ko ? '내용의 사실성' : 'factual content');
+      const generation = page.locator('#generation > [data-main-lesson]');
+      await expect(generation).toContainText('greedy');
+      await expect(generation).toContainText(/sampling/i);
+      await expect(generation).toContainText(ko ? '계수를 고치지 않습니다' : 'Neither rule updates coefficients during generation');
+      await expect(page.locator('#tokens [data-embedding-id="0"] > span')).toHaveText(['1','0','1','0']);
+      await expect(page.locator('#big-picture > [data-main-lesson] [data-vocabulary-id]')).toHaveCount(4);
     }
   });
 
-  test('both languages expose twelve goals, prerequisite links and reasoned checkpoints', async ({ page }) => {
+  test('both languages keep reasoned checkpoints closed without repeating lesson chrome', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
-      await expect(page.locator('[data-section] .point--goal')).toHaveCount(12);
+      await page.goto(path);
+      await expect(page.locator('[data-section] .point--goal, .lesson-prerequisites, .lesson-next')).toHaveCount(0);
       await expect(page.locator('[data-lesson-check]')).toHaveCount(12);
-      await expect(page.locator('.lesson-next a[rel="next"]')).toHaveCount(11);
-      await expect(page.locator('.lesson-next a[rel="prev"]')).toHaveCount(11);
-      for (const id of ['problem', 'similarity', ...SECTION_IDS]) {
-        await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+      for (const check of await page.locator('[data-lesson-check]').all()) {
+        await expect(check).not.toHaveAttribute('open');
+        await expect(check.locator(':scope > summary')).toHaveText(path === ARTICLE_KO ? '이해 확인' : 'Check your understanding');
+        await expect(check.locator('.point--check')).not.toBeVisible();
       }
+      for (const id of ['problem', 'similarity', ...SECTION_IDS]) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
       const question = page.locator('#training [data-lesson-check]');
+      await question.locator(':scope > summary').click();
+      await expect(question.locator('.point--check')).toBeVisible();
       await expect(question.locator('details')).not.toHaveAttribute('open', '');
-      await question.locator('summary').click();
-      await expect(question.locator('.expand__body')).toContainText(path === ARTICLE_KO ? '별도의 라벨' : 'separate label');
+      await question.locator('details > summary').click();
+      await expect(question.locator('details .expand__body')).toContainText(path === ARTICLE_KO ? '별도의 라벨' : 'separate label');
     }
   });
 
@@ -1569,12 +1595,12 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await visitWithExercises(page, path);
       const words=sentenceDemo(path).tokens.slice(0,3);
-      const overview=page.locator('[data-learning-overview]');
-      await expect(overview).toBeVisible();
-      expect(await overview.evaluate(node=>Boolean(node.compareDocumentPosition(document.querySelector('[data-section="tokens"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-      await overview.getByRole('link',{name:path==='ko/' ? '전체 계산' : 'Connect the calculations',exact:true}).click();
-      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('9/12');
-      await expect(page.locator('[data-section="big-picture"]')).toBeInViewport();
+      const opening=page.locator('.lab--generation-journey');
+      await expect(opening).toBeVisible();
+      expect(await opening.evaluate(node=>Boolean(node.compareDocumentPosition(document.querySelector('[data-section="tokens"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      await opening.locator('.journey__detail').click();
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('2/12');
+      await expect(page.locator('[data-section="tokens"]')).toBeInViewport();
       const lookup=page.locator('.lab--embedding-lookup');
       const expectedRows=['(1, 0, 1, 0)','(0, 1, 0, 1)','(1, 1, 0, 0)'];
       for (let i=0;i<3;i++) {
@@ -1730,7 +1756,7 @@ test.describe('the complete learning progression', () => {
       await visitWithExercises(page, path+'#math-gradient');
       await expect(page.locator('#math-gradient')).toHaveAttribute('open','');
       await expect(page.locator('#math-gradient')).toBeInViewport();
-      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('10/12');
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('11/12');
       await expect(page.locator('#doc-nav [data-toc-stage="use"]')).toHaveAttribute('open','');
     }
   });
@@ -1756,7 +1782,7 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
     const toc=page.locator('#doc-nav');
     await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
     await expect(toc.locator('[data-toc-stage="use"]')).toHaveAttribute('open','');
-    await expect(toc.locator('[data-current-lesson]')).toContainText('10/12');
+    await expect(toc.locator('[data-current-lesson]')).toContainText('11/12');
     await expect(toc.locator('.toc__details')).not.toHaveAttribute('open','');
     await toc.locator('.toc__details > summary').click();
     await expect(toc.locator('.toc__sublist')).toBeVisible();
@@ -1870,7 +1896,7 @@ test.describe('static Q–K comparisons', () => {
 });
 
 
-test('the article title, visual subtitle and first lesson question match their metadata and hierarchy', async ({ page }) => {
+test('the article title and visual subtitle retain hierarchy without a duplicate opening question', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, path);
     const ko = path === ARTICLE_KO;
@@ -1882,12 +1908,14 @@ test('the article title, visual subtitle and first lesson question match their m
     await expect(page.locator('.doc-header__lead')).toHaveText(lead);
     await expect(page.locator('#course-nav a[aria-current="page"]')).toHaveText(title);
     const lab = page.locator('.lab--generation-journey');
-    await expect(lab.locator('.lab__title')).toHaveText(ko ? 'LLM은 어떻게 다음 말을 만들까?' : 'How does an LLM continue text?');
+    await expect(lab).toHaveAccessibleName(ko ? '다음 토큰 고르기' : 'Choose the next token');
+    await expect(lab.locator('.lab__title')).toHaveCount(0);
+    await expect(page.locator('#language-model > h2')).toHaveClass('visually-hidden');
     await expect(lab.locator('.journey__next')).toHaveCount(1);
-    await expect(lab.locator('.journey__previous')).toBeDisabled();
+    await expect(lab.locator('.journey__previous')).toHaveCount(0);
     await expect(page.locator('.doc-header')).not.toContainText(ko ? '작은 숫자로' : 'Small Numbers');
     const openingHeadings = await page.locator('.doc-header h1, .lab--generation-journey .lab__title').allTextContents();
-    expect(openingHeadings.filter(heading=>heading.includes('?'))).toHaveLength(1);
+    expect(openingHeadings).toEqual([title]);
     await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
     await expect(lab.locator('[data-journey-input] [data-token-id=2]')).toHaveCount(0);
     await expect(page.locator('#math-transpose summary')).toContainText(ko ? '작은 숫자로' : 'small numbers');

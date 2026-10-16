@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
@@ -14,6 +15,44 @@ const lossAt = (weight: number) => {
 };
 
 describe('one snapshot through the complete reading path', () => {
+  it('reference labels and values share columns without independently wrapping', () => {
+    const css = readFileSync(new URL('../../src/styles/lesson.css', import.meta.url), 'utf8');
+    const parent = css.match(/\.lesson-reference-values\s*\{([^}]+)\}/)![1];
+    const row = css.match(/\.lesson-reference-values\s*>\s*div\s*\{([^}]+)\}/)![1];
+    expect(parent).toMatch(/grid-template-columns\s*:\s*max-content\s+minmax\(0,\s*1fr\)/);
+    expect(row).toMatch(/display\s*:\s*grid/);
+    expect(row).toMatch(/grid-template-columns\s*:\s*subgrid/);
+    expect(row).toMatch(/grid-column\s*:\s*1\s*\/\s*-1/);
+    expect(row).not.toMatch(/flex-wrap\s*:/);
+  });
+
+  it('probability percentages reserve their full width and never split before the percent sign', () => {
+    const css = readFileSync(new URL('../../src/styles/journey.css', import.meta.url), 'utf8');
+    const layout = [...css.matchAll(/\.journey__probability-row dd\s*\{([^}]+)\}/g)]
+      .map(match => match[1]).find(rule => /display\s*:\s*grid/.test(rule)) ?? '';
+    const number = css.match(/\[data-journey-probability\]\s*\{([^}]+)\}/)?.[1] ?? '';
+    expect(layout).toMatch(/grid-template-columns\s*:\s*minmax\(5\.5ch,\s*max-content\)\s+minmax\(0,\s*1fr\)/);
+    expect(number).toMatch(/white-space\s*:\s*nowrap/);
+  });
+
+  it('Korean section headings keep words intact while allowing emergency overflow wrapping', () => {
+    const css = readFileSync(new URL('../../src/styles/lesson.css', import.meta.url), 'utf8');
+    const heading = css.match(/\.doc-section__title:lang\(ko\)\s*\{([^}]+)\}/)?.[1] ?? '';
+    expect(heading).toMatch(/word-break\s*:\s*keep-all/);
+    expect(heading).toMatch(/overflow-wrap\s*:\s*anywhere/);
+  });
+
+  it.each(['ko', 'en'] as const)('%s: aggregation keeps its caption without a repeated following output paragraph', locale => {
+    const source = readFileSync(new URL(`../../src/content/docs/${locale}/index.mdx`, import.meta.url), 'utf8');
+    const following = source.match(/<LessonComputation locale="(?:ko|en)" stage="aggregation" \/>([\s\S]*?)<\/div>/)![1];
+    expect(following).not.toContain('(2.833, 0.167)');
+    expect(following).not.toMatch(/첫 갈래의 내용|content gathered by the first head/);
+    const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage: 'aggregation' }));
+    const caption = html.match(/<figcaption>([\s\S]*?)<\/figcaption>/)![1];
+    expect(caption).toContain(locale === 'ko' ? '첫 head의 내용' : 'content gathered by the first head');
+    expect(html).toContain('data-journey-head-output');
+  });
+
   it('keeps the baseline contract while an explicit position addition recomputes later stages', () => {
     const before = lessonSnapshot();
     const after = lessonSnapshot(LESSON_INITIAL_IDS, true);
@@ -60,6 +99,12 @@ describe('one snapshot through the complete reading path', () => {
   });
 
   for (const locale of ['ko', 'en'] as const) {
+    it(`${locale}: the attention recap retains scaling and value multiplication`, () => {
+      const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage: 'attention' }));
+      const equation = html.replace(/<[^>]*>/g, ' ');
+      expect(equation).toMatch(/÷\s*√2/);
+      expect(equation).toMatch(/×\s*V/);
+    });
     it(`${locale}: every read-only stage uses two inputs and contains no legacy three-token calculation`, () => {
       for (const stage of LESSON_STAGES) {
         const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage }));
@@ -72,11 +117,21 @@ describe('one snapshot through the complete reading path', () => {
         expect(html).not.toContain('76.8%');
         expect(html).not.toContain('<button');
         expect(html).not.toContain('stepper');
-        const input = html.match(/<p class="lesson-context">[\s\S]*?<\/p>/)![0];
-        expect(input).toContain('data-token-id="0"');
-        expect(input).toContain('data-token-id="1"');
-        expect(input).not.toContain('data-token-id="2"');
+        expect(html).not.toContain('lesson-context');
+        expect(html).not.toContain('<h4');
+        expect(html).toMatch(/aria-label="[^"]+"/);
+        expect(html).not.toContain('**');
+        if (stage === 'tokens') {
+          expect(html).toContain('data-embedding-id="0"');
+          expect(html).toContain('data-embedding-id="1"');
+          expect(html).not.toContain('data-token-id="2"');
+        }
       }
+    });
+    it(`${locale}: readout maps features, not input positions, to vocabulary scores`, () => {
+      const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage: 'readout' }));
+      expect(html).toContain(locale === 'ko' ? '특징 네 개' : 'four features');
+      expect(html).not.toContain(locale === 'ko' ? '입력 위치' : 'input positions');
     });
     it(`${locale}: training and generation begin with the same two inputs and actual target probability`, () => {
       const learning = renderToStaticMarkup(createElement(LessonLearning, { locale }));
@@ -85,9 +140,17 @@ describe('one snapshot through the complete reading path', () => {
       expect(learning).toContain('0.7179269');
       expect(generation).toContain('data-generation-prefix="0,1"');
       expect(generation).toContain('71.8%');
-      expect(generation).toContain('T = 1');
+      expect(generation).toContain('data-generation-reference');
+      expect(generation).toContain('data-generation-prefix="0,1,2"');
+      expect(generation).toContain('49.4%');
+      expect(generation).not.toContain('<button');
+      expect(generation).not.toContain('data-journey-probabilities');
+      expect(generation).toContain('href="#generation-opening"');
       expect(learning.match(/data-learning-input="[^"]*"[\s\S]*?<\/p>/)![0]).not.toContain('data-token-id="2"');
-      expect(generation.match(/data-generation-input="[^"]*"[\s\S]*?<\/p>/)![0]).not.toContain('data-token-id="2"');
+      const referenceInputs = generation.match(/data-generation-prefix="0,1"><span>([\s\S]*?)<\/span><span>/)![1];
+      expect(referenceInputs).toContain('data-token-id="0"');
+      expect(referenceInputs).toContain('data-token-id="1"');
+      expect(referenceInputs).not.toContain('data-token-id="2"');
     });
   }
 });

@@ -61,7 +61,6 @@ import { GenerationJourney } from '../../../components/lab/GenerationJourney';
 import { LayerTraceExplorer } from '../../../components/lab/LayerTraceExplorer';
 import { LearningUpdateExplorer } from '../../../components/lab/LearningUpdateExplorer';
 import { TokenChoiceExplorer } from '../../../components/lab/TokenChoiceExplorer';
-import { SECTIONS } from '../../../lib/nav';
 import { LessonComputation } from '../../../components/lab/LessonComputation';
 import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
 import { LessonLearning } from '../../../components/lab/LessonLearning';
@@ -71,81 +70,41 @@ import { DEFAULT_WO, FFN_W2, defaultMultiHeadInput } from '../../../lib/math/exa
 import { computeMultiHead } from '../../../lib/math/multihead';
 
 <Section id="language-model" locale="en">
+<span id="what-does-this-computation-show" class="lesson-anchor" aria-hidden="true"></span>
 <div slot="opening" data-main-lesson>
   <GenerationJourney client:load locale="en" />
-  <div data-model-intro>
-    <p>A <strong>generative large language model (LLM)</strong> computes <strong>next-token probabilities</strong> from the text it is given.</p>
-    <p>The journey follows the final input position, appends one choice, then <strong>predicts again from the longer input</strong>.</p>
-  </div>
 </div>
 
-<div data-main-lesson>
+<p data-model-intro>An LLM computes <strong>next-token probabilities</strong> from its input. Append one choice, then recompute with the longer input.</p>
 
-### What does this computation show?
+<Expand id="lesson-model-scope" summary="About this small model">
 
-The initial input contains only “I / went”. It does not read the unchosen “to school” in advance.
-Use the final input position, “went”, to predict **one position immediately after it**. A rule that **chooses the highest probability** appends one chunk.
-Then compute from the **whole longer context** with the same coefficients. Sampling according to the probabilities is another possible rule. Computing probabilities and selecting one chunk are separate operations.
-
-This small model computes probabilities using fixed coefficients. Real LLMs learn those coefficients, or **weights**, from many texts to reduce prediction errors.
-**Learning** changes weights; **prediction** computes next-candidate probabilities with current weights; **generation** appends a choice and repeats prediction.
-These numbers were chosen to make the arithmetic small; they are not learned word meanings.
-
-The educational tokens are readable word and phrase chunks. Real tokens may be **a word or part of a word**, depending on the tokenizer.
-End is a special stopping token, not an ordinary period. High probability does not guarantee factual content or a unique correct answer.
-
-<div data-learning-overview>
-<Steps title="Now learn these operations in more detail">
-
-1. **Look up numbers for text.** Assign IDs and retrieve table rows. Start with (1, 0, 1, 0) for “I” in the [next unit](#tokens).
-2. **Transform numbers and gather context.** Learn multiply-and-add, row comparisons and content retrieval using reference shares. [Detailed arithmetic](#numbers) follows the final position of these same two inputs.
-3. **Go from the final representation to next candidates.** Separate probabilities for “I / went / to school / end” from the selection rule. [Connect the calculations](#big-picture) uses the same final representation for next-candidate probabilities.
-
-</Steps>
-</div>
-
-</div>
-
-<Expand id="math-conditional" summary="Which context does this probability belong to?">
-
-In P(end \| I went), the text after the vertical bar is the **available input**, and the item before it is the **next candidate**. This is a conditional probability.
-The journey computes different end probabilities for “I went” and “I went to school” using the same coefficients. Read every probability together with its input context.
+This illustrative model computes from two inputs and fixed coefficients. It omits position calculations and only references earlier positions and the current one. Real LLMs learn coefficients by reducing prediction errors over many texts.
+Tokens are chunks of text: whole words or word parts. The end marker is a stopping token. A high probability does not guarantee factual content.
 
 </Expand>
 
-<Expand id="table-generation" summary="Optional: open a probability-table selection exercise">
+<Expand id="math-conditional" summary="Which context does this probability describe?">
 
-The chosen-table selection exercise is available on <a href={docHref('en', 'exercises/next-token')}>a separate exercise page</a>.
+In P(end \| I went), the text after the bar is the available input; the token before it is a next candidate. A changed input can produce changed probabilities with the same coefficients.
 
 </Expand>
 
+<Expand id="table-generation" summary="Optional: open the probability-table choice exercise">
+
+Open the fixed-table choice exercise on its <a href={docHref('en', 'exercises/next-token')}>separate exercise page</a>.
+
+</Expand>
 </Section>
 
-<Expand summary="How to study and where the numbers come from">
-
-Predict the result before changing a value, then explain what the new numbers and shapes mean.
-
-Lab inputs and coefficients are illustrative values; outputs are calculated from them. IDs and probabilities in translation sketches are illustrative, while performance tables report measurements from the paper.
-
-</Expand>
-
-<details class="learning-outline">
-<summary>Open the twelve-unit learning order</summary>
-<ol>{SECTIONS.map(s => <li><a href={`#${s.id}`}>{s.title.en}</a></li>)}</ol>
-</details>
-
 <Section id="tokens" locale="en">
+<span id="look-up-numbers-for-the-two-given-chunks" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Look up numbers for the two given chunks
-
-The input is **I / went**. Each chunk’s ID locates one row in the embedding table. An ID is an address; the four retrieved numbers represent that chunk.
+Each token’s ID looks up one row in the embedding table. This ordered row of numbers is a <strong>vector</strong>.
 
 <LessonComputation locale="en" stage="tokens" />
-
-A list of numbers in order is a **vector**; a grid of such rows is a **matrix**. Two tokens give two rows, and four values per token give four columns.
-Pass the **final row of this 2 × 4 input X** to the next calculation.
 
 <Expand id="math-shape" summary="2 × 4: which number counts tokens?">
 
@@ -251,7 +210,7 @@ Real embedding tables are learned, and mixing context through layers changes a t
 
 ### Transform four input values into two comparison values
 
-To retrieve context, we need numbers for comparing the current position with reference positions. Start with **(0, 1, 0, 1) for went**.
+To retrieve context, we need numbers for comparing the current position with reference positions. Start with <strong>(0, 1, 0, 1) for went</strong>.
 Multiply each input value by a fixed coefficient and add to make one output. Repeating this for output columns is matrix multiplication.
 
 <LessonComputation locale="en" stage="projection" />
@@ -260,7 +219,7 @@ Multiply each input value by a fixed coefficient and add to make one output. Rep
 
 ### Compare matching entries of the values just produced
 
-The current comparison values are **(0, 2)**. Compare them with **(0, 2) for I** and **(2, 0) for went** by multiplying matching entries and adding.
+The current comparison values are <strong>(0, 2)</strong>. Compare them with <strong>(0, 2) for I</strong> and <strong>(2, 0) for went</strong> by multiplying matching entries and adding.
 
 <LessonComputation locale="en" stage="comparison" />
 
@@ -273,7 +232,7 @@ Keep the comparison unchanged and stand the reference row up as a column. Add re
 
 </div>
 
-Pass **the two scores (4, 0)** to the next unit. They are not yet retrieved content or next-vocabulary probabilities.
+Pass <strong>the two scores (4, 0)</strong> to the next unit. They are not yet retrieved content or next-vocabulary probabilities.
 
 </div>
 
@@ -563,17 +522,15 @@ tell those apart.
 
 ### Turn comparison scores into reference shares
 
-Use **(4, 0)** from the preceding unit to decide how much content to retrieve from each input position. **Softmax** turns scores into shares summing to 1.
+Use <strong>(4, 0)</strong> from the preceding unit to decide how much content to retrieve from each input position. <strong>Softmax</strong> turns scores into shares summing to 1.
 
 <LessonComputation locale="en" stage="shares" />
 
 ### Use those shares to gather content from the same input
 
-Retrieve **94.4%** from I and **5.6%** from went. Apply content coefficients to the same input, then multiply and add matching content coordinates using those shares.
+Retrieve <strong>94.4%</strong> from I and <strong>5.6%</strong> from went. Apply content coefficients to the same input, then multiply and add matching content coordinates using those shares.
 
 <LessonComputation locale="en" stage="aggregation" />
-
-The output **(2.833, 0.167)** is content gathered by the first head at the went position. Next, name the three roles in the calculation just completed.
 
 </div>
 
@@ -784,17 +741,16 @@ The [normalization unit](#blocks) computes variance with actual numbers. You do 
 </Section>
 
 <Section id="attention" locale="en">
+<span id="name-the-roles-we-have-already-used-q--k--v" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Name the roles we have already used: Q · K · V
-
-**Q** compares from the current position, **K** supplies reference comparison values, and **V** supplies content to retrieve.
+<strong>Q</strong> compares from the current position, <strong>K</strong> supplies reference comparison values, and <strong>V</strong> supplies content to retrieve.
 Three coefficient tables produce these values from the same input. Use them in the order already followed: compare → reference shares → gather content.
 
 <LessonComputation locale="en" stage="attention" />
 
-Positions within one sequence retrieve content from each other, hence **self-attention**. The output row still belongs to went.
+Positions within one sequence retrieve content from each other, hence <strong>self-attention</strong>. The output row still belongs to went.
 Before joining this head with another one, inspect which input positions it is allowed to read.
 
 </div>
@@ -1078,13 +1034,12 @@ Attention across two separate sequences is compared after translation architectu
 </Section>
 
 <Section id="positions" locale="en">
+<span id="which-positions-can-be-referenced-now" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Which positions can be referenced now?
-
-Predicting a next chunk must not read later information in advance. Each row can therefore reference **itself and preceding positions only**.
-This **causal mask** has been applied throughout the calculation.
+Predicting a next chunk must not read later information in advance. Each row can therefore reference <strong>itself and preceding positions only</strong>.
+This <strong>causal mask</strong> has been applied throughout the calculation.
 
 <LessonComputation locale="en" stage="mask" />
 
@@ -1096,8 +1051,6 @@ In the extension below, add position vectors to the input and recompute comparis
 <LessonPositionExtension client:load locale="en" />
 
 </Expand>
-
-Pass the first head’s output at the final input position to the next unit.
 
 </div>
 
@@ -1264,17 +1217,14 @@ This **causal** mask belongs to the decoder. The encoder can access the whole so
 </Section>
 
 <Section id="multi-head" locale="en">
+<span id="read-the-same-input-again-using-other-coefficients" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Read the same input again using other coefficients
-
-The first head produced **(2.833, 0.167)**. A second head compares and gathers content from the same input using its own coefficients.
-Keep the two results, concatenate them, then mix the joined row using output coefficients **W_O** to get four values again.
+The first head produced <strong>(2.833, 0.167)</strong>. A second head compares and gathers content from the same input using its own coefficients.
+Keep the two results, concatenate them, then mix the joined row using output coefficients <strong>W_O</strong> to get four values again.
 
 <LessonComputation locale="en" stage="heads" />
-
-The attention output just calculated and **the original four input values for went** are the two inputs to the next unit.
 
 </div>
 
@@ -1469,21 +1419,21 @@ explain what the model decided.
 
 ### Preserve the original input by adding it
 
-Passing attention output alone may lose information from the input. Adding matching input entries provides a **residual connection**.
+Passing attention output alone may lose information from the input. Adding matching input entries provides a <strong>residual connection</strong>.
 Then layer normalization adjusts the scale of values within this token.
 
 <LessonComputation locale="en" stage="residual" />
 
 ### Transform the normalized values within this token
 
-Attention has already gathered information between tokens. The **FFN** now widens and narrows the values of each token separately.
+Attention has already gathered information between tokens. The <strong>FFN</strong> now widens and narrows the values of each token separately.
 Its input is exactly the preceding normalization output. ReLU replaces negative entries with zero.
 
 <LessonComputation locale="en" stage="feed-forward" />
 
 ### Add and normalize again
 
-Add the row entering the FFN to the row leaving it, then normalize again. This produces **the final representation at went**, ready to score next candidates.
+Add the row entering the FFN to the row leaving it, then normalize again. This produces <strong>the final representation at went</strong>, ready to score next candidates.
 
 <LessonComputation locale="en" stage="hidden" />
 
@@ -1711,17 +1661,16 @@ The matrices being added need matching shapes; normalization treats each row’s
 </Section>
 
 <Section id="big-picture" locale="en">
+<span id="use-the-blocks-final-representation-to-compare-vocabulary-candidates" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Use the block’s final representation to compare vocabulary candidates
-
-Receive the final representation from the preceding unit unchanged. Multiplying by vocabulary coefficients gives scores for **I / went / to school / end**.
+Receive the final representation from the preceding unit unchanged. Multiplying by vocabulary coefficients gives scores for <strong>I / went / to school / end</strong>.
 Softmax converts those scores into probabilities for the next chunk.
 
 <LessonComputation locale="en" stage="readout" />
 
-**To school has the largest probability, 71.8%.** The input still contains only I / went; to school is a next candidate.
+<strong>To school has the largest probability, 71.8%.</strong> The input still contains only I / went; to school is a next candidate.
 Training compares this prediction with a target. Generation chooses a chunk from these probabilities and appends it.
 
 <Expand id="math-readout" summary="How do input-position shares differ from vocabulary probabilities?">
@@ -1932,18 +1881,182 @@ It does not reproduce every GPT design choice or the complete encoder–decoder 
 
 </Section>
 
-<Section id="training" locale="en">
+<Section id="generation" locale="en">
+<span id="choose-and-append-one-chunk-from-the-computed-probabilities" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Compare the same prediction with a separate target
+Choosing the largest probability is called <strong>greedy</strong>. Append that choice, then recompute the next probabilities from the longer input.
 
-The input is **I / went**, and the target label is **to school**. Do not put that target into the input in advance.
+<LessonGeneration locale="en" />
+
+<strong>Sampling</strong> instead draws according to the probabilities. Neither rule updates coefficients during generation. Next, see how learning changes a coefficient.
+
+</div>
+
+<details class="expand lesson-legacy" id="legacy-generation" data-legacy-exercise="generation">
+<summary>Advanced: sampling, beam search and other vocabularies</summary>
+<div class="expand__body">
+
+The input and coefficients are displayed in each exercise below.
+
+<p><a href={docHref('en', 'exercises/next-token')}>Separate page: compare selection rules using chosen probability tables</a></p>
+
+
+
+The connected block computes four candidate probabilities from context; learning changes its coefficients. **Generation uses the coefficients to choose and append one candidate.**
+The changed input requires a new probability calculation. Revisit the opening generation loop using the computed final row.
+The next two diagrams compare learning and generation in the paper’s **translator**. The common language-model example has no separate source encoder; the translator additionally consults a source representation.
+
+<Figure
+  caption="On the left, training: the answer is known, so all four positions are computed together. On the right, generation: each word produced goes back into the input and round again."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <TrainAndGenerate locale="en" />
+</Figure>
+
+**While learning**, shift the answer one position to the right. Pair input `start / I / went / to school` with targets `I / went / to school / end`: every position predicts the next token.
+The **causal mask** hides later inputs, including the token that position is trying to predict. Shifting the input and masking future positions together allow simultaneous computation without copying the answer.
+
+**While using it**, there is no answer. Making the third word needs the second, and
+making the second needs the first. There is no way around going in order.
+
+So how is the first one made? Nothing has been written yet, so the decoder is given only a
+**start mark**. That single row reads the source in the attention over the encoder and
+produces the probabilities for the first word. The word that comes out is appended after
+the start mark, the same decoder runs again, and it stops when the **end mark** comes out.
+The start and end marks are not words with a meaning but special tokens slipped into the
+vocabulary; each takes a slot there and draws its own row from the embedding table like any
+other. The source does not change, so the encoder runs **once**, at the start, and every
+step the decoder reads that same result; what runs again and again is the decoder.
+
+<Figure
+  caption="Steps 1, 2, 3 and the last step of generation. Step 1 gets only the start mark; each time, the word that came out is appended to the next step's input. It stops at the end mark."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <GenerateSteps locale="en" />
+</Figure>
+
+<Note variant="limit" title="Queueing comes back here">
+The [attention history](#problem) compared recurrent computations waiting in a queue. Transformer generation still needs a selected token before building its next context.
+
+More precisely, it removed it **from training**. Generation still goes one word at a
+time. Within the computation of each word every position is parallel, and earlier work
+can be reused — but the words themselves still come out in sequence.
+</Note>
+
+### Probability computation and token choice are separate
+
+Compare two rules on the same logits. **Greedy** takes the highest probability; **sampling** assigns bins proportional to probabilities and chooses with a uniform draw.
+For (0.5, 0.4, 0.1), bins are [0, 0.5), [0.5, 0.9) and [0.9, 1).
+`[start, end)` includes the left endpoint and excludes the right endpoint.
+
+Temperature **T** is one positive divisor: `softmax(logits / T)`. T = 1 gives the original distribution; lower T concentrates it, higher T flattens it.
+It preserves the candidate ranking and serves a different purpose from attention’s √dₖ.
+
+<TokenChoiceExplorer client:load locale="en" />
+
+<Expand id="math-temperature" summary="Why does dividing logits by temperature change selection shares?">
+
+Use a separate three-candidate example with scores (0, 2, 1). Temperature 1 gives softmax about (0.090, 0.665, 0.245). Temperature 2 narrows scores to (0, 1, 0.5), giving about (0.186, 0.506, 0.307).
+In `softmax(scores/T)`, T is the divisor. Candidate two remains highest, but other sampling bins grow. A draw u=0.1 is in candidate two’s bin in the first distribution, and candidate one’s bin in the second.
+
+</Expand>
+
+Predict the selected bin before moving u. Sampling can make different choices with unchanged weights.
+Beam search instead compares several sequence candidates and is the method used in the paper’s translation experiments below.
+
+### Taking the best word every time
+
+Once the probabilities for the next word are out, why not take the largest?
+
+That is called **greedy** decoding. It is simple and fast, and it has a problem: the
+best step is not the best sentence.
+
+Use a **separate probability example** with short candidates a, b, c and an end marker. The chosen tables compare search methods; they are not probabilities calculated from the shared sentence’s vectors. In the experiment below, with the candidate count at 1, the solid path is the one that
+takes the best word every time. What changes at 2 is for the next heading. Follow it at 1 first.
+
+<BeamExplorer client:load locale="en" />
+
+At the first step `a` is 0.5 and `b` is 0.4, so greedy takes `a`. The largest thing
+after `a` is the end marker at 0.4, giving `a .` with a probability of
+$0.5 \times 0.4 = 0.2$ over the whole sentence.
+
+But what if it had taken `b`? After `b`, the word `a` has probability 0.9.
+$0.4 \times 0.9 = 0.36$, and following that with the end marker at 0.95 gives $0.342$.
+
+**0.342 beats 0.2.** The branch that lost the first step won overall.
+
+### Carrying several candidates
+
+The answer is not to commit to one. Keep the best few **at the same time** and follow
+them all to the end. That is **beam search**, and how many you keep is the **beam size**.
+
+With a beam of 2:
+
+1. First step: keep both `a` (0.5) and `b` (0.4).
+2. Second step: extend each by one word. Eight candidates appear, and `b a` leads at 0.36.
+   `a .` has already finished at 0.2.
+3. Extending `b a` gives `b a .` at 0.342, the best of the finished sentences.
+
+It found what greedy missed. A finished candidate stays in the beam without expansion and still occupies a beam slot; only live candidates grow. When no live candidate can still beat
+the finished ones, the search stops and the best finished sentence is the answer.
+
+<Note variant="why" title="So is a bigger beam always better?">
+Carrying more candidates does raise the chance of finding a better sentence, at
+proportionally more computation — a beam of 4 means four times the work at every step.
+
+And in machine translation it is known that quality stops improving well before the beam
+gets large. The paper uses a **beam size of 4**.
+
+One more thing: multiplying probabilities makes long sentences score lower simply for
+being long. The paper corrects for that with a length penalty: the score is adjusted by the sentence
+length with strength $\alpha = 0.6$. The divided score is the **log probability score (zero or negative)**, rather than the positive probability. For example, dividing the log score −1.609 (probability 0.2) by 2 gives −0.805. Making the negative score less negative reduces the bias against longer sentences. The actual divisor is $((5+\text{length})/6)^{\alpha}$ ([GNMT section 7](https://arxiv.org/abs/1609.08144)).
+</Note>
+
+### Knowing when to stop
+
+A sentence ends when the end marker appears. And when it does not?
+
+The paper caps the output length at **the input length plus 50**, and stops earlier
+where it can. A safety net.
+
+<Note variant="scope" title="Not covered here">
+- Basic sampling is covered above. Further filters such as top-k and top-p are outside this guide; the paper’s translation experiments use beam search.
+- Storing earlier computation and reusing it. That is the practical answer to generation
+  being slow, and it is outside the paper.
+</Note>
+### Sequence probability multiplies conditional probabilities
+
+P(b) is the first-choice probability; P(a | b) is the probability of a after b is already present.
+The b → a → end path here has probability 0.4 × 0.9 × 0.95 = 0.342. Each step uses **its own preceding context**.
+
+<Expand id="math-logs" summary="How does adding logs preserve 0.4×0.9×0.95?">
+
+Implementations can add natural logs to reduce underflow from multiplying tiny probabilities.
+Numerically, ln 0.4≈−0.9163, ln 0.9≈−0.1054 and ln 0.95≈−0.0513 sum to about −1.073; $e^{-1.073} \approx 0.342$ recovers the same probability. Abbreviate this as `ln(product) = sum of logs`.
+Finding a high-probability path and producing a good answer for a person require separate evaluation.
+
+</Expand>
+
+</div>
+</details>
+
+</Section>
+
+<Section id="training" locale="en">
+<span id="compare-the-same-prediction-with-a-separate-target" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+The input is <strong>I / went</strong>, and the target label is <strong>to school</strong>. Do not put that target into the input in advance.
 Convert the probability already assigned to the target into one loss value to measure how much this prediction needs correcting.
 
 <LessonComputation locale="en" stage="loss" />
 
-Learning adjusts coefficients to reduce loss. Below, keep **the same four candidates and final representation**, and update one vocabulary coefficient once. Other coefficients remain fixed.
+Learning adjusts coefficients to reduce loss. Below, keep <strong>the same four candidates and final representation</strong>, and update one vocabulary coefficient once. Other coefficients remain fixed.
 
 <Expand id="lesson-readout-learning" summary="Try a learning step: update one vocabulary coefficient">
 
@@ -1951,7 +2064,7 @@ Learning adjusts coefficients to reduce loss. Below, keep **the same four candid
 
 </Expand>
 
-Training repeats this process over many input–target pairs. Next, keep the coefficients and use the calculated probabilities to choose chunks for generation.
+Training repeats this process over many input–target pairs to update coefficients.
 
 </div>
 
@@ -2204,179 +2317,10 @@ large difference for something this article only names in passing.
 
 </Section>
 
-<Section id="generation" locale="en">
-
-<div data-main-lesson>
-
-### Choose and append one chunk from the computed probabilities
-
-Start with the vocabulary scores and probabilities at **temperature 1**. Choosing the largest probability appends to school to the input.
-Recompute the final representation and vocabulary probabilities for that longer input: **end has the largest probability, 49.4%**.
-
-<LessonGeneration client:load locale="en" />
-
-End is a stopping token, distinct from an ordinary period. Choosing it stops without another embedding lookup.
-Alongside greedy selection, generation can sample according to probabilities. Either rule appends its choice and **computes again from the longer input**.
-
-</div>
-
-<details class="expand lesson-legacy" id="legacy-generation" data-legacy-exercise="generation">
-<summary>Advanced: sampling, beam search and other vocabularies</summary>
-<div class="expand__body">
-
-The input and coefficients are displayed in each exercise below.
-
-<p><a href={docHref('en', 'exercises/next-token')}>Separate page: compare selection rules using chosen probability tables</a></p>
-
-
-
-The connected block computes four candidate probabilities from context; learning changes its coefficients. **Generation uses the coefficients to choose and append one candidate.**
-The changed input requires a new probability calculation. Revisit the opening generation loop using the computed final row.
-The next two diagrams compare learning and generation in the paper’s **translator**. The common language-model example has no separate source encoder; the translator additionally consults a source representation.
-
-<Figure
-  caption="On the left, training: the answer is known, so all four positions are computed together. On the right, generation: each word produced goes back into the input and round again."
-  describe="The full description is in the diagram's alternative text."
-  wide
->
-  <TrainAndGenerate locale="en" />
-</Figure>
-
-**While learning**, shift the answer one position to the right. Pair input `start / I / went / to school` with targets `I / went / to school / end`: every position predicts the next token.
-The **causal mask** hides later inputs, including the token that position is trying to predict. Shifting the input and masking future positions together allow simultaneous computation without copying the answer.
-
-**While using it**, there is no answer. Making the third word needs the second, and
-making the second needs the first. There is no way around going in order.
-
-So how is the first one made? Nothing has been written yet, so the decoder is given only a
-**start mark**. That single row reads the source in the attention over the encoder and
-produces the probabilities for the first word. The word that comes out is appended after
-the start mark, the same decoder runs again, and it stops when the **end mark** comes out.
-The start and end marks are not words with a meaning but special tokens slipped into the
-vocabulary; each takes a slot there and draws its own row from the embedding table like any
-other. The source does not change, so the encoder runs **once**, at the start, and every
-step the decoder reads that same result; what runs again and again is the decoder.
-
-<Figure
-  caption="Steps 1, 2, 3 and the last step of generation. Step 1 gets only the start mark; each time, the word that came out is appended to the next step's input. It stops at the end mark."
-  describe="The full description is in the diagram's alternative text."
-  wide
->
-  <GenerateSteps locale="en" />
-</Figure>
-
-<Note variant="limit" title="Queueing comes back here">
-The [attention history](#problem) compared recurrent computations waiting in a queue. Transformer generation still needs a selected token before building its next context.
-
-More precisely, it removed it **from training**. Generation still goes one word at a
-time. Within the computation of each word every position is parallel, and earlier work
-can be reused — but the words themselves still come out in sequence.
-</Note>
-
-### Probability computation and token choice are separate
-
-Compare two rules on the same logits. **Greedy** takes the highest probability; **sampling** assigns bins proportional to probabilities and chooses with a uniform draw.
-For (0.5, 0.4, 0.1), bins are [0, 0.5), [0.5, 0.9) and [0.9, 1).
-`[start, end)` includes the left endpoint and excludes the right endpoint.
-
-Temperature **T** is one positive divisor: `softmax(logits / T)`. T = 1 gives the original distribution; lower T concentrates it, higher T flattens it.
-It preserves the candidate ranking and serves a different purpose from attention’s √dₖ.
-
-<TokenChoiceExplorer client:load locale="en" />
-
-<Expand id="math-temperature" summary="Why does dividing logits by temperature change selection shares?">
-
-Use a separate three-candidate example with scores (0, 2, 1). Temperature 1 gives softmax about (0.090, 0.665, 0.245). Temperature 2 narrows scores to (0, 1, 0.5), giving about (0.186, 0.506, 0.307).
-In `softmax(scores/T)`, T is the divisor. Candidate two remains highest, but other sampling bins grow. A draw u=0.1 is in candidate two’s bin in the first distribution, and candidate one’s bin in the second.
-
-</Expand>
-
-Predict the selected bin before moving u. Sampling can make different choices with unchanged weights.
-Beam search instead compares several sequence candidates and is the method used in the paper’s translation experiments below.
-
-### Taking the best word every time
-
-Once the probabilities for the next word are out, why not take the largest?
-
-That is called **greedy** decoding. It is simple and fast, and it has a problem: the
-best step is not the best sentence.
-
-Use a **separate probability example** with short candidates a, b, c and an end marker. The chosen tables compare search methods; they are not probabilities calculated from the shared sentence’s vectors. In the experiment below, with the candidate count at 1, the solid path is the one that
-takes the best word every time. What changes at 2 is for the next heading. Follow it at 1 first.
-
-<BeamExplorer client:load locale="en" />
-
-At the first step `a` is 0.5 and `b` is 0.4, so greedy takes `a`. The largest thing
-after `a` is the end marker at 0.4, giving `a .` with a probability of
-$0.5 \times 0.4 = 0.2$ over the whole sentence.
-
-But what if it had taken `b`? After `b`, the word `a` has probability 0.9.
-$0.4 \times 0.9 = 0.36$, and following that with the end marker at 0.95 gives $0.342$.
-
-**0.342 beats 0.2.** The branch that lost the first step won overall.
-
-### Carrying several candidates
-
-The answer is not to commit to one. Keep the best few **at the same time** and follow
-them all to the end. That is **beam search**, and how many you keep is the **beam size**.
-
-With a beam of 2:
-
-1. First step: keep both `a` (0.5) and `b` (0.4).
-2. Second step: extend each by one word. Eight candidates appear, and `b a` leads at 0.36.
-   `a .` has already finished at 0.2.
-3. Extending `b a` gives `b a .` at 0.342, the best of the finished sentences.
-
-It found what greedy missed. A finished candidate stays in the beam without expansion and still occupies a beam slot; only live candidates grow. When no live candidate can still beat
-the finished ones, the search stops and the best finished sentence is the answer.
-
-<Note variant="why" title="So is a bigger beam always better?">
-Carrying more candidates does raise the chance of finding a better sentence, at
-proportionally more computation — a beam of 4 means four times the work at every step.
-
-And in machine translation it is known that quality stops improving well before the beam
-gets large. The paper uses a **beam size of 4**.
-
-One more thing: multiplying probabilities makes long sentences score lower simply for
-being long. The paper corrects for that with a length penalty: the score is adjusted by the sentence
-length with strength $\alpha = 0.6$. The divided score is the **log probability score (zero or negative)**, rather than the positive probability. For example, dividing the log score −1.609 (probability 0.2) by 2 gives −0.805. Making the negative score less negative reduces the bias against longer sentences. The actual divisor is $((5+\text{length})/6)^{\alpha}$ ([GNMT section 7](https://arxiv.org/abs/1609.08144)).
-</Note>
-
-### Knowing when to stop
-
-A sentence ends when the end marker appears. And when it does not?
-
-The paper caps the output length at **the input length plus 50**, and stops earlier
-where it can. A safety net.
-
-<Note variant="scope" title="Not covered here">
-- Basic sampling is covered above. Further filters such as top-k and top-p are outside this guide; the paper’s translation experiments use beam search.
-- Storing earlier computation and reusing it. That is the practical answer to generation
-  being slow, and it is outside the paper.
-</Note>
-### Sequence probability multiplies conditional probabilities
-
-P(b) is the first-choice probability; P(a | b) is the probability of a after b is already present.
-The b → a → end path here has probability 0.4 × 0.9 × 0.95 = 0.342. Each step uses **its own preceding context**.
-
-<Expand id="math-logs" summary="How does adding logs preserve 0.4×0.9×0.95?">
-
-Implementations can add natural logs to reduce underflow from multiplying tiny probabilities.
-Numerically, ln 0.4≈−0.9163, ln 0.9≈−0.1054 and ln 0.95≈−0.0513 sum to about −1.073; $e^{-1.073} \approx 0.342$ recovers the same probability. Abbreviate this as `ln(product) = sum of logs`.
-Finding a high-probability path and producing a good answer for a person require separate evaluation.
-
-</Expand>
-
-</div>
-</details>
-
-</Section>
-
 <Section id="results" locale="en">
+<span id="separate-next-chunk-probability-from-model-performance" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
-
-### Separate next-chunk probability from model performance
 
 Comparison values, reference shares, content, final representations and vocabulary probabilities formed one computation. Each appended chunk led to a new prediction.
 These probabilities select a next chunk; they do not give the probability that generated content is factual.

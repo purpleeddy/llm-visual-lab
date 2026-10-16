@@ -30,11 +30,9 @@ export function LessonComputation({ locale, stage, snapshot }: { locale: Locale;
   const vector = (values: number[], name: string) => <div className="lesson-value" data-lesson-value={name}><span>{name}</span><LessonNumbers locale={locale} values={values} label={name} /></div>;
   const lastRow = (matrix: number[][], name: string) => vector(matrix[row], name);
   return <section className="lesson-computation" aria-label={title} data-lesson-stage={stage} data-lesson-prefix={ids.join(',')} data-lesson-focus={ids[row]} data-lesson-position={run.settings.withPositions ? 'on' : 'off'} data-lesson-mask="on">
-    <h4>{title}</h4>
-    <p className="lesson-context">{ko ? '지금 입력' : 'Available input'}: {ids.map((id, i) => <Token key={i} id={id} locale={locale} focus={i === row} />)}</p>
     {stage === 'tokens' && <>
       <div className="lesson-rows" data-lesson-embedding>{ids.map((id, i) => <div key={id}><span><Token id={id} locale={locale} /> · ID {id}</span><span aria-hidden="true">→</span><LessonNumbers locale={locale} values={run.stages.embedding[i]} label={names[i]} data-embedding-id={id} /></div>)}</div>
-      <p>{ko ? '두 줄에 숫자 네 개씩 쌓은 입력 X: 2 × 4. 이 두 줄을 다음 계산에 넘깁니다.' : 'Input X has two rows of four numbers: 2 × 4. Pass these two rows to the next calculation.'}</p>
+      <p>{ko ? '벡터 두 행을 쌓은 행렬 X: 2 × 4. 각 행의 네 값은 순서대로 유지합니다.' : 'Stack two vector rows to form matrix X: 2 × 4. Keep the four entries in each row in order.'}</p>
     </>}
     {stage === 'projection' && <>
       {lastRow(run.stages.position, ko ? '마지막 입력 네 값' : 'Four values of the final input')}
@@ -44,7 +42,7 @@ export function LessonComputation({ locale, stage, snapshot }: { locale: Locale;
       </div>)}</div>
       {vector(head.Q[row], ko ? '다음 비교에 넘길 기준' : 'Comparison values passed onward')}
       <p>{ko ? '참고할 자리도 같은 입력에서 숫자를 꺼내되, 다른 고정 계수로 바꿉니다.' : 'Reference values come from the same input, transformed using another fixed coefficient table.'}</p>
-      <div className="lesson-comparisons">{head.K.map((key, i) => <div key={i}><Token id={ids[i]} locale={locale} />{vector(head.X[i], ko ? '이 자리의 입력' : 'Input at this position')}{key.map((value, j) => <p className="lesson-equation" key={j}>{equation(head.X[i], head.WK.map(values => values[j]))} = {fmtCompact(value)}</p>)}{vector(key, ko ? '비교에 넘길 참고 숫자' : 'Reference values passed to comparison')}</div>)}</div>
+      <div className="lesson-reference-values">{head.K.map((key, i) => <div key={i}><Token id={ids[i]} locale={locale} /><LessonNumbers locale={locale} values={key} label={ko ? '참고 숫자' : 'Reference values'} /></div>)}</div>
       <details className="expand"><summary>{ko ? '참고할 두 자리의 숫자도 준비하기' : 'Prepare comparison values for both references'}</summary><div className="expand__body"><MatrixGrid matrix={head.WK} name={ko ? '참고 숫자를 만드는 계수' : 'Reference coefficients'} compact />{head.K.map((key, i) => <div key={i}><Token id={ids[i]} locale={locale} />{key.map((value, j) => <p key={j}>{equation(head.X[i], head.WK.map(values => values[j]))} = {fmtCompact(value)}</p>)}</div>)}</div></details>
     </>}
     {stage === 'comparison' && <>
@@ -68,13 +66,16 @@ export function LessonComputation({ locale, stage, snapshot }: { locale: Locale;
       <details className="expand"><summary>{ko ? 'softmax의 곱셈 전 값 보기' : 'See the full-precision softmax values'}</summary><div className="expand__body">{head.softmax[row].terms.map((term, i) => <p key={i}>{names[i]}: exp({fmt(term.shifted!, 6)}) / {fmt(head.softmax[row].sumExp, 6)} = {fmt(term.probability, 6)}</p>)}</div></details>
     </>}
     {stage === 'aggregation' && <>
+      <details className="expand"><summary>{ko ? '가져올 내용의 계산' : 'Calculate the content values'}</summary><div className="expand__body">
       <p>{ko ? '가져올 내용도 입력에 고정 계수를 곱해 만듭니다. 이제 이 내용을 앞에서 구한 비중으로 모읍니다.' : 'Fixed coefficients also transform the input into content. Retrieve that content using the shares just calculated.'}</p>
       <div className="lesson-comparisons">{head.V.map((values, i) => <div key={i}><Token id={ids[i]} locale={locale} />{values.map((value, j) => <p className="lesson-equation" key={j}>{equation(head.X[i], head.WV.map(coefficients => coefficients[j]))} = {fmtCompact(value)}</p>)}</div>)}</div>
+      </div></details>
       <LessonContributions locale={locale} run={run} />
+      <details className="expand"><summary>{ko ? '정밀 계산값' : 'Full-precision values'}</summary><div className="expand__body">{head.output[row].map((value, i) => <p key={i} data-journey-exact-head-output>{fmt(value, 6)}</p>)}</div></details>
     </>}
     {stage === 'attention' && <>
       <div className="lesson-roles">{vector(head.Q[row], ko ? 'Q: 현재 자리의 비교 기준' : 'Q: compare from the current position')}{head.K.map((values, i) => <div key={i}><Token id={ids[i]} locale={locale} />{vector(values, ko ? 'K: 참고할 자리의 비교 숫자' : 'K: compare a reference position')}{vector(head.V[i], ko ? 'V: 가져올 내용' : 'V: content to retrieve')}</div>)}</div>
-      <p className="lesson-equation">Q × Kᵀ → {numbers(head.scores[row])} → softmax → {numbers(head.weights[row])} → V</p>
+      <ol className="lesson-attention-flow"><li>Q × Kᵀ = {numbers(head.scores[row])}</li><li>÷ √2 → softmax → {numbers(head.weights[row])}</li><li>× V = {numbers(head.output[row])}</li></ol>
       {lastRow(head.output, ko ? '앞에서 모은 첫 head의 출력' : 'The first-head output just gathered')}
     </>}
     {stage === 'mask' && <>
@@ -110,7 +111,7 @@ export function LessonComputation({ locale, stage, snapshot }: { locale: Locale;
     </>}
     {stage === 'readout' && <>
       {lastRow(run.hidden, ko ? '직전 단원의 마지막 표현' : 'The final representation from the preceding unit')}
-      <p>{ko ? '어휘 출력 계수는 첫 값을 −1배 하고 나머지를 그대로 옮깁니다. 이제 각 칸은 입력 위치가 아니라 다음 어휘 후보를 가리킵니다.' : 'The vocabulary readout multiplies the first feature by −1 and copies the others. Columns now identify next-vocabulary candidates rather than input positions.'}</p>
+      <p>{ko ? '어휘 출력 계수는 첫 값을 −1배 하고 나머지를 그대로 옮깁니다. 마지막 표현의 특징 네 개를 다음 어휘 후보 네 개의 점수로 바꿉니다.' : 'The vocabulary readout multiplies the first feature by −1 and copies the others. This maps four features of the final representation to scores for four vocabulary candidates.'}</p>
       {lastRow(run.logits, ko ? '다음 어휘의 점수' : 'Next-vocabulary scores')}
       <LessonProbabilities locale={locale} run={run} />
       <details className="expand"><summary>{ko ? '어휘 출력 계수와 정밀 확률 보기' : 'Vocabulary coefficients and full-precision probabilities'}</summary><div className="expand__body"><MatrixGrid matrix={run.readout} name={ko ? '어휘 출력 계수' : 'Vocabulary readout'} compact /><p>{numbers(run.probabilities[row], 8)}</p></div></details>

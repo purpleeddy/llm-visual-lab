@@ -68,12 +68,12 @@ export const GROUPS: SectionGroup[] = [
   {
     "id": "use",
     "title": {
-      "ko": "학습과 생성",
-      "en": "Learning and generation"
+      "ko": "생성과 학습",
+      "en": "Generation and learning"
     },
     "summary": {
-      "ko": "손실 → 갱신 → 생성 → 평가",
-      "en": "Loss → update → generation → evaluation"
+      "ko": "생성 → 손실 → 갱신 → 평가",
+      "en": "Generation → loss → update → evaluation"
     },
     "paper": {
       "ko": "논문 5 · 6 · 7",
@@ -355,6 +355,36 @@ export const SECTIONS: SectionItem[] = [
     }
   },
   {
+    "id": "generation",
+    "title": {
+      "ko": "실제로 생성하기 — 선택 규칙·생성 고리·종료",
+      "en": "Actually generate: choice rules, the loop and stopping"
+    },
+    "group": "use",
+    "status": "complete",
+    "prerequisites": [
+      "big-picture"
+    ],
+    "goal": {
+      "ko": "같은 토큰 확률에서 greedy와 sampling이 어떻게 고르는지 비교하고 생성의 종료 조건을 설명합니다.",
+      "en": "Compare greedy and sampling on the same distribution, and explain how generation stops."
+    },
+    "check": {
+      "question": {
+        "ko": "가중치를 고정했는데도 같은 문맥에서 다른 토큰을 고를 수 있을까요?",
+        "en": "Can fixed weights choose different tokens from the same context?"
+      },
+      "answer": {
+        "ko": "sampling이면 가능합니다. 가중치는 확률을 만들고 선택 규칙은 그 확률에서 토큰을 고릅니다. greedy와 같은 결정적 규칙에서만 같은 조건의 선택이 같습니다.",
+        "en": "Yes, with sampling. Weights produce the probabilities; a selection rule chooses a token from them. A deterministic rule such as greedy repeats a choice only under the same conditions."
+      }
+    },
+    "navTitle": {
+      "ko": "생성하는 방법",
+      "en": "Token generation"
+    }
+  },
+  {
     "id": "training",
     "title": {
       "ko": "실제로 배우기 — 정답·손실·기울기·갱신",
@@ -363,7 +393,7 @@ export const SECTIONS: SectionItem[] = [
     "group": "use",
     "status": "complete",
     "prerequisites": [
-      "big-picture",
+      "generation",
       "proportion"
     ],
     "goal": {
@@ -383,38 +413,6 @@ export const SECTIONS: SectionItem[] = [
     "navTitle": {
       "ko": "손실과 학습 갱신",
       "en": "Loss and updates"
-    }
-  },
-  {
-    "id": "generation",
-    "title": {
-      "ko": "실제로 생성하기 — 선택 규칙·생성 고리·종료",
-      "en": "Actually generate: choice rules, the loop and stopping"
-    },
-    "group": "use",
-    "status": "complete",
-    "prerequisites": [
-      "language-model",
-      "positions",
-      "training"
-    ],
-    "goal": {
-      "ko": "같은 토큰 확률에서 greedy와 sampling이 어떻게 고르는지 비교하고 생성의 종료 조건을 설명합니다.",
-      "en": "Compare greedy and sampling on the same distribution, and explain how generation stops."
-    },
-    "check": {
-      "question": {
-        "ko": "가중치를 고정했는데도 같은 문맥에서 다른 토큰을 고를 수 있을까요?",
-        "en": "Can fixed weights choose different tokens from the same context?"
-      },
-      "answer": {
-        "ko": "sampling이면 가능합니다. 가중치는 확률을 만들고 선택 규칙은 그 확률에서 토큰을 고릅니다. greedy와 같은 결정적 규칙에서만 같은 조건의 선택이 같습니다.",
-        "en": "Yes, with sampling. Weights produce the probabilities; a selection rule chooses a token from them. A deterministic rule such as greedy repeats a choice only under the same conditions."
-      }
-    },
-    "navTitle": {
-      "ko": "생성하는 방법",
-      "en": "Token generation"
     }
   },
   {

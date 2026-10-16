@@ -20,6 +20,7 @@ export function LessonLearning({ locale }: { locale: Locale }) {
     <p className="lesson-equation">{fmt(step.weight, 6)} − {step.learningRate} × ({fmt(step.gradient, 6)}) = {fmt(step.nextWeight, 6)}</p>
     <p>{ko ? '정답 확률' : 'Target probability'}: <strong data-learning-target>{fmt(run.probabilities[row][step.targetId], 7)}</strong> · {ko ? '손실' : 'loss'}: <strong data-learning-loss>{fmt(applied ? step.afterLoss : step.beforeLoss, 6)}</strong></p>
     <LessonProbabilities locale={locale} run={run} />
+    <p className="visually-hidden" role="status" aria-live="polite" aria-atomic="true">{applied ? (ko ? `계수를 갱신했습니다. 정답 확률 ${fmt(run.probabilities[row][step.targetId] * 100, 1)}%, 손실 ${fmt(step.afterLoss, 6)}.` : `Coefficient updated. Target probability ${fmt(run.probabilities[row][step.targetId] * 100, 1)}%, loss ${fmt(step.afterLoss, 6)}.`) : (ko ? '학습 전 계수와 확률입니다.' : 'Showing the coefficient and probabilities before learning.')}</p>
     <button type="button" className="btn" onClick={() => setApplied(value => !value)}>{applied ? (ko ? '학습 전으로 되돌리기' : 'Return to before the update') : (ko ? '이 계수 하나를 한 번 고치기' : 'Update this one coefficient once')}</button>
   </section>;
 }

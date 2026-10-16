@@ -13,9 +13,9 @@ Twelve units in four learning stages:
 1. **Inputs and numbers**: next-token prediction → tokens, IDs and embeddings → matrix products and dot products.
 2. **Context and order**: softmax and weighted sums → self-attention → positions and causal masks.
 3. **Blocks and models**: multi-head attention → FFN, residual and layer norm → the full route and a computed one-block decoder.
-4. **Learning and generation**: target alignment, loss and one weight update → greedy, sampling and beam search → evaluation and limits.
+4. **Generation and learning**: greedy, sampling and beam search → target alignment, loss and one weight update → evaluation and limits.
 
-Every unit states its goal, earlier prerequisites and a checkpoint with folded reasoning.
+The article explains each operation once. Optional checkpoints and advanced experiments stay folded; the opening links directly into the same calculation.
 Maths help belongs to the calculation that needs it: native, initially closed disclosures
 show actual numbers and connect them to notation. There is no front-loaded symbol dictionary.
 The contents opens the current stage; detailed headings are available on request.
@@ -24,8 +24,7 @@ Old anchors such as `#problem`, `#similarity` and `#attention` still work.
 Experiments compute from explicitly hand-chosen inputs. IDs in conceptual illustrations
 and prefix probability tables are illustrative; benchmark values come from the paper.
 The tiny decoder is a one-block, post-norm illustration, not a trained GPT or full translator.
-Its position step adds X+PE without the paper’s embedding rescaling; its vocabulary readout
-is an identity matrix. The training experiment really updates one coefficient and recomputes
+The folded legacy decoder uses X+PE without the paper’s embedding rescaling and an identity vocabulary readout. The main two-input lesson omits position addition by default, keeps the causal mask on, and uses diag(−1, 1, 1, 1) as its vocabulary readout. Its optional position extension recomputes downstream values from X+PE. The training experiment really updates one coefficient and recomputes
 loss; it does not implement backpropagation through an entire LLM.
 
 ## Try it

@@ -44,7 +44,7 @@ const statusNote =
           {eyebrow ? <p class="doc-header__eyebrow">{eyebrow}</p> : null}
           <h1>{title}</h1>
           <p class="doc-header__lead">{lead}</p>
-          <div class="doc-header__meta">
+          <div class={docId === '' ? 'doc-header__meta visually-hidden' : 'doc-header__meta'}>
             <span class={`badge badge--${status}`} title={statusNote}>
               <span class="badge__dot"></span>
               {statusLabel}
@@ -134,7 +134,7 @@ const statusNote =
       for (const el of sections) {
         subs.set(
           el.dataset.section,
-          [...el.querySelectorAll('h3[id]')].map((h) => ({ id: h.id, el: h, text: h.textContent.trim() })),
+          [...el.querySelectorAll('h3[id]')].filter(h => !h.closest('[data-legacy-exercise]')).map((h) => ({ id: h.id, el: h, text: h.textContent.trim() })),
         );
       }
 

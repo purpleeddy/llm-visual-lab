@@ -122,7 +122,7 @@ describe('token probabilities and selection', () => {
 
 describe('a learning path with explicit prerequisites', () => {
   it('every prerequisite is a real earlier unit and every unit has a goal and reasoned checkpoint', () => {
-    expect(SECTIONS.map(s => s.id)).toEqual(['language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions', 'multi-head', 'blocks', 'big-picture', 'training', 'generation', 'results']);
+    expect(SECTIONS.map(s => s.id)).toEqual(['language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions', 'multi-head', 'blocks', 'big-picture', 'generation', 'training', 'results']);
     SECTIONS.forEach((s, i) => {
       for (const id of s.prerequisites) {
         const previous = SECTIONS.findIndex(p => p.id === id);

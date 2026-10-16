@@ -41,7 +41,8 @@
 .journey__probability-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0.5rem 1rem; align-items: center; padding: 0.4rem; min-width: 0; border-block-end: 1px solid var(--line-2); }
 .journey__probability-row[data-largest='true'] { background: var(--accent-wash); }
 .journey__probability-row dt, .journey__probability-row dd { margin: 0; min-width: 0; }
-.journey__probability-row dd { display: grid; grid-template-columns: 5.5ch minmax(0,1fr); gap: 0.75rem; align-items: center; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.journey__probability-row dd { display: grid; grid-template-columns: minmax(5.5ch,max-content) minmax(0,1fr); gap: 0.75rem; align-items: center; font-size: 1rem; font-variant-numeric: tabular-nums; }
+[data-journey-probability] { white-space: nowrap; }
 .journey__bar-track { display: block; min-width: 0; background: var(--line-1); }
 .journey__bar { display: block; background: var(--accent); height: 0.4rem; }
 .journey__preview { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; border-inline-start: 3px solid var(--accent); padding-inline-start: 0.75rem; }
@@ -98,12 +99,22 @@
   .journey__multiply { text-align: center; }
 }
 @media (max-width: 34rem) {
-  .journey__probability-row { grid-template-columns: minmax(0,1fr); }
+  .journey__probability-row { grid-template-columns: minmax(0,0.85fr) minmax(0,1.15fr); }
   .journey__mixture-result { grid-template-columns: minmax(0,1fr); }
   .journey__mixture-result > .journey-token { justify-self: start; }
 }
 @media (max-width: 20rem) {
-  .journey__digits { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .journey__digits { grid-template-columns: repeat(4,minmax(0,1fr)); }
   .prose .journey__table th, .prose .journey__table td { padding: 0.25rem; }
   .journey__coordinates, .journey__probability-row dd { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Compact opening: one input, one distribution, one action. */
+.lab--generation-journey { padding: 1rem; background: transparent; }
+.lab--generation-journey .journey__input { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; border: 0; padding: 0; }
+.lab--generation-journey .journey__input > div { margin-block: 0.25rem; }
+.lab--generation-journey .journey__probabilities { margin-block: 0.75rem; }
+.lab--generation-journey .journey__probabilities > p { margin-block: 0.5rem; }
+.lab--generation-journey .journey__controls { margin-block: 0.75rem 0; }
+.lab--generation-journey .journey__status { margin-block: 0.5rem; color: var(--ink-2); }
+.lab--generation-journey .journey__secondary { display: inline-block; }

@@ -101,16 +101,21 @@ describe('one computed opening, from a two-token input to end', () => {
     expect(lessonSnapshot().attention.perHead[0].scores[1]).toEqual([4, 0]);
   });
 
-  it.each(['ko', 'en'] as const)('%s: the opening previews a computed choice outside its two actual inputs', locale => {
+  it.each(['ko', 'en'] as const)('%s: the compact opening keeps the computed choice outside its two actual inputs', locale => {
     const html = renderToStaticMarkup(createElement(GenerationJourney, { locale }));
-    const input = html.match(/data-journey-input="[^"]*"[\s\S]*?<ol/)!;
+    const input = html.match(/data-journey-input="[^"]*"[\s\S]*?<\/div><\/div>/)!;
     expect(input).not.toBeNull();
     expect(input[0]).toContain('data-token-id="0"');
     expect(input[0]).toContain('data-token-id="1"');
     expect(input[0]).not.toContain('data-token-id="2"');
     expect(input[0]).not.toContain(LEARNING_EXAMPLE[locale].tokens[2]);
-    expect(html).toContain('data-journey-preview');
-    expect(html.indexOf('data-journey-preview')).toBeGreaterThan(html.indexOf('</ol>'));
+    expect(html).not.toContain('data-journey-preview');
+    expect(html.match(/data-journey-input=/g)).toHaveLength(1);
+    expect(html.match(/data-journey-probability=/g)).toHaveLength(4);
+    expect(html).not.toContain('journey__previous');
+    expect(html).not.toContain('journey__overview');
+    expect(html).toContain('href="#tokens"');
+    expect(html).toContain('role="status" aria-live="polite" aria-atomic="true"');
     expect(html).toContain(LEARNING_EXAMPLE[locale].tokens[2]);
     expect(html).toContain('data-journey-probabilities');
     expect(html).toContain('71.8%');
@@ -120,6 +125,6 @@ describe('one computed opening, from a two-token input to end', () => {
     expect(html).not.toContain('<table');
     expect(html).toContain('data-stage="purpose"');
     expect(html).toContain('data-prefix="0,1"');
-    expect(html).toContain(locale === 'ko' ? '위치 계산을 생략' : 'position calculation omitted');
+    expect(html).not.toContain('**');
   });
 });
