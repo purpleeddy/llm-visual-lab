@@ -8,18 +8,19 @@ import { docHref, type Locale } from '../../lib/i18n/routing';
 
 interface Props {
   locale: Locale;
-  /** Section id on the lab page */
-  lab?: string;
-  /** Section id on the paper page */
-  paper?: string;
+  /** Section id(s) on the lab page */
+  lab?: string | string[];
+  /** Section id(s) on the paper page */
+  paper?: string | string[];
 }
 
-const { locale, lab, paper } = Astro.props;
+const { locale, lab = [], paper = [] } = Astro.props;
 const ko = locale === 'ko';
+const ids = (value: string | string[]) => (Array.isArray(value) ? value : [value]);
 const links = [
-  lab ? { doc: 'lab', id: lab, label: ko ? '실험실' : 'Lab' } : null,
-  paper ? { doc: 'paper', id: paper, label: ko ? '논문 읽기' : 'The paper' } : null,
-].filter((link) => link !== null).map((link) => {
+  ...ids(lab).map((id) => ({ doc: 'lab', id, label: ko ? '실험실' : 'Lab' })),
+  ...ids(paper).map((id) => ({ doc: 'paper', id, label: ko ? '논문 읽기' : 'The paper' })),
+].map((link) => {
   const section = docSectionById(link.doc, link.id);
   if (!section) throw new Error(`no ${link.doc} section: ${link.id}`);
   return { ...link, title: section.title[locale], href: `${docHref(locale, link.doc)}#${link.id}` };

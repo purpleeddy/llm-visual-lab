@@ -11,6 +11,7 @@ import Section from '../../../components/site/Section.astro';
 import Note from '../../../components/site/Note.astro';
 import Expand from '../../../components/site/Expand.astro';
 import MoreLinks from '../../../components/site/MoreLinks.astro';
+import AttentionFlow from '../../../components/site/AttentionFlow.astro';
 import { GenerationJourney } from '../../../components/lab/GenerationJourney';
 import { LessonComputation } from '../../../components/lab/LessonComputation';
 import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
@@ -71,80 +72,100 @@ Real models adjust vectors and weights through learning. Here we use small illus
 
 </Section>
 
-<Section id="numbers" locale="en">
+<Section id="attention" locale="en">
+<span id="name-the-roles-we-have-already-used-q--k--v" class="lesson-anchor" aria-hidden="true"></span>
 
 <div data-main-lesson>
 
-### Transform four input values into two comparison values
+The vector for the final position, <strong>went</strong>, is (0, 1, 0, 1): it holds information about that chunk alone. Yet what comes next depends on the earlier context.
+After “I went” a destination such as “to school” fits; after “it went” something like “wrong” might. So the final position <strong>takes content from the positions it can read and mixes it into its own values</strong>. That calculation is <strong>attention</strong>.
 
-To retrieve context, we need numbers for comparing the current position with reference positions. Start with <strong>(0, 1, 0, 1) for went</strong>.
-Multiply each input value by a fixed coefficient and add to make one output. Repeating this for output columns is matrix multiplication.
+<AttentionFlow locale="en" />
+
+The shares and new values come from three steps: ① <strong>score</strong> how well each position matches what the current one is looking for, ② turn the scores into <strong>shares</strong> that add up to 1, and ③ <strong>add</strong> each position’s content in proportion to its share.
+This example’s coefficients were chosen so the arithmetic can be followed by hand; they have not learned anything like the “I went / it went” difference. Only the method is followed here.
+
+<span id="numbers" class="lesson-anchor" aria-hidden="true"></span>
+
+### ① Scores: make comparison values, then multiply matching entries
+
+Comparing needs comparison values first. Multiply each of went’s four input values by a fixed coefficient and add them to make one new value. Repeating this for every output is <strong>matrix multiplication</strong>; here it makes two values.
 
 <LessonComputation locale="en" stage="projection" />
 
 <div id="similarity">
 
-### Compare matching entries of the values just produced
-
-The current comparison values are <strong>(0, 2)</strong>. Compare them with <strong>(0, 2) for I</strong> and <strong>(2, 0) for went</strong> by multiplying matching entries and adding.
+Now match the current comparison values <strong>(0, 2)</strong> against each position’s values. Simply adding all four numbers of the two rows gives 4 for I and 4 for went, which tells them apart not at all.
+<strong>Multiplying matching entries and adding</strong> gives 0×0 + 2×2 = 4 for I and 0×2 + 2×0 = 0 for went. The position whose values sit in the same places as the current ones scores higher.
 
 <LessonComputation locale="en" stage="comparison" />
 
-### Arrange the same dot product as row times column
-
-Keep the comparison unchanged and stand the reference row up as a column. Add reference columns beside it to compare several positions from the same current row.
+To compare against several positions at once, stand each reference row up as a column and place the columns side by side. One current row times that table then gives every score.
 
 <LessonComputation locale="en" stage="transpose" />
 <LessonComputation locale="en" stage="scores" />
 
 </div>
 
-Pass <strong>the two scores (4, 0)</strong> to the next unit. They are not yet retrieved content or next-vocabulary probabilities.
+<Expand id="math-dot" summary="How is 0×0 + 2×2 written in symbols?">
 
-</div>
+The dot product of q = (0, 2) and k = (0, 2) is written q · k = 0×0 + 2×2 = 4. With the reference rows stood up as the columns of Kᵀ, the single product qKᵀ = (4, 0) gives both scores at once.
+Every entry of a matrix product is one such dot product.
 
-<MoreLinks locale="en" lab="numbers" />
+</Expand>
 
-</Section>
+<span id="proportion" class="lesson-anchor" aria-hidden="true"></span>
 
-<Section id="proportion" locale="en">
+### ② Shares: turn the scores into proportions that add up to 1
 
-<div data-main-lesson>
-
-### Turn comparison scores into reference shares
-
-Use <strong>(4, 0)</strong> from the preceding unit to decide how much content to retrieve from each input position. <strong>Softmax</strong> turns scores into shares summing to 1.
+Scores can be negative and their total is arbitrary. To serve as shares of content, they must all be at least 0 and add up to 1.
+<strong>Softmax</strong> makes each score positive with the exponential function, then divides by the total. The exponential keeps the order of the scores and widens the gap between large and small ones.
+First, though, the scores are divided by √2. The more values a comparison uses, the larger a sum of products tends to be, so dividing by the square root of that count (2 here) keeps the spread in check.
 
 <LessonComputation locale="en" stage="shares" />
 
-### Use those shares to gather content from the same input
+<Expand id="math-softmax" summary="Where does 94.4% come from?">
 
-Retrieve <strong>94.4%</strong> from I and <strong>5.6%</strong> from went. Apply content coefficients to the same input, then multiply and add matching content coordinates using those shares.
+The scores divided by √2 are (2.828, 0). Since e<sup>2.828</sup> ≈ 16.92 and e<sup>0</sup> = 1, the share for I is 16.92 ÷ (16.92 + 1) ≈ 0.944 and the share for went is 1 ÷ 17.92 ≈ 0.056.
+
+$$
+\mathrm{softmax}(s)_i = \frac{e^{s_i}}{\sum_j e^{s_j}}
+$$
+
+</Expand>
+
+### ③ Gathering: add the content in proportion to the shares
+
+The content to take is also made from the same input, with yet another coefficient table. Multiplying I’s content (3, 0) by <strong>94.4%</strong> and went’s content (0, 3) by <strong>5.6%</strong>, then adding, gives the new values for the went position: (2.833, 0.167).
+Multiplying by shares and adding like this is a <strong>weighted sum</strong>.
 
 <LessonComputation locale="en" stage="aggregation" />
 
-</div>
+### The three roles have names: Q, K and V
 
-<MoreLinks locale="en" lab="proportion" />
-
-</Section>
-
-<Section id="attention" locale="en">
-<span id="name-the-roles-we-have-already-used-q--k--v" class="lesson-anchor" aria-hidden="true"></span>
-
-<div data-main-lesson>
-
-<strong>Q</strong> compares from the current position, <strong>K</strong> supplies reference comparison values, and <strong>V</strong> supplies content to retrieve.
-Three coefficient tables produce these values from the same input. Use them in the order already followed: compare → reference shares → gather content.
+So far the same input has produced three sets of numbers. The current position’s comparison values are the <strong>Query (Q)</strong>, each position’s comparison values are its <strong>Key (K)</strong>, and the content to take is its <strong>Value (V)</strong>. The coefficient tables that make them are written W_Q, W_K and W_V.
+Positions within one sequence mix with each other, hence <strong>self-attention</strong>. The new values still belong to the went position.
 
 <LessonComputation locale="en" stage="attention" />
 
-Positions within one sequence retrieve content from each other, hence <strong>self-attention</strong>. The output row still belongs to went.
-Before joining this head with another one, inspect which input positions it is allowed to read.
+<Expand id="math-attention" summary="How do the three steps become one formula?">
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+In this example the last row of QKᵀ is (4, 0), d<sub>k</sub> = 2, the shares after softmax are (0.944, 0.056), and multiplying by V gives (2.833, 0.167).
+
+</Expand>
+
+<Note variant="limit" title="Shares are computed from this input">
+W_Q, W_K and W_V are coefficients set by learning, but shares such as 94.4% and 5.6% are computed from this particular input. A different input gives different shares with the same coefficients.
+A large share only means that position’s content was mixed in heavily; on its own it does not show that position caused the prediction.
+</Note>
 
 </div>
 
-<MoreLinks locale="en" lab="attention" paper="attention" />
+<MoreLinks locale="en" lab={['numbers', 'proportion', 'attention']} paper="attention" />
 
 </Section>
 

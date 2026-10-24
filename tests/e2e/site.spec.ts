@@ -34,9 +34,11 @@ const EVERY_PAGE = [...ALL_PAGES, ...COMPANION_PAGES];
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/llm-visual-lab/';
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
-  'language-model', 'tokens', 'numbers', 'proportion', 'attention', 'positions',
+  'language-model', 'tokens', 'attention', 'positions',
   'multi-head', 'blocks', 'big-picture', 'generation', 'training', 'results',
 ];
+/** The lab keeps the experiments of the units chapter 2 absorbed under their old ids. */
+const UNIT_OF: Record<string, string> = { numbers: 'attention', proportion: 'attention' };
 // Every section is written now. These stay so that adding a placeholder later
 // only means moving the split, not rewriting the checks.
 const WRITTEN_IDS = SECTION_IDS;
@@ -164,8 +166,8 @@ test.describe('deployment paths and assets', () => {
 
     // The compact opening has no fine headings. A later unit supplies those links.
     await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(0);
-    await page.locator('#numbers').scrollIntoViewIfNeeded();
-    await expect(page.locator('#doc-nav .toc__sublist')).toHaveAttribute('data-toc-sublist', 'numbers');
+    await page.locator('#attention').scrollIntoViewIfNeeded();
+    await expect(page.locator('#doc-nav .toc__sublist')).toHaveAttribute('data-toc-sublist', 'attention');
 
     // Every link in the contents, sub-headings included, has to point at
     // something that exists. Hangul slugs are percent-encoded in the href, so
@@ -183,7 +185,7 @@ test.describe('deployment paths and assets', () => {
   });
 
   test('the contents is grouped by prerequisite-based learning stage', async ({ page }) => {
-    const FIRST_OF_GROUP = ['language-model', 'proportion', 'multi-head', 'generation'];
+    const FIRST_OF_GROUP = ['language-model', 'attention', 'multi-head', 'generation'];
     for (const [path, locale] of [
       [ARTICLE_KO, 'ko'],
       [ARTICLE_EN, 'en'],
@@ -195,18 +197,18 @@ test.describe('deployment paths and assets', () => {
         GROUPS.map((g) => g.title[locale]),
       );
       await expect(groups.locator('.toc__stage > summary')).toHaveCount(4);
-      await expect(groups.locator('.toc__count')).toHaveText(['3 단원', '3 단원', '3 단원', '3 단원'].map(s => locale === 'ko' ? s : '3 units'));
+      await expect(groups.locator('.toc__count')).toHaveText(locale === 'ko' ? ['2 단원', '2 단원', '3 단원', '3 단원'] : ['2 units', '2 units', '3 units', '3 units']);
 
       const sectionIds = await page
         .locator('#doc-nav [data-section-link]')
         .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.sectionLink));
-      expect(sectionIds, `${path}: the twelve sections, in order`).toEqual(SECTION_IDS);
+      expect(sectionIds, `${path}: the ten sections, in order`).toEqual(SECTION_IDS);
 
       // Each stage contains its own first unit even while closed.
       const firstAfter = await groups.evaluateAll(els => els.map(li => (li.querySelector('[data-section-item]') as HTMLElement)?.dataset.sectionItem));
       expect(firstAfter, `${path}: each group owns the expected units`).toEqual(FIRST_OF_GROUP);
 
-      // The visible numbering is still 1–12
+      // The visible numbering runs 1–10
       const nums = await page.locator('#doc-nav [data-section-link] .toc__num').allTextContents();
       expect(nums).toEqual(SECTION_IDS.map((_, i) => String(i + 1)));
     }
@@ -214,7 +216,7 @@ test.describe('deployment paths and assets', () => {
 });
 
 test.describe('the single-page structure', () => {
-  test('all twelve sections are present, in order', async ({ page }) => {
+  test('all ten sections are present, in order', async ({ page }) => {
     await visitWithExercises(page, ARTICLE_KO);
     const ids = await page
       .locator('[data-section]')
@@ -263,10 +265,10 @@ test.describe('the single-page structure', () => {
       companions.push(...await measure());
     }
     for (const id of new Set(companions.map((c) => c.id))) {
-      expect(SECTION_IDS, `companion section #${id} must belong to an article unit`).toContain(id);
+      expect(SECTION_IDS, `companion section #${id} must belong to an article unit`).toContain(UNIT_OF[id] ?? id);
     }
     const report = main.map((s) => {
-      const parts = [s, ...companions.filter((c) => c.id === s.id)];
+      const parts = [s, ...companions.filter((c) => (UNIT_OF[c.id] ?? c.id) === s.id)];
       return { ...s, words: parts.reduce((n, p) => n + p.words, 0), subHeadings: parts.reduce((n, p) => n + p.subHeadings, 0), visuals: parts.reduce((n, p) => n + p.visuals, 0) };
     });
     for (const s of main) {
@@ -303,10 +305,10 @@ test.describe('the single-page structure', () => {
         .getAttribute('data-section-link');
 
     await page.locator('#similarity').scrollIntoViewIfNeeded();
-    await expect.poll(marked, { timeout: 6000 }).toBe('numbers');
+    await expect.poll(marked, { timeout: 6000 }).toBe('attention');
 
-    await page.locator('#numbers').scrollIntoViewIfNeeded();
-    await expect.poll(marked, { timeout: 6000 }).toBe('numbers');
+    await page.locator('#attention h3').nth(2).scrollIntoViewIfNeeded();
+    await expect.poll(marked, { timeout: 6000 }).toBe('attention');
   });
 });
 
@@ -341,12 +343,12 @@ test.describe('learning path on the left, contents on the right', () => {
     // The opening has no h3s; fine headings appear when a later section is read.
     await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(0);
 
-    await page.locator('#numbers').scrollIntoViewIfNeeded();
+    await page.locator('#attention').scrollIntoViewIfNeeded();
     await expect
       .poll(() => page.locator('#doc-nav .toc__sublist').getAttribute('data-toc-sublist'), {
         timeout: 6000,
       })
-      .toBe('numbers');
+      .toBe('attention');
 
     const detail = page.locator('#doc-nav .toc__details');
     await expect(detail).not.toHaveAttribute('open', '');
@@ -354,7 +356,7 @@ test.describe('learning path on the left, contents on the right', () => {
     await expect(detail.locator('.toc__sublist')).toBeVisible();
     const subs = await page.locator('#doc-nav .toc__sublist a').allTextContents();
     const inSection = await page
-      .locator('#numbers h3[id]')
+      .locator('#attention h3[id]')
       .evaluateAll((els) => els.filter(e => !e.closest('[data-legacy-exercise]')).map((e) => e.textContent!.trim()));
     expect(subs, 'the open sub-headings must match that section\'s h3s').toEqual(inSection);
 
@@ -368,7 +370,7 @@ test.describe('learning path on the left, contents on the right', () => {
       .poll(() => page.locator('#doc-nav .toc__sublist').getAttribute('data-toc-sublist'), {
         timeout: 6000,
       })
-      .toBe('numbers');
+      .toBe('attention');
   });
 
   test('without JavaScript the whole contents list remains', async ({ browser }) => {
@@ -1385,7 +1387,7 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
       await expect(page.locator('[data-section] .point--goal, .lesson-prerequisites, .lesson-next')).toHaveCount(0);
-      await expect(page.locator('[data-lesson-check]')).toHaveCount(12);
+      await expect(page.locator('[data-lesson-check]')).toHaveCount(SECTION_IDS.length);
       for (const check of await page.locator('[data-lesson-check]').all()) {
         await expect(check).not.toHaveAttribute('open');
         await expect(check.locator(':scope > summary')).toHaveText(path === ARTICLE_KO ? '이해 확인' : 'Check your understanding');
@@ -1418,30 +1420,67 @@ test.describe('the complete learning progression', () => {
   });
 
   test('each article unit links to its lab and paper sections', async ({ page }) => {
-    const expected: Record<string, string[]> = {
-      tokens: ['lab'], numbers: ['lab'], proportion: ['lab'], attention: ['lab', 'paper'], positions: ['lab', 'paper'],
-      'multi-head': ['lab', 'paper'], blocks: ['lab'], 'big-picture': ['lab', 'paper'], generation: ['lab', 'paper'],
-      training: ['lab', 'paper'], results: ['paper'],
+    // Unit → the lab and paper sections it links to, in order.
+    const expected: Record<string, ['lab' | 'paper', string][]> = {
+      tokens: [['lab', 'tokens']],
+      attention: [['lab', 'numbers'], ['lab', 'proportion'], ['lab', 'attention'], ['paper', 'attention']],
+      positions: [['lab', 'positions'], ['paper', 'positions']], 'multi-head': [['lab', 'multi-head'], ['paper', 'multi-head']],
+      blocks: [['lab', 'blocks']], 'big-picture': [['lab', 'big-picture'], ['paper', 'big-picture']],
+      generation: [['lab', 'generation'], ['paper', 'generation']], training: [['lab', 'training'], ['paper', 'training']],
+      results: [['paper', 'results']],
     };
     for (const path of ALL_PAGES) {
       await page.goto(path);
       await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
-      for (const [unit, docs] of Object.entries(expected)) {
+      for (const [unit, targets] of Object.entries(expected)) {
         const links = page.locator(`#${unit} > .lesson-more a`);
-        await expect(links).toHaveCount(docs.length);
-        for (const [i, doc] of docs.entries()) {
+        await expect(links).toHaveCount(targets.length);
+        for (const [i, [doc, section]] of targets.entries()) {
           const href = await links.nth(i).getAttribute('href');
-          expect(href).toBe(`${new URL(doc === 'lab' ? LAB_OF[path] : PAPER_OF[path], BASE).pathname}#${unit}`);
+          expect(href).toBe(`${new URL(doc === 'lab' ? LAB_OF[path] : PAPER_OF[path], BASE).pathname}#${section}`);
         }
       }
       for (const doc of ['lab', 'paper'] as const) {
         await page.goto(doc === 'lab' ? LAB_OF[path] : PAPER_OF[path]);
         const ids = await page.locator('[data-section]').evaluateAll(nodes => nodes.map(node => node.id));
-        expect(ids).toEqual(Object.entries(expected).filter(([, docs]) => docs.includes(doc)).map(([unit]) => unit));
+        expect(ids).toEqual(Object.values(expected).flat().filter(([d]) => d === doc).map(([, section]) => section));
         await expect(page.locator('[data-lesson-check]')).toHaveCount(0);
         await expect(page.locator('#course-nav a[aria-current="page"]')).toHaveCount(1);
         await expect(page.locator('#doc-nav [data-section-link]')).toHaveCount(ids.length);
       }
+    }
+  });
+
+  test('the attention chapter opens on its purpose and picture, then computes the same numbers in three steps', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      const ko = path === ARTICLE_KO;
+      const chapter = page.locator('#attention > [data-main-lesson]');
+      // The old unit anchors now mark steps inside this chapter.
+      for (const id of ['numbers', 'similarity', 'proportion']) {
+        expect(await page.locator(`[id="${id}"]`).evaluate(node => node.closest('[data-section]')?.id)).toBe('attention');
+      }
+      // Purpose before mechanism: the first paragraph names the problem before any calculation.
+      const first = chapter.locator(':scope > p').first();
+      await expect(first).toContainText(ko ? '앞의 문맥에 따라 달라집니다' : 'depends on the earlier context');
+      const flow = chapter.locator('[data-attention-flow]');
+      expect(await first.evaluate((p, f) => Boolean(p.compareDocumentPosition(f!) & Node.DOCUMENT_POSITION_FOLLOWING), await flow.elementHandle())).toBe(true);
+      expect(await flow.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#attention [data-lesson-stage="projection"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+      // The picture shows the same shares and output the steps compute below.
+      await expect(flow.locator('[data-flow-token]')).toHaveText(ko ? ['나는', '학교에'] : ['I', 'went']);
+      await expect(flow.locator('[data-flow-share]')).toHaveText(await chapter.locator('[data-lesson-stage="shares"] [data-lesson-share]').allTextContents());
+      await expect(flow.locator('[data-flow-share]')).toHaveText(['94.4%', '5.6%']);
+      const output = (await chapter.locator('[data-lesson-stage="aggregation"] [data-journey-head-output]').allTextContents()).join(', ');
+      await expect(flow.locator('[data-flow-output-values]')).toHaveText(`(${output})`);
+      const widths = await flow.locator('[data-flow-edge]').evaluateAll(nodes => nodes.map(node => Number(node.getAttribute('stroke-width'))));
+      expect(widths[0]).toBeGreaterThan(widths[1]);
+      // Three numbered steps, then the names; each step precedes its computation.
+      const headings = await chapter.locator('h3').allTextContents();
+      expect(headings.map(h => h.slice(0, 1))).toEqual(['①', '②', '③', ko ? '세' : 'T']);
+      expect(headings[3]).toContain('Q');
+      await expect(chapter.locator('[data-lesson-stage]')).toHaveCount(7);
+      for (const id of ['math-dot', 'math-softmax', 'math-attention']) await expect(chapter.locator(`#${id}`)).not.toHaveAttribute('open');
+      await expect(page.locator('#attention > .lesson-more a')).toHaveCount(4);
     }
   });
 
@@ -1703,7 +1742,7 @@ test.describe('the complete learning progression', () => {
       await expect(opening).toBeVisible();
       expect(await opening.evaluate(node=>Boolean(node.compareDocumentPosition(document.querySelector('[data-section="tokens"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
       await opening.locator('.journey__detail').click();
-      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('2/12');
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('2/10');
       await expect(page.locator('[data-section="tokens"]')).toBeInViewport();
       await visitWithExercises(page, LAB_OF[path]);
       const lookup=page.locator('.lab--embedding-lookup');
@@ -1828,7 +1867,7 @@ test.describe('the complete learning progression', () => {
   test('math help is local, collapsed by default and accessible from the keyboard', async ({ page }) => {
     // Each unit's local maths help sits with the calculation it explains, on whichever page that is.
     const expected: Record<'main' | 'lab' | 'paper', Record<string, string>> = {
-      main: { 'language-model':'conditional', tokens:'shape', 'big-picture':'readout' },
+      main: { 'language-model':'conditional', tokens:'shape', attention:'attention', 'big-picture':'readout' },
       lab: { numbers:'sum', proportion:'softmax', attention:'attention', 'multi-head':'multi-head', blocks:'layernorm', training:'gradient', generation:'temperature' },
       paper: { positions:'position', results:'cost' },
     };
@@ -1864,7 +1903,7 @@ test.describe('the complete learning progression', () => {
       await visitWithExercises(page, path+'#math-readout');
       await expect(page.locator('#math-readout')).toHaveAttribute('open','');
       await expect(page.locator('#math-readout')).toBeInViewport();
-      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('9/12');
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('7/10');
       await expect(page.locator('#doc-nav [data-toc-stage="layer"]')).toHaveAttribute('open','');
       // The same holds on the lab page, whose contents is one flat list.
       await visitWithExercises(page, LAB_OF[path]+'#math-gradient');
@@ -1896,14 +1935,14 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
     const toc=page.locator('#doc-nav');
     await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
     await expect(toc.locator('[data-toc-stage="layer"]')).toHaveAttribute('open','');
-    await expect(toc.locator('[data-current-lesson]')).toContainText('8/12');
+    await expect(toc.locator('[data-current-lesson]')).toContainText('6/10');
     await expect(toc.locator('.toc__details')).not.toHaveAttribute('open','');
     await toc.locator('.toc__details > summary').click();
     await expect(toc.locator('.toc__sublist')).toBeVisible();
-    await expect(toc.locator('[data-section-link]')).toHaveCount(12);
+    await expect(toc.locator('[data-section-link]')).toHaveCount(SECTION_IDS.length);
     await toc.locator('[data-toc-stage="start"] > summary').click();
     await toc.locator('a[href="#tokens"]').click();
-    await expect(toc.locator('[data-current-lesson]')).toContainText('2/12');
+    await expect(toc.locator('[data-current-lesson]')).toContainText('2/10');
     await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
   }
 });

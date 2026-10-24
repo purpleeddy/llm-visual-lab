@@ -44,7 +44,8 @@ describe('one snapshot through the complete reading path', () => {
 
   it.each(['ko', 'en'] as const)('%s: aggregation keeps its caption without a repeated following output paragraph', locale => {
     const source = readFileSync(new URL(`../../src/content/docs/${locale}/index.mdx`, import.meta.url), 'utf8');
-    const following = source.match(/<LessonComputation locale="(?:ko|en)" stage="aggregation" \/>([\s\S]*?)<\/div>/)![1];
+    // What follows the computation within its own step: up to the next heading or the end of the lesson.
+    const following = source.match(/<LessonComputation locale="(?:ko|en)" stage="aggregation" \/>([\s\S]*?)(?=\n### |<\/div>)/)![1];
     expect(following).not.toContain('(2.833, 0.167)');
     expect(following).not.toMatch(/첫 갈래의 내용|content gathered by the first head/);
     const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage: 'aggregation' }));

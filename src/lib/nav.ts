@@ -27,8 +27,8 @@ export const GROUPS: SectionGroup[] = [
       "en": "Inputs and numbers"
     },
     "summary": {
-      "ko": "문맥 → 토큰 → 벡터 → 계산",
-      "en": "Context → tokens → vectors → arithmetic"
+      "ko": "다음 토큰 → 토큰 → 벡터",
+      "en": "Next token → tokens → vectors"
     },
     "paper": {
       "ko": "논문 3.4 · GPT 3.1",
@@ -42,8 +42,8 @@ export const GROUPS: SectionGroup[] = [
       "en": "Context and order"
     },
     "summary": {
-      "ko": "비중 → attention → 가리기와 위치 확장",
-      "en": "Shares → attention → positions and masks"
+      "ko": "점수 → 몫 → 모으기 → 가리기",
+      "en": "Scores → shares → gathering → masks"
     },
     "paper": {
       "ko": "논문 3.2.1 · 3.5",
@@ -142,94 +142,33 @@ export const SECTIONS: SectionItem[] = [
     }
   },
   {
-    "id": "numbers",
+    "id": "attention",
     "title": {
-      "ko": "숫자를 바꾸고 비교하기 — 행렬곱·내적",
-      "en": "Transform and compare numbers: matrix products and dot products"
+      "ko": "앞 자리를 참고해 문맥 모으기 — attention",
+      "en": "Gather context from earlier positions: attention"
     },
-    "group": "start",
+    "group": "attention",
     "status": "complete",
     "prerequisites": [
       "tokens"
     ],
     "goal": {
-      "ko": "한 칸을 곱해서 더하고, 계산 전후의 행렬 모양을 예측합니다.",
-      "en": "Compute one cell as products added together, and predict input and output shapes."
+      "ko": "마지막 자리가 점수 → 몫 → 가중합의 세 걸음으로 읽을 수 있는 자리의 내용을 모으는 과정을 끝까지 계산합니다.",
+      "en": "Compute how the final position gathers the content it can read in three steps: scores, shares and a weighted sum."
     },
     "check": {
       "question": {
-        "ko": "2 × 4 입력과 4 × 2 계수를 곱하면 무엇이 몇 개 나올까요?",
-        "en": "What does multiplying a 2 × 4 input by 4 × 2 coefficients produce?"
+        "ko": "학교에 자리는 왜 나는에서 94.4%를 가져왔고, 이 몫은 학습된 값일까요?",
+        "en": "Why does the went position take 94.4% from I, and is that share a learned value?"
       },
       "answer": {
-        "ko": "2 × 2 행렬입니다. 입력 두 행은 유지되고 각 행에 새 값 두 개가 생깁니다. 학교에의 행은 (0, 2)이며, 둘째 값은 0×0 + 1×1 + 0×0 + 1×1 = 2입니다.",
-        "en": "A 2 × 2 matrix: two input rows remain, each with two new features. The went row is (0, 2); its second entry is 0×0 + 1×1 + 0×0 + 1×1 = 2."
+        "ko": "같은 자리끼리 곱해 더한 점수가 나는 쪽 4, 학교에 쪽 0이어서 softmax 뒤 나는의 몫이 커졌습니다. 몫은 계수로 이번 입력에서 계산한 결과라, 입력이 바뀌면 같은 계수로도 달라집니다.",
+        "en": "The dot-product scores are 4 for I and 0 for went, so softmax gives I the larger share. The share is computed from this input with the coefficients; a different input changes it even with the same coefficients."
       }
     },
     "navTitle": {
-      "ko": "행렬곱과 내적",
-      "en": "Matrix arithmetic"
-    }
-  },
-  {
-    "id": "proportion",
-    "title": {
-      "ko": "점수에서 정보의 비중으로 — softmax·가중합",
-      "en": "Scores to information shares: softmax and weighted sums"
-    },
-    "group": "attention",
-    "status": "complete",
-    "prerequisites": [
-      "numbers"
-    ],
-    "goal": {
-      "ko": "음수도 있는 점수를 합이 1인 비중으로 바꾸고, 그 비중으로 값을 섞습니다.",
-      "en": "Turn scores, including negative ones, into shares summing to one, then mix values with them."
-    },
-    "check": {
-      "question": {
-        "ko": "내용 (3, 0)과 (0, 3)을 약 94.4%와 5.6%로 모으면 무엇이 될까요?",
-        "en": "What content results from mixing (3, 0) and (0, 3) with shares of about 94.4% and 5.6%?"
-      },
-      "answer": {
-        "ko": "약 (2.833, 0.167)입니다. 각 좌표에 참고 비중을 곱해 더합니다. softmax의 비중은 주어진 자리에서 내용을 가져오는 몫입니다.",
-        "en": "About (2.833, 0.167). Multiply and add matching coordinates using the reference shares. These softmax shares retrieve content from the given positions."
-      }
-    },
-    "navTitle": {
-      "ko": "점수와 비중",
-      "en": "Scores and shares"
-    }
-  },
-  {
-    "id": "attention",
-    "title": {
-      "ko": "문맥을 섞는 self-attention — Q·K·V부터 출력까지",
-      "en": "Mix context with self-attention: Q, K, V to output"
-    },
-    "group": "attention",
-    "status": "complete",
-    "prerequisites": [
-      "numbers",
-      "proportion"
-    ],
-    "goal": {
-      "ko": "한 토큰이 점수와 비중을 만들고 value를 섞는 과정을 끝까지 추적합니다.",
-      "en": "Trace one token through scores, weights and a mixture of values."
-    },
-    "check": {
-      "question": {
-        "ko": "2 × 2 attention 비중과 2 × 2 내용을 곱한 출력은 무엇을 나타낼까요?",
-        "en": "What does multiplying 2 × 2 attention shares by 2 × 2 content values represent?"
-      },
-      "answer": {
-        "ko": "토큰마다 두 자리의 내용을 모은 숫자 두 개, 즉 2 × 2 출력입니다. 학교에 자리의 첫 head 출력은 약 (2.833, 0.167)입니다.",
-        "en": "A 2 × 2 output: two gathered features per token. The first-head output at went is about (2.833, 0.167)."
-      }
-    },
-    "navTitle": {
-      "ko": "Self-attention",
-      "en": "Self-attention"
+      "ko": "문맥 모으기",
+      "en": "Gathering context"
     }
   },
   {
@@ -301,7 +240,7 @@ export const SECTIONS: SectionItem[] = [
     "group": "layer",
     "status": "complete",
     "prerequisites": [
-      "numbers",
+      "attention",
       "multi-head"
     ],
     "goal": {
@@ -394,7 +333,7 @@ export const SECTIONS: SectionItem[] = [
     "status": "complete",
     "prerequisites": [
       "generation",
-      "proportion"
+      "attention"
     ],
     "goal": {
       "ko": "두 입력의 예측을 별도 정답 라벨과 비교하고, 같은 네 후보의 손실을 줄이도록 출력 계수 하나를 고칩니다.",

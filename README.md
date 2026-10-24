@@ -8,10 +8,10 @@ Work a small example, change a value, then open the calculation behind it. Korea
 
 ## What's covered
 
-Twelve units in four learning stages:
+Ten units in four learning stages:
 
-1. **Inputs and numbers**: next-token prediction → tokens, IDs and embeddings → matrix products and dot products.
-2. **Context and order**: softmax and weighted sums → self-attention → positions and causal masks.
+1. **Inputs and numbers**: next-token prediction → tokens, IDs and embeddings.
+2. **Context and order**: attention, opened by why the last position needs context and built in three steps (scores from matrix and dot products → softmax shares → a weighted sum, then the names Q, K, V) → positions and causal masks.
 3. **Blocks and models**: multi-head attention → FFN, residual and layer norm → the full route and a computed one-block decoder.
 4. **Generation and learning**: greedy, sampling and beam search → target alignment, loss and one weight update → evaluation and limits.
 
@@ -19,8 +19,8 @@ The article explains each operation once. Optional checkpoints stay folded and a
 Maths help belongs to the calculation that needs it: native, initially closed disclosures
 show actual numbers and connect them to notation. There is no front-loaded symbol dictionary.
 The contents opens the current stage; detailed headings are available on request.
-Old anchors such as `#problem`, `#similarity` and `#attention` still work; an anchor whose
-content moved to the lab or paper page forwards there.
+Old anchors such as `#problem`, `#numbers`, `#similarity` and `#attention` still work; an
+anchor whose content moved to the lab or paper page forwards there.
 
 Two companion pages sit beside the article: a **lab** (`/ko/lab/`, `/en/lab/`) with the
 editable experiments on a three-chunk sentence, and a **paper** page (`/ko/paper/`,

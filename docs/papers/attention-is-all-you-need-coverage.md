@@ -21,6 +21,8 @@
 > now lives on `/{ko,en}/paper/` and the editable experiments on `/{ko,en}/lab/`, under
 > the same section ids. An anchor in the "Explained in" column that is no longer on the
 > article forwards there, so `/ko/#problem` lands on `/ko/paper/#problem`.
+> The article's `numbers`, `proportion` and `attention` units became one attention
+> chapter; `#numbers`, `#similarity` and `#proportion` now mark steps inside `#attention`.
 
 This document records how each section, equation, figure and table of the paper
 maps onto the commentary in the wiki. It is the coverage map required by section

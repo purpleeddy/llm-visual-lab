@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 
-const sections = ['language-model','tokens','numbers','proportion','attention','positions','multi-head','blocks','big-picture','generation','training','results'];
+const sections = ['language-model','tokens','attention','positions','multi-head','blocks','big-picture','generation','training','results'];
 const stages = ['tokens','projection','comparison','transpose','scores','shares','aggregation','attention','mask','heads','residual','feed-forward','hidden','readout','loss'];
 const words = { ko: ['나는','학교에','갔다'], en: ['I','went','to school'] };
 
@@ -55,7 +55,7 @@ for (const locale of ['ko','en'] as const) {
     for (const section of sections) await expect(page.locator(`[id="${section}"]`)).toHaveCount(1);
     // The independent exercises moved to the lab and paper pages; each unit links there instead.
     await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
-    await expect(page.locator('.lesson-more')).toHaveCount(11);
+    await expect(page.locator('.lesson-more')).toHaveCount(sections.length - 1);
     await expect(page.locator('.lab--next-token')).toHaveCount(0);
     await expect(page.locator('#lesson-position-extension')).not.toHaveAttribute('open');
     await expect(page.locator('#lesson-readout-learning')).not.toHaveAttribute('open');
@@ -85,9 +85,9 @@ for (const locale of ['ko','en'] as const) {
     await expect(tokens.locator('[data-embedding-id="0"] > span')).toHaveText(['1','0','1','0']);
     await expect(tokens.locator('[data-embedding-id="1"] > span')).toHaveText(['0','1','0','1']);
     await expect(tokens).toContainText('2 × 4');
-    await expect(page.locator('#numbers > [data-main-lesson] [data-lesson-score]')).toHaveText(['4','0','4','0']);
-    await expect(page.locator('#proportion > [data-main-lesson] [data-lesson-share]')).toHaveText(['94.4%','5.6%']);
-    await expect(page.locator('#proportion > [data-main-lesson] [data-journey-head-output]')).toHaveText(['2.833','0.167']);
+    await expect(page.locator('#attention > [data-main-lesson] [data-lesson-score]')).toHaveText(['4','0','4','0']);
+    await expect(page.locator('#attention > [data-main-lesson] [data-lesson-share]')).toHaveText(['94.4%','5.6%']);
+    await expect(page.locator('#attention > [data-main-lesson] [data-journey-head-output]')).toHaveText(['2.833','0.167']);
     const heads = page.locator('#multi-head > [data-main-lesson] [data-lesson-head="1"] .lesson-value').last();
     await expect(heads.locator('.journey__digits > span')).toHaveText(['0.670','0.330']);
     await expect(page.locator('#blocks > [data-main-lesson] [data-lesson-stage=hidden] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.520','−0.513','1.313','−1.320']);
@@ -273,7 +273,7 @@ for (const locale of ['ko','en'] as const) {
       await expect(page.locator('[data-learning-overview]')).toHaveCount(0);
       await expect(page.locator('.lab--generation-journey [data-journey-input]')).toHaveCount(1);
       await expect(page.locator('.lesson-generation button, .lesson-generation [data-journey-probabilities]')).toHaveCount(0);
-      await expect(page.locator('[data-lesson-check]')).toHaveCount(12);
+      await expect(page.locator('[data-lesson-check]')).toHaveCount(sections.length);
       for (const check of await page.locator('[data-lesson-check]').all()) await expect(check).not.toHaveAttribute('open');
       const primaryText = await page.locator('main').evaluate(node => {
         const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); const parts: string[] = [];

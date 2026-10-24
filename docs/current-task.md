@@ -149,6 +149,22 @@ At a9fd5d4 the e2e suite had 106 failures with four workers; with two workers 67
   `[...slug].astro` computes which ids left the article and the article forwards them.
 - The sidebar lists the three documents.
 
+### Phase 2 — pilot chapter 2 (attention), for the author's review
+
+- `numbers`, `proportion` and `attention` are one unit, `attention`; the article has ten
+  units in the same four stages (2, 2, 3, 3). The old anchors mark steps inside it.
+- Order: the problem (the last position holds only its own chunk; “어제/내일 학교에”) →
+  `AttentionFlow`, a picture of the shares and the new values read from the shared
+  snapshot → ① scores (matrix product, then why matching entries are multiplied rather
+  than summed, then the column layout) → ② shares (why non-negative and summing to 1, why
+  the exponential, why ÷√dₖ) → ③ the weighted sum → the names Q·K·V and the formula.
+  Notation sits in three closed disclosures (`#math-dot`, `#math-softmax`,
+  `#math-attention`). A note says the shares are computed from this input, not learned.
+- The chapter links to the lab's `numbers`, `proportion` and `attention` sections and the
+  paper's `attention` section. `LessonComputation` captions were left as they are; moving
+  them into MDX waits for the review of this pilot.
+- The remaining chapters follow the same template once the author confirms the approach.
+
 ---
 
 # Previous scope — learn through a task and its numbers
