@@ -11,12 +11,12 @@ Work a small example, change a value, then open the calculation behind it. Korea
 The article builds a small machine that guesses the next word, one part at a time. Each
 chapter starts where the machine so far fails and adds the part that fixes it. Its words
 carry four named slots (past, future, person, verb), so every number can be read.
-Nine chapters in four stages:
+Each chapter shows its result first; the calculation behind it waits in a closed
+“숫자로 확인하기 / Check the numbers” fold. Seven chapters in three stages:
 
 1. **The next-word game**: an LLM gives every possible next word a probability (try “어제/내일 학교에 ___”, “Yesterday/Tomorrow I ___”) → words become vectors with named slots.
-2. **Reading context**: the last word alone ties “갔다/went” and “간다/will” at 31.7% → attention takes 89.3% from the earlier word and breaks the tie at 88.1% → causal mask and position information.
-3. **Stacking and speaking**: multi-head attention, FFN, residual and layer norm as a block → greedy, sampling, temperature and the loop that stops at the end marker.
-4. **Learning and the real thing**: training pairs, loss and one gradient step (37.9% → 50.0%) → what a real LLM changes in size and who sets the numbers.
+2. **Reading context**: the last word alone ties “갔다/went” and “간다/will” at 31.7% → attention takes 89.3% from the earlier word and breaks the tie at 88.1%, and each position reads only earlier words.
+3. **Writing and learning**: greedy, sampling, temperature and the loop that stops at the end marker → training pairs, loss and one update (37.9% → 50.0%) → how a real LLM stacks blocks, grows and who sets its numbers.
 
 Three companion pages sit beside the article, and every chapter links into them:
 

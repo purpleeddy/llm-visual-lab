@@ -396,8 +396,8 @@ export const GROUPS: SectionGroup[] = [
       "en": "The next-word game"
     },
     "summary": {
-      "ko": "확률 → 고르기 → 단어를 숫자로",
-      "en": "Probabilities → choosing → words as numbers"
+      "ko": "확률 → 단어를 숫자로",
+      "en": "Probabilities → words as numbers"
     },
     "paper": {
       "ko": "GPT 3.1",
@@ -411,8 +411,8 @@ export const GROUPS: SectionGroup[] = [
       "en": "Reading context"
     },
     "summary": {
-      "ko": "마지막 단어의 한계 → attention → 순서와 가리기",
-      "en": "The last word’s limit → attention → order and masks"
+      "ko": "마지막 단어의 한계 → attention",
+      "en": "The last word’s limit → attention"
     },
     "paper": {
       "ko": "논문 3.2.1 · 3.5",
@@ -420,33 +420,18 @@ export const GROUPS: SectionGroup[] = [
     }
   },
   {
-    "id": "layer",
-    "title": {
-      "ko": "쌓고 말하기",
-      "en": "Stack and speak"
-    },
-    "summary": {
-      "ko": "블록 쌓기 → 고르고 붙이기",
-      "en": "Stacking blocks → choosing and appending"
-    },
-    "paper": {
-      "ko": "논문 3.1 · 3.2.2 · 3.3",
-      "en": "paper §3.1 · 3.2.2 · 3.3"
-    }
-  },
-  {
     "id": "use",
     "title": {
-      "ko": "배우기와 실제",
-      "en": "Learning and reality"
+      "ko": "쓰고 배우기",
+      "en": "Writing and learning"
     },
     "summary": {
-      "ko": "학습 → 진짜 LLM과의 차이",
-      "en": "Learning → how a real LLM differs"
+      "ko": "고르고 붙이기 → 학습 → 진짜 LLM",
+      "en": "Choosing and appending → learning → a real LLM"
     },
     "paper": {
-      "ko": "논문 5 · 6",
-      "en": "paper §5 · 6"
+      "ko": "논문 3.1 · 5 · 6",
+      "en": "paper §3.1 · 5 · 6"
     }
   }
 ];
@@ -513,8 +498,8 @@ export const SECTIONS: SectionItem[] = [
   {
     "id": "context",
     "title": {
-      "ko": "마지막 단어만 보면 틀린다 — 다음 단어 점수표",
-      "en": "The last word alone is not enough: the next-word score table"
+      "ko": "마지막 단어만 보면 틀린다",
+      "en": "The last word alone is not enough"
     },
     "group": "attention",
     "status": "complete",
@@ -522,8 +507,8 @@ export const SECTIONS: SectionItem[] = [
       "tokens"
     ],
     "goal": {
-      "ko": "점수표로 다음 단어의 점수와 확률을 계산하고, 마지막 단어만으로는 ‘갔다’와 ‘간다’를 가를 수 없음을 보입니다.",
-      "en": "Compute next-word scores and probabilities with the score table, and show that the last word alone cannot separate “went” from “will”."
+      "ko": "마지막 단어만 보는 기계가 ‘어제 학교에’와 ‘내일 학교에’에 같은 답을 내는 이유를 설명하고, 앞 단어를 읽어야 함을 압니다.",
+      "en": "Explain why a machine that sees only the last word gives “Yesterday I” and “Tomorrow I” the same answer, and why it must read earlier words."
     },
     "check": {
       "question": {
@@ -543,7 +528,7 @@ export const SECTIONS: SectionItem[] = [
   {
     "id": "attention",
     "title": {
-      "ko": "앞말에서 필요한 정보 가져오기 — attention",
+      "ko": "앞 단어에서 필요한 정보 가져오기 — attention",
       "en": "Take what you need from earlier words: attention"
     },
     "group": "attention",
@@ -552,8 +537,8 @@ export const SECTIONS: SectionItem[] = [
       "context"
     ],
     "goal": {
-      "ko": "질문·꼬리표·내용(Q·K·V)으로 일치 점수, 몫, 가져온 내용을 계산해 ‘갔다’가 높아지는 과정을 따라갑니다.",
-      "en": "Follow how the question, label and content (Q, K, V) give match scores, shares and taken content that raise “went”."
+      "ko": "질문·꼬리표·내용 비유로 attention이 앞 단어에서 필요한 정보를 가져오는 방식을 설명하고, 각 자리가 앞 단어만 읽는 이유를 압니다.",
+      "en": "Explain with the question, label and content picture how attention takes what a position needs from earlier words, and why each position reads only earlier words."
     },
     "check": {
       "question": {
@@ -571,72 +556,12 @@ export const SECTIONS: SectionItem[] = [
     }
   },
   {
-    "id": "positions",
-    "title": {
-      "ko": "순서와 미래 — 가리기와 위치",
-      "en": "Order and the future: masks and positions"
-    },
-    "group": "attention",
-    "status": "complete",
-    "prerequisites": [
-      "attention"
-    ],
-    "goal": {
-      "ko": "뒤 단어를 가리는 이유와, attention만으로는 단어 순서를 알 수 없다는 점을 설명합니다.",
-      "en": "Explain why later words are hidden, and why attention alone does not know word order."
-    },
-    "check": {
-      "question": {
-        "ko": "‘어제 학교에 갔다’에서 ‘학교에’ 자리는 ‘갔다’를 볼 수 있나요?",
-        "en": "In “Yesterday I went”, may the “I” position read “went”?"
-      },
-      "answer": {
-        "ko": "볼 수 없습니다. ‘학교에’ 자리는 바로 그 ‘갔다’를 맞혀야 하므로, 자기와 앞의 단어만 봅니다.",
-        "en": "No. The “I” position has to predict that very “went”, so it reads only itself and earlier words."
-      }
-    },
-    "navTitle": {
-      "ko": "순서와 가리기",
-      "en": "Order and masks"
-    }
-  },
-  {
-    "id": "blocks",
-    "title": {
-      "ko": "한 번으로는 부족하다 — 블록 쌓기",
-      "en": "One look is not enough: stacking blocks"
-    },
-    "group": "layer",
-    "status": "complete",
-    "prerequisites": [
-      "positions"
-    ],
-    "goal": {
-      "ko": "실제 모델이 attention을 여러 갈래로 하고, 단어별 계산과 더하기·정규화를 붙인 블록을 여러 층 쌓는 이유를 설명합니다.",
-      "en": "Explain why real models use several attention heads and stack many blocks that add a per-word network, residual additions and normalization."
-    },
-    "check": {
-      "question": {
-        "ko": "앞 장의 계산에서 attention 결과를 원래 벡터에 더한 이유는 무엇일까요?",
-        "en": "Why did the attention chapter add the attention result to the original vector?"
-      },
-      "answer": {
-        "ko": "가져온 시간 정보만 남기면 ‘학교에’ 자신의 장소 정보가 약해집니다. 더하면 원래 정보를 지키면서 새 정보를 얹을 수 있습니다.",
-        "en": "Keeping only the taken time information would weaken the position’s own slots. Adding keeps the original and places the new information on top."
-      }
-    },
-    "navTitle": {
-      "ko": "블록 쌓기",
-      "en": "Stacking blocks"
-    }
-  },
-  {
     "id": "generation",
     "title": {
       "ko": "확률에서 문장으로 — 고르고 붙이고 멈추기",
       "en": "From probabilities to a sentence: choose, append, stop"
     },
-    "group": "layer",
+    "group": "use",
     "status": "complete",
     "prerequisites": [
       "attention"
@@ -677,12 +602,12 @@ export const SECTIONS: SectionItem[] = [
     },
     "check": {
       "question": {
-        "ko": "‘어제 → 학교에’ 쌍의 손실이 4.04로 큰 것은 무엇을 뜻할까요?",
-        "en": "What does the large loss of 4.04 on the pair “Yesterday → I” mean?"
+        "ko": "‘어제 → 학교에’ 쌍에서 기계가 정답에 1.8%만 준 것은 무엇을 뜻할까요?",
+        "en": "The machine gave only 1.8% to the answer of the pair “Yesterday → I”. What does that mean?"
       },
       "answer": {
-        "ko": "기계가 정답 ‘학교에’에 1.8%만 주었다는 뜻입니다. 학습은 이런 쌍의 손실을 줄이도록 계수를 조금씩 고칩니다.",
-        "en": "The machine gave the answer “I” only 1.8%. Learning nudges the coefficients to lower losses like this one."
+        "ko": "아직 많이 틀린다는 뜻이고, 그래서 손실이 4.04로 큽니다. 학습은 이런 손실을 줄이도록 계수를 조금씩 고칩니다.",
+        "en": "It is still badly wrong, so the loss is large at 4.04. Learning nudges the coefficients to lower losses like this one."
       }
     },
     "navTitle": {
@@ -702,8 +627,8 @@ export const SECTIONS: SectionItem[] = [
       "training"
     ],
     "goal": {
-      "ko": "이 작은 기계와 실제 LLM의 차이(크기, 학습된 칸, 토큰, 확률과 사실)를 구분합니다.",
-      "en": "Separate this small machine from a real LLM: scale, learned slots, tokens, probability and truth."
+      "ko": "실제 LLM이 이 기계를 어떻게 키우는지(블록 쌓기, 크기, 학습된 칸)와 확률이 사실을 보장하지 않는다는 점을 구분합니다.",
+      "en": "Separate how a real LLM grows this machine (stacked blocks, scale, learned slots) from what it does not promise: a probable sentence is not a true one."
     },
     "check": {
       "question": {

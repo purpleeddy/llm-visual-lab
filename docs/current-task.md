@@ -1,4 +1,37 @@
-# Current scope — rewrite the article as “build a next-word machine”
+# Current scope — lower the article's difficulty: results first, numbers folded
+
+- Started: 2026-10-24, after the merged rewrite (purpleeddy/llm-visual-lab#2). The author
+  read chapter 3's tie (31.7% = 31.7%) without seeing that it was the point, and found the
+  article “조금 난이도가 어렵게 느껴짐”.
+- Diagnosis: each figure shows its calculation before its conclusion (`0×2 + 0×(−2) + 1×1 +
+  0×(−3)`), chapter 3 introduces the score table, dot product and softmax at once, chapter 4
+  computes six steps in the open, chapter 6 is a list of terms.
+- Decisions by the author: results first, calculations in closed “숫자로 확인하기” folds;
+  seven chapters instead of nine.
+
+## Plan
+
+| Chapter | Main text | Folded |
+| --- | --- | --- |
+| 1 language-model | opening game, unchanged | `#math-conditional` |
+| 2 tokens | word table, named slots | `#math-shape` |
+| 3 context | two sentences → the machine sees “학교에” in both → identical bars, a verdict line | score table, non-zero terms only, softmax (`#math-softmax`) |
+| 4 attention | question/label/content, flow figure, result 31.7% → 88.1%; then “앞 단어만 읽습니다” (mask table, one paragraph on position) | the six computation steps and the formula (`#math-attention`) |
+| 5 generation | greedy/sampling, temperature table, loop | `#math-temperature` |
+| 6 training | pairs, loss in words, before → after bars | gradient and update (`#math-gradient`) |
+| 7 real-llm | block figure with one plain line per part, comparison table, probability ≠ truth, origin | — |
+
+- `positions` and `blocks` stop being sections; `#positions` and `#blocks` stay as anchors
+  on the article where that content now sits. Stages become three: 다음 단어 게임 (1–2),
+  문맥 읽기 (3–4), 쓰고 배우기 (5–7).
+- Files: `src/lib/nav.ts` (groups, sections), `LastWordOnly` (verdict / scores parts),
+  `StoryAttention` (result without the vector), `LearningViews` (after / gradient parts),
+  both `index.mdx`, `tests/unit/learning.test.ts`, `tests/e2e/article.spec.ts`, README,
+  `docs/progress.md`.
+- Verified by: `npm test`, `npm run sync && npm run typecheck`, `npm run build`, the full e2e
+  suite, and ko/en screenshots at 1280px and 390px.
+
+# Previous scope — rewrite the article as “build a next-word machine”
 
 - Started: 2026-10-24, after the author judged the restructured article's structure and
   narration still hard to follow (“지금 구조나 설명이 좋지 않다 — 서술 방식, 문서 전체 시나리오”).
