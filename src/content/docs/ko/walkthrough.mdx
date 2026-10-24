@@ -1,0 +1,332 @@
+---
+title: '숫자로 끝까지 따라가기'
+lead: '두 입력 ‘나는 / 학교에’로 디코더 한 번의 계산을 숫자로 끝까지 따라가는 심화 페이지'
+status: 'complete'
+paperRefs: []
+notYet: []
+updated: '2026-10-24'
+---
+
+import Section from '../../../components/site/Section.astro';
+import Note from '../../../components/site/Note.astro';
+import Expand from '../../../components/site/Expand.astro';
+import MoreLinks from '../../../components/site/MoreLinks.astro';
+import AttentionFlow from '../../../components/site/AttentionFlow.astro';
+import { GenerationJourney } from '../../../components/lab/GenerationJourney';
+import { LessonComputation } from '../../../components/lab/LessonComputation';
+import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
+import { LessonLearning } from '../../../components/lab/LessonLearning';
+import { LessonGeneration } from '../../../components/lab/LessonGeneration';
+import { docHref } from '../../../lib/i18n/routing';
+
+<Section id="language-model" locale="ko" doc="walkthrough">
+<span id="이-계산은-무엇을-보여-주나요" class="lesson-anchor" aria-hidden="true"></span>
+<div slot="opening" data-main-lesson>
+  <GenerationJourney client:load locale="ko" />
+</div>
+
+<p data-model-intro>LLM은 입력으로 <strong>다음 토큰의 확률</strong>을 계산합니다. 하나를 붙이면, 늘어난 입력으로 다시 계산합니다.</p>
+
+<Expand id="lesson-model-scope" summary="이 작은 모형의 범위">
+
+두 입력과 고정 계수로 직접 계산하는 설명용 모형입니다. 위치 계산은 생략하고, 앞의 자리와 자기 자신만 참고합니다. 실제 LLM은 많은 글에서 예측 오류를 줄이도록 계수를 배웁니다.
+토큰은 글의 조각이며 단어 전체 또는 일부일 수 있습니다. 끝 표시는 종료용 토큰입니다. 높은 확률이 내용의 사실성을 보장하지는 않습니다.
+
+</Expand>
+
+<Expand id="math-conditional" summary="이 확률은 어떤 문맥의 값인가요?">
+
+P(끝 \| 나는 학교에)의 세로선 뒤는 지금 주어진 입력, 앞은 다음 후보입니다. 입력이 바뀌면 같은 계수로도 확률이 바뀝니다.
+
+</Expand>
+
+<Expand id="table-generation" summary="선택: 확률표 선택 규칙 실습 열기">
+
+정한 확률표의 선택 규칙 실습은 <a href={docHref('ko', 'exercises/next-token')}>별도 실습 페이지</a>에서 엽니다.
+
+</Expand>
+</Section>
+
+<Section id="tokens" locale="ko" doc="walkthrough">
+<span id="주어진-두-조각을-숫자로-찾기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+각 토큰의 번호(ID)로 embedding 표에서 숫자 한 줄을 찾습니다. 이 숫자 줄을 <strong>벡터</strong>라고 부릅니다.
+
+<LessonComputation locale="ko" stage="tokens" />
+
+<Expand id="math-shape" summary="2 × 4: 어느 쪽이 토큰 수인가요?">
+
+먼저 적은 2는 토큰 두 개의 행 수입니다. 뒤의 4는 각 토큰을 표현하는 값의 개수입니다. ID 1 하나와 그 행의 네 값은 같은 종류의 숫자가 아닙니다.
+
+</Expand>
+
+</div>
+
+<Note variant="limit" title="이해를 돕기 위해 정한 예시 값입니다">
+실제 모델은 학습으로 벡터와 가중치를 조정합니다. 여기서는 손으로 계산할 수 있도록 작은 예시 숫자를 씁니다.
+</Note>
+
+<MoreLinks locale="ko" lab="tokens" />
+
+</Section>
+
+<Section id="attention" locale="ko" doc="walkthrough">
+<span id="이미-해-본-계산에-q--k--v라는-이름-붙이기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+마지막 자리 <strong>학교에</strong>의 벡터 (0, 1, 0, 1)에는 그 조각의 정보만 들어 있습니다. 그런데 다음 조각은 앞의 문맥에 따라 달라집니다.
+‘어제 학교에’ 뒤라면 ‘갔다’가, ‘내일 학교에’ 뒤라면 ‘간다’가 자연스럽지요. 그래서 마지막 자리는 <strong>읽을 수 있는 자리들의 내용을 가져와 자기 값에 섞습니다</strong>. 이 계산이 <strong>attention</strong>입니다.
+
+<AttentionFlow locale="ko" />
+
+몫과 새 값은 세 걸음으로 만듭니다. ① 각 자리가 지금 찾는 것과 얼마나 맞는지 <strong>점수</strong>를 내고, ② 점수를 합이 1인 <strong>몫</strong>으로 바꾼 뒤, ③ 각 자리의 내용을 그 몫만큼 <strong>더합니다</strong>.
+이 예제의 계수는 손으로 따라갈 수 있게 정한 값이라, 위의 ‘어제/내일’ 같은 문법을 배운 것은 아닙니다. 계산하는 방법만 그대로 따라갑니다.
+
+<span id="numbers" class="lesson-anchor" aria-hidden="true"></span>
+
+### ① 점수: 비교할 숫자를 만들어 같은 자리끼리 곱하기
+
+비교하려면 먼저 비교용 숫자가 있어야 합니다. 학교에의 입력 네 값에 고정 계수를 곱해 더하면 새 값 하나가 됩니다. 이 계산을 출력마다 반복하는 것이 <strong>행렬곱</strong>이고, 여기서는 값 두 개를 만듭니다.
+
+<LessonComputation locale="ko" stage="projection" />
+
+<div id="similarity">
+
+이제 현재 자리의 기준 <strong>(0, 2)</strong>를 각 자리의 비교 숫자와 맞춰 봅니다. 두 줄의 네 값을 그냥 모두 더하면 나는 쪽도 학교에 쪽도 4가 되어 구분되지 않습니다.
+<strong>같은 자리끼리 곱해 더하면</strong> 나는은 0×0 + 2×2 = 4, 학교에는 0×2 + 2×0 = 0입니다. 기준과 같은 자리에 값이 있는 쪽의 점수가 커집니다.
+
+<LessonComputation locale="ko" stage="comparison" />
+
+같은 비교를 여러 자리에 한꺼번에 하려면, 참고할 줄을 세로로 세워 옆으로 나란히 놓습니다. 그러면 기준 줄 하나와 표 하나의 곱으로 점수가 모두 나옵니다.
+
+<LessonComputation locale="ko" stage="transpose" />
+<LessonComputation locale="ko" stage="scores" />
+
+</div>
+
+<Expand id="math-dot" summary="0×0 + 2×2를 기호로 어떻게 적나요?">
+
+두 줄 q = (0, 2), k = (0, 2)의 내적을 q · k = 0×0 + 2×2 = 4로 적습니다. 참고할 줄들을 열로 세운 표를 Kᵀ라고 하면, 기준 줄 하나와의 곱 qKᵀ = (4, 0)이 두 점수를 한 번에 줍니다.
+행렬곱 결과의 한 칸은 언제나 이런 내적 하나입니다.
+
+</Expand>
+
+<span id="proportion" class="lesson-anchor" aria-hidden="true"></span>
+
+### ② 몫: 점수를 합이 1인 비중으로 바꾸기
+
+점수는 음수일 수도 있고 합도 정해져 있지 않습니다. 내용을 가져올 몫으로 쓰려면 모두 0 이상이고 합이 1이어야 합니다.
+<strong>softmax</strong>는 각 점수를 지수 함수로 양수로 바꾼 뒤, 그 합으로 나눕니다. 지수는 점수의 순서를 지키면서 큰 점수를 더 크게 벌립니다.
+그 전에 점수를 √2로 나눕니다. 비교에 쓰는 숫자가 많을수록 곱의 합이 커지기 쉬워서, 그 개수(여기서는 2)의 제곱근으로 나눠 폭을 맞춥니다.
+
+<LessonComputation locale="ko" stage="shares" />
+
+<Expand id="math-softmax" summary="94.4%는 어떻게 나오나요?">
+
+√2로 나눈 점수는 (2.828, 0)입니다. e<sup>2.828</sup> ≈ 16.92이고 e<sup>0</sup> = 1이므로, 나는의 몫은 16.92 ÷ (16.92 + 1) ≈ 0.944, 학교에의 몫은 1 ÷ 17.92 ≈ 0.056입니다.
+
+$$
+\mathrm{softmax}(s)_i = \frac{e^{s_i}}{\sum_j e^{s_j}}
+$$
+
+</Expand>
+
+### ③ 모으기: 몫만큼 내용을 더하기
+
+가져올 내용도 같은 입력에 또 다른 계수를 곱해 만듭니다. 나는의 내용 (3, 0)에 <strong>94.4%</strong>를, 학교에의 내용 (0, 3)에 <strong>5.6%</strong>를 곱해 더하면 학교에 자리의 새 값 (2.833, 0.167)이 됩니다.
+이렇게 몫을 곱해 더하는 계산을 <strong>가중합</strong>이라고 부릅니다.
+
+<LessonComputation locale="ko" stage="aggregation" />
+
+### 세 역할의 이름: Q·K·V
+
+지금까지 같은 입력에서 숫자 세 벌을 만들었습니다. 현재 자리의 비교 기준을 <strong>Query(Q)</strong>, 각 자리의 비교 숫자를 <strong>Key(K)</strong>, 가져올 내용을 <strong>Value(V)</strong>라고 부르고, 셋을 만드는 계수를 W_Q·W_K·W_V라고 씁니다.
+한 문장 안의 자리끼리 섞으므로 <strong>self-attention</strong>이라고 합니다. 새 값은 계속 학교에 자리에 놓입니다.
+
+<LessonComputation locale="ko" stage="attention" />
+
+<Expand id="math-attention" summary="세 걸음을 식 하나로 적으면?">
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+이 예제에서 QKᵀ의 마지막 행은 (4, 0), d<sub>k</sub> = 2, softmax 뒤의 몫은 (0.944, 0.056), V를 곱한 값은 (2.833, 0.167)입니다.
+
+</Expand>
+
+<Note variant="limit" title="몫은 이번 입력으로 계산한 값입니다">
+W_Q·W_K·W_V는 학습으로 정하는 계수지만, 94.4%·5.6% 같은 몫은 이번 입력에서 계산한 결과입니다. 입력이 바뀌면 같은 계수로도 몫이 바뀝니다.
+몫이 크다는 것은 그 자리의 내용을 많이 섞었다는 뜻일 뿐, 그것만으로 예측의 원인이라고 단정할 수는 없습니다.
+</Note>
+
+</div>
+
+<MoreLinks locale="ko" lab={['numbers', 'proportion', 'attention']} paper="attention" />
+
+</Section>
+
+<Section id="positions" locale="ko" doc="walkthrough">
+<span id="지금-어느-자리를-참고할-수-있나요" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+다음 조각을 예측할 때는 현재 자리 뒤의 정보를 미리 읽으면 안 됩니다. 그래서 각 행은 <strong>자신과 앞의 자리만</strong> 참고하도록 가립니다.
+앞의 모든 계산에는 이 <strong>causal mask</strong>가 이미 적용되어 있습니다.
+
+<LessonComputation locale="ko" stage="mask" />
+
+가리기는 읽을 수 있는 범위를 정합니다. 위치 표현은 각 조각이 놓인 자리를 알려 주는 별도의 연산입니다.
+아래 확장에서는 입력에 위치 벡터를 더하고, 바뀐 입력으로 비교·비중·내용·층 출력·어휘 확률까지 다시 계산합니다.
+
+<Expand id="lesson-position-extension" summary="선택 확장: 위치 벡터를 더해 끝까지 다시 계산하기">
+
+<LessonPositionExtension client:load locale="ko" />
+
+</Expand>
+
+</div>
+
+<MoreLinks locale="ko" lab="positions" paper="positions" />
+
+</Section>
+
+<Section id="multi-head" locale="ko" doc="walkthrough">
+<span id="같은-입력을-다른-계수로-한-번-더-읽기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+첫 head는 <strong>(2.833, 0.167)</strong>을 만들었습니다. 둘째 head는 같은 입력을 자기 계수로 비교하고 내용을 모읍니다.
+두 출력을 따로 유지한 뒤 옆으로 붙이고, 출력 계수 <strong>W_O</strong>로 섞어 다시 네 값으로 만듭니다.
+
+<LessonComputation locale="ko" stage="heads" />
+
+</div>
+
+<MoreLinks locale="ko" lab="multi-head" paper="multi-head" />
+
+</Section>
+
+<Section id="blocks" locale="ko" doc="walkthrough">
+
+<div data-main-lesson>
+
+### 원래 입력을 더해 보존하기
+
+attention 출력만 넘기면 원래 입력의 정보가 사라질 수 있습니다. 같은 칸끼리 원래 입력을 더하는 길을 <strong>잔차 연결(residual)</strong>이라고 부릅니다.
+그다음 한 토큰의 값 크기를 정리하는 층 정규화를 합니다.
+
+<LessonComputation locale="ko" stage="residual" />
+
+### 방금 정규화한 값을 토큰 안에서 바꾸기
+
+토큰 사이의 정보는 이미 attention으로 모았습니다. 이제 토큰 하나의 네 값을 넓혔다가 다시 좁히는 <strong>FFN</strong>으로 바꿉니다.
+입력은 직전 정규화의 출력이며, 음수를 0으로 만드는 연산이 ReLU입니다.
+
+<LessonComputation locale="ko" stage="feed-forward" />
+
+### 다시 더하고 정규화하기
+
+FFN에 들어간 행과 FFN에서 나온 행을 더하고, 다시 정규화합니다. 이 결과가 다음 후보의 점수를 만들 <strong>학교에 자리의 마지막 표현</strong>입니다.
+
+<LessonComputation locale="ko" stage="hidden" />
+
+</div>
+
+<MoreLinks locale="ko" lab="blocks" />
+
+</Section>
+
+<Section id="big-picture" locale="ko" doc="walkthrough">
+<span id="한-층의-마지막-표현으로-다음-어휘를-비교하기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+직전 단원의 마지막 표현을 그대로 받습니다. 어휘 출력 계수를 곱하면 각 값이 <strong>나는 / 학교에 / 갔다 / 끝</strong> 후보의 점수가 됩니다.
+그 점수에 softmax를 적용하면 다음 한 조각의 확률이 나옵니다.
+
+<LessonComputation locale="ko" stage="readout" />
+
+가장 큰 확률은 <strong>갔다 71.8%</strong>입니다. 입력은 여전히 나는 / 학교에 두 조각이며, 갔다는 다음에 고를 후보입니다.
+학습에서는 이 예측을 정답과 비교하고, 생성에서는 이 확률에서 조각 하나를 골라 붙입니다.
+
+<Expand id="math-readout" summary="입력 위치의 비중과 어휘 확률은 무엇이 다른가요?">
+
+attention의 비중 두 개는 이미 주어진 입력 두 자리에서 내용을 가져오는 몫입니다. 여기의 확률 네 개는 다음에 고를 어휘 네 후보의 몫입니다. 어휘 출력 계수가 마지막 표현을 후보별 점수로 바꿉니다.
+
+</Expand>
+
+</div>
+
+<MoreLinks locale="ko" lab="big-picture" paper="big-picture" />
+
+</Section>
+
+<Section id="generation" locale="ko" doc="walkthrough">
+<span id="계산한-확률에서-한-조각을-골라-붙이기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+앞에서 얻은 확률에서 가장 큰 후보를 고르는 규칙을 <strong>greedy</strong>라고 부릅니다. 하나를 붙인 새 입력으로 다음 확률을 다시 계산합니다.
+
+<LessonGeneration locale="ko" />
+
+확률에 따라 뽑는 <strong>sampling</strong>도 쓸 수 있습니다. 어느 규칙이든 생성 중에는 계수를 고치지 않습니다. 다음은 계수를 배우는 과정입니다.
+
+</div>
+
+<MoreLinks locale="ko" lab="generation" paper="generation" />
+
+</Section>
+
+<Section id="training" locale="ko" doc="walkthrough">
+<span id="같은-예측을-별도로-주어진-정답과-비교하기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+입력은 <strong>나는 / 학교에</strong>, 정답 라벨은 <strong>갔다</strong>입니다. 정답은 입력에 미리 붙이지 않습니다.
+앞에서 구한 정답 확률을 손실로 바꾸면, 이번 예측을 얼마나 고쳐야 할지 숫자 하나로 비교할 수 있습니다.
+
+<LessonComputation locale="ko" stage="loss" />
+
+학습은 손실을 줄이는 방향으로 계수를 고치는 과정입니다. 아래에서는 <strong>같은 네 후보와 같은 마지막 표현</strong>을 두고 어휘 출력 계수 하나만 한 번 고칩니다. 다른 계수는 유지합니다.
+
+<Expand id="lesson-readout-learning" summary="직접 학습시켜 보기: 어휘 출력 계수 하나 고치기">
+
+<LessonLearning client:load locale="ko" />
+
+</Expand>
+
+실제 학습은 많은 입력·정답으로 이 과정을 반복해 계수를 고칩니다.
+
+</div>
+
+<MoreLinks locale="ko" lab="training" paper="training" />
+
+</Section>
+
+<Section id="results" locale="ko" doc="walkthrough">
+<span id="다음-조각의-확률과-모델의-성능-구분하기" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+입력의 비교 숫자부터 참고 비중·내용·마지막 표현·어휘 확률까지 계산이 이어지고, 선택한 조각을 붙일 때마다 새 예측을 만들었습니다.
+이 확률은 다음 조각을 선택하기 위한 값이며, 생성한 내용이 참일 확률과 같지 않습니다.
+
+모델을 평가하려면 같은 조건의 데이터에서 예측 손실과 정답률, 필요한 계산 비용을 비교합니다. 논문의 번역 평가와 실험 결과는 논문 읽기 페이지에서 살펴봅니다.
+
+</div>
+
+<MoreLinks locale="ko" paper="results" />
+
+</Section>
+
+
+---
+
+이 글의 내용은 2017년에 발표된 [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+(v7, 2023-08-02) 에 기대고 있습니다. 절·수식·그림과 이 글의 대응 관계는 저장소의
+`docs/papers/attention-is-all-you-need-coverage.md` 에 정리해 두었어요.

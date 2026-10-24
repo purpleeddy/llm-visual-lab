@@ -19,7 +19,8 @@ export interface SectionItem {
   goal: Record<Locale, string>;
   check: { question: Record<Locale, string>; answer: Record<Locale, string> };
 }
-export const GROUPS: SectionGroup[] = [
+/** The previous article, kept as the walkthrough page: one two-input decoder run in numbers. */
+export const WALKTHROUGH_GROUPS: SectionGroup[] = [
   {
     "id": "start",
     "title": {
@@ -82,7 +83,7 @@ export const GROUPS: SectionGroup[] = [
   }
 ];
 
-export const SECTIONS: SectionItem[] = [
+export const WALKTHROUGH_SECTIONS: SectionItem[] = [
   {
     "id": "language-model",
     "title": {
@@ -386,8 +387,348 @@ export const SECTIONS: SectionItem[] = [
     }
   }
 ];
-export function sectionById(id: string): SectionItem | undefined { return SECTIONS.find(s => s.id === id); }
-export function groupById(id: string): SectionGroup | undefined { return GROUPS.find(g => g.id === id); }
+/** The article: build a next-word machine whose numbers can be read. */
+export const GROUPS: SectionGroup[] = [
+  {
+    "id": "start",
+    "title": {
+      "ko": "다음 단어 게임",
+      "en": "The next-word game"
+    },
+    "summary": {
+      "ko": "확률 → 고르기 → 단어를 숫자로",
+      "en": "Probabilities → choosing → words as numbers"
+    },
+    "paper": {
+      "ko": "GPT 3.1",
+      "en": "GPT §3.1"
+    }
+  },
+  {
+    "id": "attention",
+    "title": {
+      "ko": "문맥 읽기",
+      "en": "Reading context"
+    },
+    "summary": {
+      "ko": "마지막 단어의 한계 → attention → 순서와 가리기",
+      "en": "The last word’s limit → attention → order and masks"
+    },
+    "paper": {
+      "ko": "논문 3.2.1 · 3.5",
+      "en": "paper §3.2.1 · 3.5"
+    }
+  },
+  {
+    "id": "layer",
+    "title": {
+      "ko": "쌓고 말하기",
+      "en": "Stack and speak"
+    },
+    "summary": {
+      "ko": "블록 쌓기 → 고르고 붙이기",
+      "en": "Stacking blocks → choosing and appending"
+    },
+    "paper": {
+      "ko": "논문 3.1 · 3.2.2 · 3.3",
+      "en": "paper §3.1 · 3.2.2 · 3.3"
+    }
+  },
+  {
+    "id": "use",
+    "title": {
+      "ko": "배우기와 실제",
+      "en": "Learning and reality"
+    },
+    "summary": {
+      "ko": "학습 → 진짜 LLM과의 차이",
+      "en": "Learning → how a real LLM differs"
+    },
+    "paper": {
+      "ko": "논문 5 · 6",
+      "en": "paper §5 · 6"
+    }
+  }
+];
+
+export const SECTIONS: SectionItem[] = [
+  {
+    "id": "language-model",
+    "title": {
+      "ko": "다음 단어 맞히기 — LLM이 하는 일",
+      "en": "Guess the next word: what an LLM does"
+    },
+    "group": "start",
+    "status": "complete",
+    "prerequisites": [],
+    "goal": {
+      "ko": "LLM이 다음 단어의 확률을 계산하고, 하나를 골라 붙인 뒤 다시 계산한다는 것을 설명합니다.",
+      "en": "Explain that an LLM computes next-word probabilities, appends one choice and computes again."
+    },
+    "check": {
+      "question": {
+        "ko": "‘갔다’를 붙인 뒤 다시 계산할 때 바뀌는 것은 입력일까요, 기계의 계수일까요?",
+        "en": "After appending “went”, what changes when the machine computes again: the input or its coefficients?"
+      },
+      "answer": {
+        "ko": "입력이 바뀝니다. 계수는 그대로이고, 늘어난 입력으로 다음 단어의 확률을 새로 계산합니다.",
+        "en": "The input. The coefficients stay the same; the longer input gives new next-word probabilities."
+      }
+    },
+    "navTitle": {
+      "ko": "다음 단어 맞히기",
+      "en": "The next-word game"
+    }
+  },
+  {
+    "id": "tokens",
+    "title": {
+      "ko": "단어를 숫자로 — 칸에 이름이 붙은 벡터",
+      "en": "Words as numbers: vectors with named slots"
+    },
+    "group": "start",
+    "status": "complete",
+    "prerequisites": [
+      "language-model"
+    ],
+    "goal": {
+      "ko": "단어를 벡터로 바꾸는 이유와, 벡터의 각 칸이 무엇을 나타내는지 설명합니다.",
+      "en": "Explain why words become vectors and what each slot of a vector stands for."
+    },
+    "check": {
+      "question": {
+        "ko": "‘갔다’의 벡터 (1, 0, 0, 1)은 어떤 두 칸을 가지고 있나요?",
+        "en": "Which two slots does the vector (1, 0, 0, 1) for “went” have?"
+      },
+      "answer": {
+        "ko": "과거와 동작입니다. 이 예제는 사람이 읽을 수 있게 칸을 설계했고, 실제 모델의 칸은 학습으로 정해져 이름을 붙이기 어렵습니다.",
+        "en": "Past and verb. This example’s slots were designed to be readable; a real model learns slots that have no simple names."
+      }
+    },
+    "navTitle": {
+      "ko": "단어를 숫자로",
+      "en": "Words as numbers"
+    }
+  },
+  {
+    "id": "context",
+    "title": {
+      "ko": "마지막 단어만 보면 틀린다 — 다음 단어 점수표",
+      "en": "The last word alone is not enough: the next-word score table"
+    },
+    "group": "attention",
+    "status": "complete",
+    "prerequisites": [
+      "tokens"
+    ],
+    "goal": {
+      "ko": "점수표로 다음 단어의 점수와 확률을 계산하고, 마지막 단어만으로는 ‘갔다’와 ‘간다’를 가를 수 없음을 보입니다.",
+      "en": "Compute next-word scores and probabilities with the score table, and show that the last word alone cannot separate “went” from “will”."
+    },
+    "check": {
+      "question": {
+        "ko": "‘어제 학교에’와 ‘내일 학교에’에서 마지막 단어만 쓰면 왜 확률이 똑같을까요?",
+        "en": "Why are the probabilities identical for “Yesterday I” and “Tomorrow I” when only the last word is used?"
+      },
+      "answer": {
+        "ko": "두 문장의 마지막 단어가 같은 ‘학교에’라서 점수표에 넣는 벡터가 같기 때문입니다. 시간 정보는 앞 단어에만 있습니다.",
+        "en": "Both end in the same word, so the same vector goes into the score table. The time information sits only in the earlier word."
+      }
+    },
+    "navTitle": {
+      "ko": "마지막 단어의 한계",
+      "en": "The last word alone"
+    }
+  },
+  {
+    "id": "attention",
+    "title": {
+      "ko": "앞말에서 필요한 정보 가져오기 — attention",
+      "en": "Take what you need from earlier words: attention"
+    },
+    "group": "attention",
+    "status": "complete",
+    "prerequisites": [
+      "context"
+    ],
+    "goal": {
+      "ko": "질문·꼬리표·내용(Q·K·V)으로 일치 점수, 몫, 가져온 내용을 계산해 ‘갔다’가 높아지는 과정을 따라갑니다.",
+      "en": "Follow how the question, label and content (Q, K, V) give match scores, shares and taken content that raise “went”."
+    },
+    "check": {
+      "question": {
+        "ko": "‘학교에’ 자리가 ‘어제’에서 89.3%를 가져온 이유는 무엇이고, 이 몫은 미리 정해 둔 값일까요?",
+        "en": "Why does the “I” position take 89.3% from “Yesterday”, and was that share set in advance?"
+      },
+      "answer": {
+        "ko": "‘학교에’의 질문(시간)이 ‘어제’의 꼬리표(시간)와 잘 맞아 일치 점수가 높았기 때문입니다. 몫은 미리 정한 값이 아니라 이번 입력으로 계산한 결과입니다.",
+        "en": "The question at “I” (time) matches the label of “Yesterday” (time), so the match score is high. The share is computed from this input, not set in advance."
+      }
+    },
+    "navTitle": {
+      "ko": "attention",
+      "en": "Attention"
+    }
+  },
+  {
+    "id": "positions",
+    "title": {
+      "ko": "순서와 미래 — 가리기와 위치",
+      "en": "Order and the future: masks and positions"
+    },
+    "group": "attention",
+    "status": "complete",
+    "prerequisites": [
+      "attention"
+    ],
+    "goal": {
+      "ko": "뒤 단어를 가리는 이유와, attention만으로는 단어 순서를 알 수 없다는 점을 설명합니다.",
+      "en": "Explain why later words are hidden, and why attention alone does not know word order."
+    },
+    "check": {
+      "question": {
+        "ko": "‘어제 학교에 갔다’에서 ‘학교에’ 자리는 ‘갔다’를 볼 수 있나요?",
+        "en": "In “Yesterday I went”, may the “I” position read “went”?"
+      },
+      "answer": {
+        "ko": "볼 수 없습니다. ‘학교에’ 자리는 바로 그 ‘갔다’를 맞혀야 하므로, 자기와 앞의 단어만 봅니다.",
+        "en": "No. The “I” position has to predict that very “went”, so it reads only itself and earlier words."
+      }
+    },
+    "navTitle": {
+      "ko": "순서와 가리기",
+      "en": "Order and masks"
+    }
+  },
+  {
+    "id": "blocks",
+    "title": {
+      "ko": "한 번으로는 부족하다 — 블록 쌓기",
+      "en": "One look is not enough: stacking blocks"
+    },
+    "group": "layer",
+    "status": "complete",
+    "prerequisites": [
+      "positions"
+    ],
+    "goal": {
+      "ko": "실제 모델이 attention을 여러 갈래로 하고, 단어별 계산과 더하기·정규화를 붙인 블록을 여러 층 쌓는 이유를 설명합니다.",
+      "en": "Explain why real models use several attention heads and stack many blocks that add a per-word network, residual additions and normalization."
+    },
+    "check": {
+      "question": {
+        "ko": "앞 장의 계산에서 attention 결과를 원래 벡터에 더한 이유는 무엇일까요?",
+        "en": "Why did the attention chapter add the attention result to the original vector?"
+      },
+      "answer": {
+        "ko": "가져온 시간 정보만 남기면 ‘학교에’ 자신의 장소 정보가 약해집니다. 더하면 원래 정보를 지키면서 새 정보를 얹을 수 있습니다.",
+        "en": "Keeping only the taken time information would weaken the position’s own slots. Adding keeps the original and places the new information on top."
+      }
+    },
+    "navTitle": {
+      "ko": "블록 쌓기",
+      "en": "Stacking blocks"
+    }
+  },
+  {
+    "id": "generation",
+    "title": {
+      "ko": "확률에서 문장으로 — 고르고 붙이고 멈추기",
+      "en": "From probabilities to a sentence: choose, append, stop"
+    },
+    "group": "layer",
+    "status": "complete",
+    "prerequisites": [
+      "attention"
+    ],
+    "goal": {
+      "ko": "같은 확률에서 greedy와 sampling이 어떻게 고르는지 비교하고, 끝 표시에서 멈추는 생성 고리를 설명합니다.",
+      "en": "Compare how greedy and sampling choose from the same probabilities, and explain the loop that stops at the end marker."
+    },
+    "check": {
+      "question": {
+        "ko": "계수가 그대로인데도 같은 입력에서 다른 단어가 나올 수 있을까요?",
+        "en": "Can the same input give a different word while the coefficients stay the same?"
+      },
+      "answer": {
+        "ko": "sampling이면 가능합니다. 확률은 같아도 뽑는 규칙에 우연이 들어갑니다. greedy는 늘 가장 큰 확률을 고릅니다.",
+        "en": "Yes, with sampling: the probabilities stay the same but the choosing rule involves chance. Greedy always takes the largest probability."
+      }
+    },
+    "navTitle": {
+      "ko": "고르고 붙이기",
+      "en": "Choosing and appending"
+    }
+  },
+  {
+    "id": "training",
+    "title": {
+      "ko": "숫자는 누가 정하나 — 학습",
+      "en": "Who sets the numbers: learning"
+    },
+    "group": "use",
+    "status": "complete",
+    "prerequisites": [
+      "generation"
+    ],
+    "goal": {
+      "ko": "한 문장에서 학습 쌍을 만들고, 손실을 줄이는 방향으로 계수 하나를 고치는 과정을 계산합니다.",
+      "en": "Make training pairs from one sentence and compute one coefficient update that lowers the loss."
+    },
+    "check": {
+      "question": {
+        "ko": "‘어제 → 학교에’ 쌍의 손실이 4.04로 큰 것은 무엇을 뜻할까요?",
+        "en": "What does the large loss of 4.04 on the pair “Yesterday → I” mean?"
+      },
+      "answer": {
+        "ko": "기계가 정답 ‘학교에’에 1.8%만 주었다는 뜻입니다. 학습은 이런 쌍의 손실을 줄이도록 계수를 조금씩 고칩니다.",
+        "en": "The machine gave the answer “I” only 1.8%. Learning nudges the coefficients to lower losses like this one."
+      }
+    },
+    "navTitle": {
+      "ko": "학습",
+      "en": "Learning"
+    }
+  },
+  {
+    "id": "real-llm",
+    "title": {
+      "ko": "진짜 LLM은 무엇이 다른가",
+      "en": "What differs in a real LLM"
+    },
+    "group": "use",
+    "status": "complete",
+    "prerequisites": [
+      "training"
+    ],
+    "goal": {
+      "ko": "이 작은 기계와 실제 LLM의 차이(크기, 학습된 칸, 토큰, 확률과 사실)를 구분합니다.",
+      "en": "Separate this small machine from a real LLM: scale, learned slots, tokens, probability and truth."
+    },
+    "check": {
+      "question": {
+        "ko": "LLM이 어떤 문장에 높은 확률을 주면 그 내용은 사실일까요?",
+        "en": "If an LLM gives a sentence high probability, is its content true?"
+      },
+      "answer": {
+        "ko": "보장되지 않습니다. 확률은 학습한 글에서 그다음에 자주 오는 말을 따른 값이지, 사실을 확인한 값이 아닙니다.",
+        "en": "Not necessarily. The probability follows what tends to come next in the text it learned from; it does not check facts."
+      }
+    },
+    "navTitle": {
+      "ko": "진짜 LLM과 비교",
+      "en": "A real LLM"
+    }
+  }
+];
+
+/** Documents built from lesson units with checks: the article and the walkthrough. */
+export const LESSON_DOCS: Record<string, { groups: SectionGroup[]; sections: SectionItem[] }> = {
+  '': { groups: GROUPS, sections: SECTIONS },
+  walkthrough: { groups: WALKTHROUGH_GROUPS, sections: WALKTHROUGH_SECTIONS },
+};
+export function sectionById(id: string, doc = ''): SectionItem | undefined { return LESSON_DOCS[doc]?.sections.find(s => s.id === id); }
+export function groupById(id: string, doc = ''): SectionGroup | undefined { return LESSON_DOCS[doc]?.groups.find(g => g.id === id); }
 
 /**
  * The companion documents. Their sections reuse the main article's ids, so a unit's
@@ -419,5 +760,5 @@ export const PAPER_SECTIONS: PageSection[] = [
   { id: 'training', title: { ko: '논문의 학습 설정', en: 'The paper’s training setup' }, navTitle: { ko: '학습 설정', en: 'Training setup' } },
   { id: 'results', title: { ko: '결과와 한계 — BLEU·비용·ablation', en: 'Results and limits: BLEU, cost and ablations' }, navTitle: { ko: '결과와 한계', en: 'Results and limits' } },
 ];
-export const DOC_SECTIONS: Record<string, PageSection[]> = { lab: LAB_SECTIONS, paper: PAPER_SECTIONS };
+export const DOC_SECTIONS: Record<string, PageSection[]> = { walkthrough: WALKTHROUGH_SECTIONS, lab: LAB_SECTIONS, paper: PAPER_SECTIONS };
 export function docSectionById(docId: string, id: string): PageSection | undefined { return DOC_SECTIONS[docId]?.find(s => s.id === id); }

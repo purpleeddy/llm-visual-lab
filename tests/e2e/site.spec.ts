@@ -1,6 +1,6 @@
 import { expect, test, type Page, type Locator } from '@playwright/test';
 import { READY_COUNT } from '../../src/lib/curriculum';
-import { GROUPS } from '../../src/lib/nav';
+import { WALKTHROUGH_GROUPS } from '../../src/lib/nav';
 
 /**
  * Browser checks.
@@ -18,19 +18,23 @@ import { GROUPS } from '../../src/lib/nav';
  * that is what the Korean page actually renders.
  */
 
-// The article is the home page. There is no separate landing page.
-const ARTICLE_KO = 'ko/';
-const ARTICLE_EN = 'en/';
-const ALL_PAGES = [ARTICLE_KO, ARTICLE_EN];
-// Editable experiments and the paper's background moved out of the article's drawers.
+// The home page is the article: a small next-word machine built chapter by chapter
+// (tests/e2e/article.spec.ts). The previous article, one run followed in numbers, moved to
+// the walkthrough page; most checks below exercise it.
+const HOME_KO = 'ko/';
+const HOME_EN = 'en/';
+const WALK_KO = 'ko/walkthrough/';
+const WALK_EN = 'en/walkthrough/';
+const ALL_PAGES = [WALK_KO, WALK_EN];
+// Editable experiments and the paper's background moved out of the walkthrough's drawers.
 const LAB_KO = 'ko/lab/';
 const LAB_EN = 'en/lab/';
 const PAPER_KO = 'ko/paper/';
 const PAPER_EN = 'en/paper/';
-const LAB_OF: Record<string, string> = { [ARTICLE_KO]: LAB_KO, [ARTICLE_EN]: LAB_EN };
-const PAPER_OF: Record<string, string> = { [ARTICLE_KO]: PAPER_KO, [ARTICLE_EN]: PAPER_EN };
+const LAB_OF: Record<string, string> = { [WALK_KO]: LAB_KO, [WALK_EN]: LAB_EN };
+const PAPER_OF: Record<string, string> = { [WALK_KO]: PAPER_KO, [WALK_EN]: PAPER_EN };
 const COMPANION_PAGES = [LAB_KO, LAB_EN, PAPER_KO, PAPER_EN];
-const EVERY_PAGE = [...ALL_PAGES, ...COMPANION_PAGES];
+const EVERY_PAGE = [HOME_KO, HOME_EN, ...ALL_PAGES, ...COMPANION_PAGES];
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/llm-visual-lab/';
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
@@ -79,7 +83,7 @@ async function visitWithExercises(page: Page, url: string, options?: Parameters<
   });
   return response;
 }
-const tableExercisePath = (article: string) => `${article}exercises/next-token/`;
+const tableExercisePath = (page: string) => `${page.split('/')[0]}/exercises/next-token/`;
 
 /** Collects failed requests and console errors for a page. */
 function watchFailures(page: Page) {
@@ -107,7 +111,7 @@ test.describe('deployment paths and assets', () => {
 
   test('the root path sends you to the default language', async ({ page }) => {
     await visitWithExercises(page, './');
-    await page.waitForURL(new URL(ARTICLE_KO, BASE).href, { timeout: 10_000 });
+    await page.waitForURL(new URL(HOME_KO, BASE).href, { timeout: 10_000 });
     await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
   });
 
@@ -144,10 +148,10 @@ test.describe('deployment paths and assets', () => {
         );
       for (const h of hrefs) seen.add(h.split('#')[0]);
     }
-    // Each locale links to the article, its lab and paper pages, and the separate choice exercise.
+    // Each locale links to the article, its walkthrough, lab and paper pages, and the separate choice exercise.
     expect([...seen].sort()).toEqual([
-      `${BASE}en/`, `${BASE}en/exercises/next-token/`, `${BASE}en/lab/`, `${BASE}en/paper/`,
-      `${BASE}ko/`, `${BASE}ko/exercises/next-token/`, `${BASE}ko/lab/`, `${BASE}ko/paper/`,
+      `${BASE}en/`, `${BASE}en/exercises/next-token/`, `${BASE}en/lab/`, `${BASE}en/paper/`, `${BASE}en/walkthrough/`,
+      `${BASE}ko/`, `${BASE}ko/exercises/next-token/`, `${BASE}ko/lab/`, `${BASE}ko/paper/`, `${BASE}ko/walkthrough/`,
     ]);
     for (const url of seen) {
       const res = await request.get(url);
@@ -157,7 +161,7 @@ test.describe('deployment paths and assets', () => {
   });
 
   test('the anchors in the contents lead to real sections', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, WALK_KO, { waitUntil: 'networkidle' });
 
     const sectionIds = await page
       .locator('#doc-nav [data-section-link]')
@@ -187,14 +191,14 @@ test.describe('deployment paths and assets', () => {
   test('the contents is grouped by prerequisite-based learning stage', async ({ page }) => {
     const FIRST_OF_GROUP = ['language-model', 'attention', 'multi-head', 'generation'];
     for (const [path, locale] of [
-      [ARTICLE_KO, 'ko'],
-      [ARTICLE_EN, 'en'],
+      [WALK_KO, 'ko'],
+      [WALK_EN, 'en'],
     ] as const) {
       await visitWithExercises(page, path, { waitUntil: 'networkidle' });
       const groups = page.locator('#doc-nav .toc__group');
       await expect(groups, `${path}: four stages`).toHaveCount(4);
       expect(await groups.locator('.toc__group-title').allTextContents()).toEqual(
-        GROUPS.map((g) => g.title[locale]),
+        WALKTHROUGH_GROUPS.map((g) => g.title[locale]),
       );
       await expect(groups.locator('.toc__stage > summary')).toHaveCount(4);
       await expect(groups.locator('.toc__count')).toHaveText(locale === 'ko' ? ['2 단원', '2 단원', '3 단원', '3 단원'] : ['2 units', '2 units', '3 units', '3 units']);
@@ -217,7 +221,7 @@ test.describe('deployment paths and assets', () => {
 
 test.describe('the single-page structure', () => {
   test('all ten sections are present, in order', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     const ids = await page
       .locator('[data-section]')
       .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.section));
@@ -225,7 +229,7 @@ test.describe('the single-page structure', () => {
   });
 
   test('every section is written, and none is left marked as planned', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     for (const id of PLANNED_IDS) {
       const section = page.locator(`#${id}`);
       await expect(section, `#${id} has to be marked planned`).toHaveClass(/doc-section--planned/);
@@ -257,7 +261,7 @@ test.describe('the single-page structure', () => {
         modelScope: el.querySelector('#lesson-model-scope')?.textContent ?? '',
       })),
     );
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     const main = await measure();
     const companions: Awaited<ReturnType<typeof measure>> = [];
     for (const path of [LAB_KO, PAPER_KO]) {
@@ -292,13 +296,13 @@ test.describe('the single-page structure', () => {
   });
 
   test('there is exactly one page title', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     await expect(page.locator('main h1')).toHaveCount(1);
-    await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
+    await expect(page.locator('main h1')).toHaveText('숫자로 끝까지 따라가기');
   });
 
   test('scrolling moves the current-section mark in the contents', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, WALK_KO, { waitUntil: 'networkidle' });
     const marked = () =>
       page
         .locator('#doc-nav [data-section-link][aria-current="true"]')
@@ -314,9 +318,9 @@ test.describe('the single-page structure', () => {
 
 test.describe('learning path on the left, contents on the right', () => {
   test('the left rail lists only what can be read, and says the rest is in preparation', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     const nav = page.locator('#course-nav');
-    await expect(nav.locator('a[aria-current="page"]')).toHaveText('눈으로 이해하는 LLM 원리');
+    await expect(nav.locator('a[aria-current="page"]')).toHaveText('숫자로 끝까지 따라가기');
     await expect(nav.locator('a')).toHaveCount(READY_COUNT);
     await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
 
@@ -328,7 +332,7 @@ test.describe('learning path on the left, contents on the right', () => {
     }
     await expect(nav).not.toContainText('예정');
 
-    await visitWithExercises(page, ARTICLE_EN);
+    await visitWithExercises(page, WALK_EN);
     const chip = page.locator('#course-nav .sidebar__flag');
     await expect(chip).toHaveText(['in preparation']);
     // The English label is long enough to split inside the chip; it must not.
@@ -338,7 +342,7 @@ test.describe('learning path on the left, contents on the right', () => {
   });
 
   test('the contents opens the sub-headings of the section being read', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, WALK_KO, { waitUntil: 'networkidle' });
 
     // The opening has no h3s; fine headings appear when a later section is read.
     await expect(page.locator('#doc-nav .toc__sublist')).toHaveCount(0);
@@ -376,7 +380,7 @@ test.describe('learning path on the left, contents on the right', () => {
   test('without JavaScript the whole contents list remains', async ({ browser }) => {
     const ctx = await browser.newContext({ javaScriptEnabled: false });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
     await expect(page.locator('#doc-nav .toc__link')).toHaveCount(WRITTEN_IDS.length);
     await expect(page.locator('#doc-nav .toc__pending')).toHaveCount(PLANNED_IDS.length);
     await ctx.close();
@@ -461,7 +465,7 @@ test.describe('the styling is still attached', () => {
     await check('.figure__frame', 'border-radius', ['0px']);
     await visitWithExercises(page, PAPER_KO, { waitUntil: 'networkidle' });
     await check('.prose blockquote', 'border-left-width', ['0px']);
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, WALK_KO, { waitUntil: 'networkidle' });
     await check('.lesson-more', 'border-top-width', ['0px']);
   });
 
@@ -489,7 +493,7 @@ test.describe('the styling is still attached', () => {
       const ctx = await browser.newContext({ viewport: { width, height: 900 } });
       const page = await ctx.newPage();
       // The article carries prose, notes and links; figures, tables and labs moved to the lab page.
-      for (const path of [ARTICLE_KO, LAB_KO]) {
+      for (const path of [WALK_KO, LAB_KO]) {
       await visitWithExercises(page, BASE + path, { waitUntil: 'networkidle' });
 
       const { paragraphs, ...widths } = await page.evaluate((article) => {
@@ -513,7 +517,7 @@ test.describe('the styling is still attached', () => {
           table: round(document.querySelector('.doc-section > table')),
           lab: round(document.querySelector('.lab--attention')),
         };
-      }, path === ARTICLE_KO);
+      }, path === WALK_KO);
 
       const values = [...Object.values(widths), ...paragraphs];
       expect(paragraphs.length, 'substantial article paragraphs must be present').toBeGreaterThan(0);
@@ -536,7 +540,7 @@ test.describe('the styling is still attached', () => {
     for (const width of [1440, 1100, 959, 900]) {
       const ctx = await browser.newContext({ viewport: { width, height: 900 } });
       const page = await ctx.newPage();
-      await visitWithExercises(page, BASE + ARTICLE_KO);
+      await visitWithExercises(page, BASE + WALK_KO);
       const main = await page.locator('.main').evaluate((el) => el.getBoundingClientRect().width);
       expect(Math.round(main), `main at ${width}px`).toBeLessThanOrEqual(cap + 1);
       await ctx.close();
@@ -544,7 +548,7 @@ test.describe('the styling is still attached', () => {
   });
 
   test('every CSS variable referenced is defined', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, WALK_KO, { waitUntil: 'networkidle' });
     // Rename a token without fixing its references and the value silently becomes
     // an empty string. Nothing on screen says so.
     const dangling = await page.evaluate(() => {
@@ -652,7 +656,7 @@ test.describe('figures', () => {
       await visitWithExercises(page, LAB_OF[path]);
       const prep = page.locator('#numbers');
       await expect(prep.locator('svg[aria-labelledby="sf-t sf-d"] .tmap__head')).toHaveText(['X', 'W', 'Y']);
-      await expect(prep.locator('#sf-d')).toContainText(path === ARTICLE_KO ? '결과인 Y' : 'result Y');
+      await expect(prep.locator('#sf-d')).toContainText(path === WALK_KO ? '결과인 Y' : 'result Y');
       await expect(prep.locator('#sf-d')).not.toContainText('W_Q');
       await expect(prep).not.toContainText(/W[_₍\s]*Q/);
       await expect(prep.locator('.lab--matmul[data-matmul-mode=interactive]').first().locator('.mgrid--score .mgrid__value')).toHaveText(['2', '0', '0', '2', '1', '1']);
@@ -687,13 +691,13 @@ test.describe('figures', () => {
 
 test.describe('switching between Korean and English', () => {
   test('lands on the other language version of the same document', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, WALK_KO);
     await page.locator('.lang-switch').click();
-    await page.waitForURL(new URL(ARTICLE_EN, BASE).href);
+    await page.waitForURL(new URL(WALK_EN, BASE).href);
     await expect(page.locator('#doc-nav')).toContainText('Tokens and vectors');
 
     await page.locator('.lang-switch').click();
-    await page.waitForURL(new URL(ARTICLE_KO, BASE).href);
+    await page.waitForURL(new URL(WALK_KO, BASE).href);
     await expect(page.locator('#doc-nav')).toContainText('토큰과 벡터');
   });
 
@@ -716,7 +720,7 @@ test.describe('switching between Korean and English', () => {
         .locator('[data-section]')
         .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.section));
     };
-    expect(await ids(ARTICLE_KO)).toEqual(await ids(ARTICLE_EN));
+    expect(await ids(WALK_KO)).toEqual(await ids(WALK_EN));
     expect(await ids(LAB_KO)).toEqual(await ids(LAB_EN));
     expect(await ids(PAPER_KO)).toEqual(await ids(PAPER_EN));
   });
@@ -736,7 +740,7 @@ test.describe('quiet repository link and balanced header', () => {
       const repo = page.locator('.site-footer a[href="https://github.com/purpleeddy/llm-visual-lab"]');
       await expect(repo).toHaveCount(1);
       await expect(repo).toBeVisible();
-      await expect(repo).toHaveText(path === 'ko/' ? 'GitHub 저장소' : 'GitHub repository');
+      await expect(repo).toHaveText(path === WALK_KO ? 'GitHub 저장소' : 'GitHub repository');
       await expect(repo).toHaveAttribute('target', '_blank');
       await expect(repo).toHaveAttribute('rel', 'noopener');
       expect(await repo.evaluate(node => parseFloat(getComputedStyle(node).fontSize))).toBeLessThanOrEqual(13);
@@ -957,7 +961,7 @@ test.describe('keyboard access', () => {
 
   test('the skip-to-content link works from the keyboard', async ({ page }) => {
     // A fresh load: opening drawers first would leave focus on their summaries.
-    await page.goto(ARTICLE_KO);
+    await page.goto(WALK_KO);
     await page.keyboard.press('Tab');
     const skip = page.locator('.skip-link');
     await expect(skip).toBeFocused();
@@ -1046,7 +1050,7 @@ test.describe('responsiveness and reading', () => {
   test('transitions are switched off under reduced motion', async ({ browser }) => {
     const ctx = await browser.newContext({ reducedMotion: 'reduce' });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
     const duration = await page.evaluate(() =>
       getComputedStyle(document.documentElement).getPropertyValue('--motion').trim(),
     );
@@ -1057,7 +1061,7 @@ test.describe('responsiveness and reading', () => {
   test('on a narrow screen the article comes before the contents', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
     const main = await page.locator('main').boundingBox();
     const nav = await page.locator('#doc-nav').boundingBox();
     expect(main!.y, 'the article has to sit above the contents').toBeLessThan(nav!.y);
@@ -1074,7 +1078,7 @@ test.describe('responsiveness and reading', () => {
   test('on a wide screen the path sits left and the contents right', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
     const main = await page.locator('main').boundingBox();
     const course = await page.locator('#course-nav').boundingBox();
     const toc = await page.locator('#doc-nav').boundingBox();
@@ -1087,7 +1091,7 @@ test.describe('responsiveness and reading', () => {
   test('narrower still, the contents drops below the article', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
     const main = await page.locator('main').boundingBox();
     const toc = await page.locator('#doc-nav').boundingBox();
     expect(toc!.y, 'the contents has to sit below the article').toBeGreaterThan(main!.y);
@@ -1103,9 +1107,9 @@ test.describe('responsiveness and reading', () => {
   test('without JavaScript the prose and the default results are still readable', async ({ browser }) => {
     const ctx = await browser.newContext({ javaScriptEnabled: false });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO);
+    await visitWithExercises(page, BASE + WALK_KO);
 
-    await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
+    await expect(page.locator('main h1')).toHaveText('숫자로 끝까지 따라가기');
 
     // The sections and the labs have to be in the static HTML already
     await expect(page.locator('[data-section]')).toHaveCount(SECTION_IDS.length);
@@ -1345,7 +1349,7 @@ test.describe('the complete learning progression', () => {
   test('the opening shows one two-input choice and keeps optional scope in a closed explanation', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
-      const ko = path === ARTICLE_KO;
+      const ko = path === WALK_KO;
       const intro = page.locator('[data-model-intro]');
       const lab = page.locator('.lab--generation-journey');
       await expect(intro).toBeVisible();
@@ -1353,7 +1357,7 @@ test.describe('the complete learning progression', () => {
       await expect(intro.locator('strong')).toHaveCount(1);
       await expect(intro).toContainText(ko ? '다음 토큰의 확률' : 'next-token probabilities');
       await expect(intro).toContainText(ko ? '늘어난 입력으로 다시 계산' : 'recompute with the longer input');
-      await expect(page.locator('.doc-header__lead')).toHaveText(ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.');
+      await expect(page.locator('.doc-header__lead')).toHaveText(ko ? '두 입력 ‘나는 / 학교에’로 디코더 한 번의 계산을 숫자로 끝까지 따라가는 심화 페이지' : 'A deeper page that follows one decoder run on the two inputs “I / went” through every number');
       await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
       await expect(lab).toHaveCount(1);
       await expect(page.locator('#language-model .lab--generation-journey')).toHaveCount(1);
@@ -1390,7 +1394,7 @@ test.describe('the complete learning progression', () => {
       await expect(page.locator('[data-lesson-check]')).toHaveCount(SECTION_IDS.length);
       for (const check of await page.locator('[data-lesson-check]').all()) {
         await expect(check).not.toHaveAttribute('open');
-        await expect(check.locator(':scope > summary')).toHaveText(path === ARTICLE_KO ? '이해 확인' : 'Check your understanding');
+        await expect(check.locator(':scope > summary')).toHaveText(path === WALK_KO ? '이해 확인' : 'Check your understanding');
         await expect(check.locator('.point--check')).not.toBeVisible();
       }
       for (const id of ['similarity', ...SECTION_IDS]) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
@@ -1399,22 +1403,24 @@ test.describe('the complete learning progression', () => {
       await expect(question.locator('.point--check')).toBeVisible();
       await expect(question.locator('details')).not.toHaveAttribute('open', '');
       await question.locator('details > summary').click();
-      await expect(question.locator('details .expand__body')).toContainText(path === ARTICLE_KO ? '별도의 라벨' : 'separate label');
+      await expect(question.locator('details .expand__body')).toContainText(path === WALK_KO ? '별도의 라벨' : 'separate label');
     }
   });
 
   test('old anchors forward to the page their content moved to', async ({ page }) => {
     for (const path of ALL_PAGES) {
+      // Old links point at the home page, which held this article before it moved.
+      const home = path === WALK_KO ? HOME_KO : HOME_EN;
       // #problem is the README's promised anchor; #math-sum and #paper-training are drawer anchors.
       for (const [id, target] of [['problem', PAPER_OF[path]], ['math-sum', LAB_OF[path]], ['paper-training', PAPER_OF[path]]]) {
-        await page.goto(`${path}#${id}`);
+        await page.goto(`${home}#${id}`);
         await page.waitForURL(new URL(`${target}#${id}`, BASE).href);
         await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
         await expect(page.locator(`[id="${id}"]`)).toBeInViewport();
       }
-      // An anchor the article still owns stays put.
-      await page.goto(`${path}#similarity`);
-      await expect(page).toHaveURL(new URL(`${path}#similarity`, BASE).href);
+      // An anchor the home page still owns stays put.
+      await page.goto(`${home}#similarity`);
+      await expect(page).toHaveURL(new URL(`${home}#similarity`, BASE).href);
       await expect(page.locator('#similarity')).toBeInViewport();
     }
   });
@@ -1454,7 +1460,7 @@ test.describe('the complete learning progression', () => {
   test('the attention chapter opens on its purpose and picture, then computes the same numbers in three steps', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await page.goto(path);
-      const ko = path === ARTICLE_KO;
+      const ko = path === WALK_KO;
       const chapter = page.locator('#attention > [data-main-lesson]');
       // The old unit anchors now mark steps inside this chapter.
       for (const id of ['numbers', 'similarity', 'proportion']) {
@@ -1497,14 +1503,14 @@ test.describe('the complete learning progression', () => {
         expect(bounds).not.toBeNull();
         expect(bounds!.y, 'a rotated flow arrow must not extend above its row into the token controls').toBeGreaterThanOrEqual(chooser!.y + chooser!.height);
       }
-      await lab.getByRole('button', { name: path==='ko/' ? '갔다 · ID 2' : 'to school · ID 2' }).click();
+      await lab.getByRole('button', { name: path===WALK_KO ? '갔다 · ID 2' : 'to school · ID 2' }).click();
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 1, 0, 0)');
-      await lab.getByRole('button', { name: path==='ko/' ? '학교에 · ID 1' : 'went · ID 1' }).click();
+      await lab.getByRole('button', { name: path===WALK_KO ? '학교에 · ID 1' : 'went · ID 1' }).click();
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(0, 1, 0, 1)');
     }
   });
 
-  const sentenceDemo = (path: string) => path==='ko/' ? {
+  const sentenceDemo = (path: string) => path===WALK_KO ? {
     tokens:['나는','학교에','갔다','.'], probability:'0.252', destination:1,
     candidates:['학교에','집에','도서관에','끝 표시 .'], beforeEnd:'시작 나는 학교에 갔다',
     candidateRounds:[['나는','우리는','그는','끝 표시 .'],['학교에','집에','도서관에','끝 표시 .'],['갔다','도착했다','간다','끝 표시 .'],['끝 표시 .']],
@@ -1517,7 +1523,7 @@ test.describe('the complete learning progression', () => {
   test('the next-token loop appends a token, changes context and stops on the end marker', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await visitWithExercises(page, tableExercisePath(path));
-      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === WALK_KO;
       await revealSupplement(lab);
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       const advance = lab.locator('.next-token__advance');
@@ -1566,7 +1572,7 @@ test.describe('the complete learning progression', () => {
   test('the supplemental probability table shows its selected prediction and advances its whole input', async ({ page }) => {
     for (const path of ALL_PAGES) {
       await visitWithExercises(page, tableExercisePath(path));
-      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === ARTICLE_KO;
+      const lab = page.locator('.lab--next-token'); const example = sentenceDemo(path); const ko = path === WALK_KO;
       await revealSupplement(lab);
       await expect(lab.locator('button')).toHaveCount(1);
       await expect(lab.locator('.next-token__scenes')).toHaveCount(0);
@@ -1635,7 +1641,7 @@ test.describe('the complete learning progression', () => {
     await page.clock.install();
     for (const path of ALL_PAGES) {
       await visitWithExercises(page, tableExercisePath(path));
-      const ko = path === ARTICLE_KO; const lab = page.locator('.lab--next-token');
+      const ko = path === WALK_KO; const lab = page.locator('.lab--next-token');
       await revealSupplement(lab);
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await expect(lab.locator('button')).toHaveCount(1);
@@ -1765,7 +1771,7 @@ test.describe('the complete learning progression', () => {
       await expect(trace.locator('tbody tr').last().locator('.mgrid__value')).toHaveText(probabilities);
       const choice=page.locator('.lab--token-choice');
       await expect(choice.locator('.token-choice__probability')).toHaveText(probabilities);
-      await expect(choice.locator('tbody th')).toHaveText(words.map((word,i)=>`${i} · ${word}`).concat(path==='ko/' ? '3 · 끝 표시 .' : '3 · end marker .'));
+      await expect(choice.locator('tbody th')).toHaveText(words.map((word,i)=>`${i} · ${word}`).concat(path===WALK_KO ? '3 · 끝 표시 .' : '3 · end marker .'));
     }
   });
 
@@ -1775,7 +1781,7 @@ test.describe('the complete learning progression', () => {
       await expect(lab.locator('.learning-update__weight')).toHaveText('0.000');
       await expect(lab.locator('.learning-update__loss')).toHaveText('0.693147');
       await expect(lab.locator('.learning-update__after-loss')).toHaveText('0.644397');
-      await lab.getByRole('button', { name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once' }).click();
+      await lab.getByRole('button', { name: path===WALK_KO ? '이 갱신을 한 번 적용' : 'Apply this update once' }).click();
       await expect(lab.locator('.learning-update__weight')).toHaveText('0.100');
       await expect(lab.locator('.learning-update__loss')).toHaveText('0.644397');
       await expect(lab.locator('.learning-update__steps')).toContainText('1');
@@ -1786,16 +1792,16 @@ test.describe('the complete learning progression', () => {
     for (const path of ALL_PAGES) {
       await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('.lab--learning-update');
-      const input = lab.getByRole('slider', {name: path==='ko/' ? '입력 x' : 'Input x', exact:true});
+      const input = lab.getByRole('slider', {name: path===WALK_KO ? '입력 x' : 'Input x', exact:true});
       await input.focus(); await input.press('Home');
       await expect(lab.locator('.learning-update__gradient')).toHaveText('0.500000');
-      await lab.getByRole('button', {name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
+      await lab.getByRole('button', {name: path===WALK_KO ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
       await expect(lab.locator('.learning-update__weight')).toHaveText('−0.100');
       await expect(lab.locator('.learning-update__loss')).toHaveText('0.644397');
       await input.focus(); await input.press('ArrowRight');
       await expect(lab.locator('.learning-update__gradient')).toHaveText('0.000000');
       await expect(lab.locator('.learning-update__loss')).toHaveText('0.693147');
-      await lab.getByRole('button', {name: path==='ko/' ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
+      await lab.getByRole('button', {name: path===WALK_KO ? '이 갱신을 한 번 적용' : 'Apply this update once'}).click();
       await expect(lab.locator('.learning-update__weight')).toHaveText('−0.100');
       await expect(lab.locator('.learning-update__after-loss')).toHaveText('0.693147');
     }
@@ -1832,7 +1838,7 @@ test.describe('the complete learning progression', () => {
       expect(alignment.vertical, 'checkbox and label must share a line').toBeLessThan(4);
       expect(alignment.gap).toBeGreaterThanOrEqual(0);
       expect(alignment.gap).toBeLessThan(16);
-      await expect(checkbox).toHaveAccessibleName(path==='ko/' ? '위치 정보 포함하기' : 'Include position information');
+      await expect(checkbox).toHaveAccessibleName(path===WALK_KO ? '위치 정보 포함하기' : 'Include position information');
       await expect(checkbox).toBeChecked();
       await chooseStep(lab, 1);
       expect((await lab.locator('.mgrid__value').allTextContents()).slice(0,4)).toEqual(['1.000','1.000','1.000','1.000']);
@@ -1853,7 +1859,7 @@ test.describe('the complete learning progression', () => {
       await lab.getByRole('button',{name:'sampling',exact:true}).click();
       const u=lab.getByRole('slider').nth(1);
       await u.focus(); await u.press('Home');
-      await expect(lab.locator('.token-choice__selected')).toHaveText(path==='ko/' ? '나는' : 'I');
+      await expect(lab.locator('.token-choice__selected')).toHaveText(path===WALK_KO ? '나는' : 'I');
       await u.press('End'); await expect(lab.locator('.token-choice__selected')).toHaveText('.');
       expect(await lab.locator('tbody td:nth-child(2)').allTextContents()).toEqual(initialScores);
       expect(await lab.locator('.token-choice__probability').allTextContents()).toEqual(initialProbabilities);
@@ -1985,7 +1991,7 @@ test.describe('static Q–K comparisons', () => {
       await expect(walk.locator('[data-step]')).toHaveCount(3);
       await expect(walk.locator('figure figcaption')).toHaveCount(3);
       await expect(walk.locator('button, input, select, details, astro-island')).toHaveCount(0);
-      await expect(walk.locator('.qkw__positions span')).toHaveText(path===ARTICLE_KO ? ['1: 나는','2: 학교에','3: 갔다'] : ['1: I','2: went','3: to school']);
+      await expect(walk.locator('.qkw__positions span')).toHaveText(path===WALK_KO ? ['1: 나는','2: 학교에','3: 갔다'] : ['1: I','2: went','3: to school']);
       await expect(walk.locator('[data-pair-value]')).toHaveAttribute('data-pair-value','4');
       await expect(walk.locator('[data-query-value]')).toHaveText(['2','0']);
       await expect(walk.locator('[data-key-value]')).toHaveText(['2','0']);
@@ -1996,7 +2002,7 @@ test.describe('static Q–K comparisons', () => {
         await expect(walk.locator(`[data-matrix="${id}"] .mgrid__shape`)).toHaveText('2 × 3');
       }
       await expect(walk.locator('[data-matrix="qkw-q"] .mgrid__value')).toHaveText(['2','0','0','2','1','1']);
-      await expect(walk.locator('[data-product-value]')).toHaveText(path===ARTICLE_KO ? ['기여: 4','기여: 0'] : ['contribution: 4','contribution: 0']);
+      await expect(walk.locator('[data-product-value]')).toHaveText(path===WALK_KO ? ['기여: 4','기여: 0'] : ['contribution: 4','contribution: 0']);
       const one = walk.locator('[data-step="2"]');
       await expect(one.locator('[data-comparison-shape]')).toHaveAttribute('data-comparison-shape','1 × 3');
       await expect(one.locator('.qkw__score-value')).toHaveText(['0','4','2']);
@@ -2010,12 +2016,12 @@ test.describe('static Q–K comparisons', () => {
       const future = all.locator('[data-future="true"]');
       await expect(future).toHaveCount(3);
       expect(await future.evaluateAll(cells => cells.map(cell => [cell.getAttribute('data-r'),cell.getAttribute('data-c')]))).toEqual([['0','1'],['0','2'],['1','2']]);
-      await expect(all.locator('.qkw__legend')).toContainText(path===ARTICLE_KO ? '가리기 전 점수' : 'raw scores before masking');
+      await expect(all.locator('.qkw__legend')).toContainText(path===WALK_KO ? '가리기 전 점수' : 'raw scores before masking');
       await expect(all.locator('[data-desired-row]')).toHaveText('2, 0');
       await expect(all.locator('[data-wrong-column]')).toHaveText('0, 2, 1');
       await expect(all.locator('[data-matching-column]')).toHaveText('2, 0');
-      await expect(all.locator('[data-incompatible-shapes]')).toContainText(path===ARTICLE_KO ? '행렬곱을 할 수 없습니다' : 'cannot be multiplied');
-      await expect(all.locator('[data-square-reason]')).toContainText(path===ARTICLE_KO ? '양쪽 토큰 수가 각각 3' : 'each side has 3 tokens');
+      await expect(all.locator('[data-incompatible-shapes]')).toContainText(path===WALK_KO ? '행렬곱을 할 수 없습니다' : 'cannot be multiplied');
+      await expect(all.locator('[data-square-reason]')).toContainText(path===WALK_KO ? '양쪽 토큰 수가 각각 3' : 'each side has 3 tokens');
       expect(await all.locator('[data-matrix="qkw-k"] .mgrid__cell--static[data-c="0"]').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).outlineStyle))).toEqual(['dashed','dashed','dashed']);
     }
   });
@@ -2049,12 +2055,12 @@ test.describe('static Q–K comparisons', () => {
 });
 
 
-test('the article title and visual subtitle retain hierarchy without a duplicate opening question', async ({ page }) => {
+test('the walkthrough title and visual subtitle retain hierarchy without a duplicate opening question', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, path);
-    const ko = path === ARTICLE_KO;
-    const title = ko ? '눈으로 이해하는 LLM 원리' : 'LLM Principles, Visually Explained';
-    const lead = ko ? '문장을 만드는 과정을 한 단계씩 따라가기' : 'Follow how a sentence is generated, step by step.';
+    const ko = path === WALK_KO;
+    const title = ko ? '숫자로 끝까지 따라가기' : 'Follow one run in numbers';
+    const lead = ko ? '두 입력 ‘나는 / 학교에’로 디코더 한 번의 계산을 숫자로 끝까지 따라가는 심화 페이지' : 'A deeper page that follows one decoder run on the two inputs “I / went” through every number';
     await expect(page.locator('main h1')).toHaveText(title);
     await expect(page).toHaveTitle(`${title} — LLM Visual Lab`);
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content',lead);
@@ -2080,7 +2086,7 @@ test('the article title and visual subtitle retain hierarchy without a duplicate
 test('learning prose omits lab bookkeeping and retains numerical scope and observation cues', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, path);
-    const ko = path===ARTICLE_KO;
+    const ko = path===WALK_KO;
     await expect(page.locator('main')).not.toContainText(ko ? '다른 실습에는 각자의 처음값이 남습니다' : 'other labs keep their own inputs');
     await expect(page.locator('main')).not.toContainText(ko ? '각 단계에 무슨 일이 일어나는지' : 'Each step explains what is happening');
     await expect(page.locator('main')).not.toContainText(ko ? '이 예제 코드도 곱한 확률과 더한 로그를 둘 다 보존합니다' : 'This example’s code retains both');
@@ -2102,7 +2108,7 @@ test('learning prose omits lab bookkeeping and retains numerical scope and obser
 test('the projection creates one position’s new features while keeping X visible and reconstruction qualified', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, LAB_OF[path]);
-    const ko=path===ARTICLE_KO; const numbers=page.locator('#numbers');
+    const ko=path===WALK_KO; const numbers=page.locator('#numbers');
     await expect(numbers.locator('h3').first()).toHaveText(ko ? '행렬곱 — 입력에서 새로운 특징 만들기' : 'Matrix product — creating new features from the input');
     const motivation=await numbers.locator('h3').first().evaluate(heading=>{
       const paragraphs: string[]=[]; let next=heading.nextElementSibling;
@@ -2241,7 +2247,7 @@ test.describe('review regressions: controls and current values', () => {
       await expect(lab.locator('.sampling-bins')).toHaveCount(0);
       await expect(lab.locator('.token-choice__selected')).toHaveText(greedy);
       // The note states this lab's own settings rather than relying on another lab's state.
-      await expect(lab.locator('.lab__note')).toContainText(path===ARTICLE_KO ? '단위행렬 어휘 출력' : 'identity vocabulary readout');
+      await expect(lab.locator('.lab__note')).toContainText(path===WALK_KO ? '단위행렬 어휘 출력' : 'identity vocabulary readout');
     });
   }
 });
@@ -2314,15 +2320,15 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
     test(`${path}: training input is shifted and decoder preserves its three output rows`, async ({ page }) => {
       await visitWithExercises(page, PAPER_OF[path]);
       const training = page.locator('svg[aria-labelledby="gl-t gl-d"]');
-      await expect(training.locator('[data-training-input]')).toHaveText(path===ARTICLE_KO ? ['시작','나는','학교에','갔다'] : ['start','I','went','to school']);
-      await expect(training.locator('[data-training-target]')).toHaveText(path===ARTICLE_KO ? ['나는','학교에','갔다','끝'] : ['I','went','to school','end']);
+      await expect(training.locator('[data-training-input]')).toHaveText(path===WALK_KO ? ['시작','나는','학교에','갔다'] : ['start','I','went','to school']);
+      await expect(training.locator('[data-training-target]')).toHaveText(path===WALK_KO ? ['나는','학교에','갔다','끝'] : ['I','went','to school','end']);
       const walk = page.locator('.lab--walk');
       await chooseStep(walk, 4);
       await expect(walk.locator('.walk__frame[data-on="true"] [data-series-rows="5"] .walk__cell--out')).toHaveCount(35);
       await chooseStep(walk, 5);
       await expect(walk.locator('.walk__frame[data-on="true"] [data-series-rows="3"] .walk__cell--out')).toHaveCount(21);
       await expect(walk.locator('.stepper__current')).toContainText('6/7');
-      await expect(walk).toContainText(path===ARTICLE_KO ? '정답을 한 칸 민 입력' : 'shift the target sequence right by one position');
+      await expect(walk).toContainText(path===WALK_KO ? '정답을 한 칸 민 입력' : 'shift the target sequence right by one position');
       await expect(walk).not.toContainText('the whole correct sentence is in the input');
     });
 
@@ -2334,13 +2340,13 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
         expect(await page.locator(`#${id}`).evaluate(node => Boolean(node.closest('details')))).toBe(false);
       }
       const results = page.locator('#results');
-      await expect(results).toContainText(path===ARTICLE_KO ? '23~55배' : '23–55 times');
-      await expect(results).toContainText(path===ARTICLE_KO ? '5개를 평균' : 'five checkpoints');
-      await expect(results).toContainText(path===ARTICLE_KO ? '체크포인트 평균을 쓰지 않습니다' : 'no checkpoint averaging');
+      await expect(results).toContainText(path===WALK_KO ? '23~55배' : '23–55 times');
+      await expect(results).toContainText(path===WALK_KO ? '5개를 평균' : 'five checkpoints');
+      await expect(results).toContainText(path===WALK_KO ? '체크포인트 평균을 쓰지 않습니다' : 'no checkpoint averaging');
       await visitWithExercises(page, LAB_OF[path]);
       await expect(page.locator('#generation')).toContainText('−1.609');
       await expect(page.locator('#generation')).toContainText('−0.805');
-      await expect(page.locator('.lab--learning-update svg')).toContainText(path===ARTICLE_KO ? '갱신 뒤' : 'Updated');
+      await expect(page.locator('.lab--learning-update svg')).toContainText(path===WALK_KO ? '갱신 뒤' : 'Updated');
     });
   }
 });
@@ -2373,7 +2379,7 @@ test.describe('remaining review', () => {
 
     test(`${path}: default mask example has a working reset route after edits`, async ({ page }) => {
       await visitWithExercises(page, LAB_OF[path]);
-      await expect(page.locator('#positions')).toContainText(path===ARTICLE_KO ? '기본값 기준' : 'default inputs');
+      await expect(page.locator('#positions')).toContainText(path===WALK_KO ? '기본값 기준' : 'default inputs');
       const lab = page.locator('.lab--attention');
       await openFold(lab, '.lab__inputs');
       await lab.locator('.lab__inputs [data-matrix="X"] input').first().fill('3');
@@ -2413,17 +2419,17 @@ test.describe('remaining review', () => {
       await expect(masked).toHaveText('S′(1, 2) = S(1, 2) + (0.000) = 4.000');
       await lab.getByRole('button', { name: /켬 \(decoder|On \(decoder/ }).click();
       await chooseStep(lab, 5);
-      await expect(lab.locator('.lab__what')).toContainText(path===ARTICLE_KO ? '허용된 유한 점수' : 'allowed finite scores');
-      await expect(lab.locator('.lab__what')).toContainText(path===ARTICLE_KO ? '0' : 'zero');
+      await expect(lab.locator('.lab__what')).toContainText(path===WALK_KO ? '허용된 유한 점수' : 'allowed finite scores');
+      await expect(lab.locator('.lab__what')).toContainText(path===WALK_KO ? '0' : 'zero');
     });
 
     test(`${path}: decoder explanation has three matching operations and step units precede the curve`, async ({ page }) => {
       await visitWithExercises(page, PAPER_OF[path]); const walk = page.locator('.lab--walk'); await chooseStep(walk, 5);
       await expect(walk.locator('.walk__points > li')).toHaveCount(3);
-      await expect(walk.locator('.walk__points').nth(0)).toContainText(path===ARTICLE_KO ? '가려진 attention' : 'Masked attention');
-      await expect(walk.locator('.walk__points')).toContainText(path===ARTICLE_KO ? '다섯 행' : 'five source rows');
+      await expect(walk.locator('.walk__points').nth(0)).toContainText(path===WALK_KO ? '가려진 attention' : 'Masked attention');
+      await expect(walk.locator('.walk__points')).toContainText(path===WALK_KO ? '다섯 행' : 'five source rows');
       const training = page.locator('#training');
-      await expect(training).toContainText(path===ARTICLE_KO ? '계수를 한 번 갱신하는 단위' : 'updates the weights once');
+      await expect(training).toContainText(path===WALK_KO ? '계수를 한 번 갱신하는 단위' : 'updates the weights once');
       const definition = training.locator('[data-training-step]');
       expect(await definition.evaluate(el=>Boolean(el.compareDocumentPosition(document.querySelector('#training svg[aria-labelledby="lrc-t lrc-d"]')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     });
@@ -2462,9 +2468,9 @@ test.describe('remaining review', () => {
     test(`${path}: ReLU distinguishes new zeros and the exponential is limited by this number format`, async ({ page }) => {
       await visitWithExercises(page, LAB_OF[path]);
       const desc=page.locator('#ffs-d');
-      await expect(desc).toContainText(path===ARTICLE_KO ? '음수 2칸' : '2 negative entries');
-      await expect(desc).toContainText(path===ARTICLE_KO ? '이미 0인 2칸' : '2 existing zeros');
-      await expect(page.locator('#proportion')).toContainText(path===ARTICLE_KO ? 'JavaScript 숫자 형식' : 'JavaScript number format');
+      await expect(desc).toContainText(path===WALK_KO ? '음수 2칸' : '2 negative entries');
+      await expect(desc).toContainText(path===WALK_KO ? '이미 0인 2칸' : '2 existing zeros');
+      await expect(page.locator('#proportion')).toContainText(path===WALK_KO ? 'JavaScript 숫자 형식' : 'JavaScript number format');
     });
   }
 });
@@ -2535,7 +2541,7 @@ test.describe('final six diagram regressions', () => {
         for (const index of [0,1]) {
           await chooseStep(walk,index);
           const frame=walk.locator('.walk__frame[data-on="true"]');
-          const label=frame.locator('.tmap__title').filter({hasText:path===ARTICLE_KO ? /^문장$/ : /^Sentence$/});
+          const label=frame.locator('.tmap__title').filter({hasText:path===WALK_KO ? /^문장$/ : /^Sentence$/});
           const sentenceBox=(await label.locator('..').locator('rect').boundingBox())!;
           const labelBox=(await label.boundingBox())!;
           const sentence=(await frame.locator('.tmap__label').filter({hasText:/^The animal didn’t cross$/}).boundingBox())!;
@@ -2543,8 +2549,8 @@ test.describe('final six diagram regressions', () => {
           expect.soft(sentence.x,`frame ${index+1}: sentence keeps its left padding`).toBeGreaterThanOrEqual(sentenceBox.x+8);
           expect.soft(sentence.x+sentence.width,`frame ${index+1}: sentence keeps its right padding`).toBeLessThanOrEqual(sentenceBox.x+sentenceBox.width-8);
         }
-        const title=walk.locator('.walk__frame[data-on="true"] .tmap__title').filter({hasText:path===ARTICLE_KO ? /^숫자 한 줄$/ : /^A row of numbers$/});
-        const note=walk.locator('.walk__frame[data-on="true"] .tmap__note').filter({hasText:path===ARTICLE_KO ? /^실제로는 512칸$/ : /^really 512 cells$/});
+        const title=walk.locator('.walk__frame[data-on="true"] .tmap__title').filter({hasText:path===WALK_KO ? /^숫자 한 줄$/ : /^A row of numbers$/});
+        const note=walk.locator('.walk__frame[data-on="true"] .tmap__note').filter({hasText:path===WALK_KO ? /^실제로는 512칸$/ : /^really 512 cells$/});
         const titleBox=(await title.boundingBox())!; const noteBox=(await note.boundingBox())!;
         expect.soft(noteBox.y,'the 512-cell note occupies a separate line below its heading').toBeGreaterThanOrEqual(titleBox.y+titleBox.height+2);
 
@@ -2600,7 +2606,7 @@ test.describe('final six diagram regressions', () => {
 test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows the role introduction', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, LAB_OF[path]);
-    const numbers=page.locator('#numbers'); const ko=path===ARTICLE_KO;
+    const numbers=page.locator('#numbers'); const ko=path===WALK_KO;
     const headings=await numbers.locator('h3').allTextContents();
     const dot=headings.indexOf(ko ? '두 숫자 줄을 비교하는 점수 만들기' : 'Build a score for comparing two rows');
     const transpose=headings.indexOf(ko ? '같은 한 쌍을 행 × 열로 놓아 보기' : 'Arrange the same pair as a row and a column');
@@ -2624,7 +2630,7 @@ test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows t
 test('the preserved three-token attention exercise carries its first-row example from purpose to content', async ({ page }) => {
   for (const path of ALL_PAGES) {
     await visitWithExercises(page, LAB_OF[path]);
-    const ko=path===ARTICLE_KO;
+    const ko=path===WALK_KO;
     const overview=page.locator('[data-attention-story="overview"]');
     await revealSupplement(overview); await overview.scrollIntoViewIfNeeded();
     await page.evaluate(()=>document.fonts.ready);

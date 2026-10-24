@@ -1,0 +1,23 @@
+---
+/** The next-word score table: for each candidate, how much it likes each slot. */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_FEATURES, STORY_READOUT, STORY_VOCAB } from '../../lib/math/story';
+import { fmtCompact } from '../../lib/math/format';
+import type { Matrix } from '../../lib/math/matrix';
+import '../../styles/story.css';
+interface Props { locale: Locale; weights?: Matrix; caption?: string; name?: string; }
+const { locale, weights = STORY_READOUT, caption, name = 'readout' } = Astro.props;
+const ko = locale === 'ko';
+---
+<figure class="story" data-story-table={name}>
+  <div class="story-table-wrap" role="region" tabindex="0" aria-label={ko ? '다음 단어 점수표' : 'Next-word score table'}>
+    <table class="story-table">
+      <thead><tr><th scope="col">{ko ? '칸 ＼ 다음 단어' : 'Slot \\ next word'}</th>{STORY_VOCAB[locale].map(word => <th scope="col">{word}</th>)}</tr></thead>
+      <tbody>{weights.map((row, slot) => <tr>
+        <th scope="row">{STORY_FEATURES[locale][slot]}</th>
+        {row.map(value => <td data-sign={value > 0 ? 'plus' : value < 0 ? 'minus' : 'zero'}>{fmtCompact(value)}</td>)}
+      </tr>)}</tbody>
+    </table>
+  </div>
+  <figcaption class="story__caption">{caption ?? (ko ? '열 하나가 다음 단어 하나입니다. 양수는 그 칸이 있으면 점수를 올리고, 음수는 내립니다.' : 'Each column is one candidate next word. A positive number raises its score when the slot is present; a negative one lowers it.')}</figcaption>
+</figure>

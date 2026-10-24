@@ -17,12 +17,12 @@ interface Props {
   locale: Locale;
   /** One line of summary under the heading */
   lead?: string;
-  /** A companion document ('lab', 'paper'); the main article when omitted */
+  /** A companion document ('walkthrough', 'lab', 'paper'); the main article when omitted */
   doc?: string;
 }
 
 const { id, locale, lead, doc = '' } = Astro.props;
-const lesson = doc === '' ? sectionById(id) : undefined;
+const lesson = sectionById(id, doc);
 const meta = lesson ?? docSectionById(doc, id);
 if (!meta) throw new Error(`no such section id in nav.ts for doc '${doc}': ${id}`);
 

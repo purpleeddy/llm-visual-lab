@@ -42,7 +42,6 @@
 .lesson-learning .btn, .lesson-generation .btn { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 1rem; min-height: 2.75rem; margin-block: 0.5rem; }
 
 /* The unit heading and figure carry the explanation; do not repeat a card header. */
-.doc-section__title:lang(ko) { word-break: keep-all; overflow-wrap: anywhere; }
 .lesson-computation { border: 0; padding-block: 0; margin-block: 1rem 1.75rem; }
 .lesson-reference-values { display: grid; grid-template-columns: max-content minmax(0,1fr); gap: 0.75rem; }
 .lesson-reference-values > div { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; gap: 0.75rem; align-items: center; }
@@ -50,11 +49,3 @@
 .lesson-attention-flow li { overflow-wrap: anywhere; }
 .lesson-generation-steps { display: grid; gap: 0.75rem; }
 .lesson-generation-steps > div { display: grid; gap: 0.25rem; padding-inline-start: 0.75rem; border-inline-start: 2px solid var(--line-3); }
-.lesson-anchor { display: block; height: 0; scroll-margin-top: 4.5rem; }
-
-/* Where a unit continues on the lab and paper pages. */
-.prose .lesson-more { list-style: none; margin: 1.5rem 0; padding: 0.75rem 1rem; display: grid; gap: 0.5rem; border-block: 1px solid var(--line-2); background: var(--surface-panel); }
-.prose .lesson-more li { margin: 0; }
-.lesson-more a { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; font-size: 1rem; overflow-wrap: anywhere; }
-.lesson-more a > span { font-size: var(--fs-100); font-weight: var(--fw-semi); color: var(--ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
-@media (max-width: 40rem) { .prose .lesson-more { padding-inline: 0.75rem; } }

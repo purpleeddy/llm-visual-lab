@@ -32,10 +32,12 @@ async function anchorIds(doc: typeof entry, sectionIds: string[]) {
 const movedAnchors: Record<string, string> = {};
 if (docId === '') {
   const here = await anchorIds(entry, SECTIONS.map((s) => s.id));
+  // The walkthrough first: an old article anchor most likely meant the previous article.
+  const order = ['walkthrough', 'lab', 'paper'];
   const companions = (await getCollection('docs')).filter((other) => {
     const parsed = parseEntryId(other.id);
     return parsed.locale === locale && parsed.docId !== '';
-  });
+  }).sort((a, b) => order.indexOf(parseEntryId(a.id).docId) - order.indexOf(parseEntryId(b.id).docId));
   for (const other of companions) {
     const otherId = parseEntryId(other.id).docId;
     for (const id of await anchorIds(other, (DOC_SECTIONS[otherId] ?? []).map((s) => s.id))) {

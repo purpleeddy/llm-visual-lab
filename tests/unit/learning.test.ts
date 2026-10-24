@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { greedy, sampleIndex, temperatureProbabilities } from '../../src/lib/math/generation';
 import { oneWeightPrediction, oneWeightStep } from '../../src/lib/math/learning';
 import { tinyDecoder, TRACE_STAGES } from '../../src/lib/math/model';
-import { SECTIONS } from '../../src/lib/nav';
+import { SECTIONS, WALKTHROUGH_SECTIONS } from '../../src/lib/nav';
 import { computeAttention } from '../../src/lib/math/attention';
 import { dotProduct, matmul } from '../../src/lib/math/matrix';
 import { TOY_MODEL, NEXT_TOKEN_SENTENCE_MODELS, LEARNING_EXAMPLE, DEFAULT_X, DEFAULT_ATTENTION_INPUT, DEFAULT_WQ } from '../../src/lib/math/examples';
@@ -121,11 +121,14 @@ describe('token probabilities and selection', () => {
 });
 
 describe('a learning path with explicit prerequisites', () => {
-  it('every prerequisite is a real earlier unit and every unit has a goal and reasoned checkpoint', () => {
-    expect(SECTIONS.map(s => s.id)).toEqual(['language-model', 'tokens', 'attention', 'positions', 'multi-head', 'blocks', 'big-picture', 'generation', 'training', 'results']);
-    SECTIONS.forEach((s, i) => {
+  it.each([
+    ['article', SECTIONS, ['language-model', 'tokens', 'context', 'attention', 'positions', 'blocks', 'generation', 'training', 'real-llm']],
+    ['walkthrough', WALKTHROUGH_SECTIONS, ['language-model', 'tokens', 'attention', 'positions', 'multi-head', 'blocks', 'big-picture', 'generation', 'training', 'results']],
+  ] as const)('%s: every prerequisite is a real earlier unit and every unit has a goal and reasoned checkpoint', (_, sections, ids) => {
+    expect(sections.map(s => s.id)).toEqual(ids);
+    sections.forEach((s, i) => {
       for (const id of s.prerequisites) {
-        const previous = SECTIONS.findIndex(p => p.id === id);
+        const previous = sections.findIndex(p => p.id === id);
         expect(previous).toBeGreaterThanOrEqual(0);
         expect(previous).toBeLessThan(i);
       }

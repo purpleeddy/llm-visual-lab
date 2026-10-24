@@ -1,0 +1,332 @@
+---
+title: 'Follow one run in numbers'
+lead: 'A deeper page that follows one decoder run on the two inputs “I / went” through every number'
+status: 'complete'
+paperRefs: []
+notYet: []
+updated: '2026-10-24'
+---
+
+import Section from '../../../components/site/Section.astro';
+import Note from '../../../components/site/Note.astro';
+import Expand from '../../../components/site/Expand.astro';
+import MoreLinks from '../../../components/site/MoreLinks.astro';
+import AttentionFlow from '../../../components/site/AttentionFlow.astro';
+import { GenerationJourney } from '../../../components/lab/GenerationJourney';
+import { LessonComputation } from '../../../components/lab/LessonComputation';
+import { LessonPositionExtension } from '../../../components/lab/LessonPositionExtension';
+import { LessonLearning } from '../../../components/lab/LessonLearning';
+import { LessonGeneration } from '../../../components/lab/LessonGeneration';
+import { docHref } from '../../../lib/i18n/routing';
+
+<Section id="language-model" locale="en" doc="walkthrough">
+<span id="what-does-this-computation-show" class="lesson-anchor" aria-hidden="true"></span>
+<div slot="opening" data-main-lesson>
+  <GenerationJourney client:load locale="en" />
+</div>
+
+<p data-model-intro>An LLM computes <strong>next-token probabilities</strong> from its input. Append one choice, then recompute with the longer input.</p>
+
+<Expand id="lesson-model-scope" summary="About this small model">
+
+This illustrative model computes from two inputs and fixed coefficients. It omits position calculations and only references earlier positions and the current one. Real LLMs learn coefficients by reducing prediction errors over many texts.
+Tokens are chunks of text: whole words or word parts. The end marker is a stopping token. A high probability does not guarantee factual content.
+
+</Expand>
+
+<Expand id="math-conditional" summary="Which context does this probability describe?">
+
+In P(end \| I went), the text after the bar is the available input; the token before it is a next candidate. A changed input can produce changed probabilities with the same coefficients.
+
+</Expand>
+
+<Expand id="table-generation" summary="Optional: open the probability-table selection exercise">
+
+Open the fixed-table choice exercise on its <a href={docHref('en', 'exercises/next-token')}>separate exercise page</a>.
+
+</Expand>
+</Section>
+
+<Section id="tokens" locale="en" doc="walkthrough">
+<span id="look-up-numbers-for-the-two-given-chunks" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+Each token’s ID looks up one row in the embedding table. This ordered row of numbers is a <strong>vector</strong>.
+
+<LessonComputation locale="en" stage="tokens" />
+
+<Expand id="math-shape" summary="2 × 4: which number counts tokens?">
+
+The first number, 2, counts the token rows. The second, 4, counts features per token. ID 1 and its four retrieved values are different kinds of numbers.
+
+</Expand>
+
+</div>
+
+<Note variant="limit" title="Illustrative values chosen to make the calculation clear">
+Real models adjust vectors and weights through learning. Here we use small illustrative numbers that can be worked out by hand.
+</Note>
+
+<MoreLinks locale="en" lab="tokens" />
+
+</Section>
+
+<Section id="attention" locale="en" doc="walkthrough">
+<span id="name-the-roles-we-have-already-used-q--k--v" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+The vector for the final position, <strong>went</strong>, is (0, 1, 0, 1): it holds information about that chunk alone. Yet what comes next depends on the earlier context.
+After “I went” a destination such as “to school” fits; after “it went” something like “wrong” might. So the final position <strong>takes content from the positions it can read and mixes it into its own values</strong>. That calculation is <strong>attention</strong>.
+
+<AttentionFlow locale="en" />
+
+The shares and new values come from three steps: ① <strong>score</strong> how well each position matches what the current one is looking for, ② turn the scores into <strong>shares</strong> that add up to 1, and ③ <strong>add</strong> each position’s content in proportion to its share.
+This example’s coefficients were chosen so the arithmetic can be followed by hand; they have not learned anything like the “I went / it went” difference. Only the method is followed here.
+
+<span id="numbers" class="lesson-anchor" aria-hidden="true"></span>
+
+### ① Scores: make comparison values, then multiply matching entries
+
+Comparing needs comparison values first. Multiply each of went’s four input values by a fixed coefficient and add them to make one new value. Repeating this for every output is <strong>matrix multiplication</strong>; here it makes two values.
+
+<LessonComputation locale="en" stage="projection" />
+
+<div id="similarity">
+
+Now match the current comparison values <strong>(0, 2)</strong> against each position’s values. Simply adding all four numbers of the two rows gives 4 for I and 4 for went, which tells them apart not at all.
+<strong>Multiplying matching entries and adding</strong> gives 0×0 + 2×2 = 4 for I and 0×2 + 2×0 = 0 for went. The position whose values sit in the same places as the current ones scores higher.
+
+<LessonComputation locale="en" stage="comparison" />
+
+To compare against several positions at once, stand each reference row up as a column and place the columns side by side. One current row times that table then gives every score.
+
+<LessonComputation locale="en" stage="transpose" />
+<LessonComputation locale="en" stage="scores" />
+
+</div>
+
+<Expand id="math-dot" summary="How is 0×0 + 2×2 written in symbols?">
+
+The dot product of q = (0, 2) and k = (0, 2) is written q · k = 0×0 + 2×2 = 4. With the reference rows stood up as the columns of Kᵀ, the single product qKᵀ = (4, 0) gives both scores at once.
+Every entry of a matrix product is one such dot product.
+
+</Expand>
+
+<span id="proportion" class="lesson-anchor" aria-hidden="true"></span>
+
+### ② Shares: turn the scores into proportions that add up to 1
+
+Scores can be negative and their total is arbitrary. To serve as shares of content, they must all be at least 0 and add up to 1.
+<strong>Softmax</strong> makes each score positive with the exponential function, then divides by the total. The exponential keeps the order of the scores and widens the gap between large and small ones.
+First, though, the scores are divided by √2. The more values a comparison uses, the larger a sum of products tends to be, so dividing by the square root of that count (2 here) keeps the spread in check.
+
+<LessonComputation locale="en" stage="shares" />
+
+<Expand id="math-softmax" summary="Where does 94.4% come from?">
+
+The scores divided by √2 are (2.828, 0). Since e<sup>2.828</sup> ≈ 16.92 and e<sup>0</sup> = 1, the share for I is 16.92 ÷ (16.92 + 1) ≈ 0.944 and the share for went is 1 ÷ 17.92 ≈ 0.056.
+
+$$
+\mathrm{softmax}(s)_i = \frac{e^{s_i}}{\sum_j e^{s_j}}
+$$
+
+</Expand>
+
+### ③ Gathering: add the content in proportion to the shares
+
+The content to take is also made from the same input, with yet another coefficient table. Multiplying I’s content (3, 0) by <strong>94.4%</strong> and went’s content (0, 3) by <strong>5.6%</strong>, then adding, gives the new values for the went position: (2.833, 0.167).
+Multiplying by shares and adding like this is a <strong>weighted sum</strong>.
+
+<LessonComputation locale="en" stage="aggregation" />
+
+### The three roles have names: Q, K and V
+
+So far the same input has produced three sets of numbers. The current position’s comparison values are the <strong>Query (Q)</strong>, each position’s comparison values are its <strong>Key (K)</strong>, and the content to take is its <strong>Value (V)</strong>. The coefficient tables that make them are written W_Q, W_K and W_V.
+Positions within one sequence mix with each other, hence <strong>self-attention</strong>. The new values still belong to the went position.
+
+<LessonComputation locale="en" stage="attention" />
+
+<Expand id="math-attention" summary="How do the three steps become one formula?">
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+In this example the last row of QKᵀ is (4, 0), d<sub>k</sub> = 2, the shares after softmax are (0.944, 0.056), and multiplying by V gives (2.833, 0.167).
+
+</Expand>
+
+<Note variant="limit" title="Shares are computed from this input">
+W_Q, W_K and W_V are coefficients set by learning, but shares such as 94.4% and 5.6% are computed from this particular input. A different input gives different shares with the same coefficients.
+A large share only means that position’s content was mixed in heavily; on its own it does not show that position caused the prediction.
+</Note>
+
+</div>
+
+<MoreLinks locale="en" lab={['numbers', 'proportion', 'attention']} paper="attention" />
+
+</Section>
+
+<Section id="positions" locale="en" doc="walkthrough">
+<span id="which-positions-can-be-referenced-now" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+Predicting a next chunk must not read later information in advance. Each row can therefore reference <strong>itself and preceding positions only</strong>.
+This <strong>causal mask</strong> has been applied throughout the calculation.
+
+<LessonComputation locale="en" stage="mask" />
+
+The mask restricts what can be read. Position information is a separate operation that identifies where chunks occur.
+In the extension below, add position vectors to the input and recompute comparisons, shares, content, block outputs and vocabulary probabilities.
+
+<Expand id="lesson-position-extension" summary="Optional extension: add positions and recompute to the output">
+
+<LessonPositionExtension client:load locale="en" />
+
+</Expand>
+
+</div>
+
+<MoreLinks locale="en" lab="positions" paper="positions" />
+
+</Section>
+
+<Section id="multi-head" locale="en" doc="walkthrough">
+<span id="read-the-same-input-again-using-other-coefficients" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+The first head produced <strong>(2.833, 0.167)</strong>. A second head compares and gathers content from the same input using its own coefficients.
+Keep the two results, concatenate them, then mix the joined row using output coefficients <strong>W_O</strong> to get four values again.
+
+<LessonComputation locale="en" stage="heads" />
+
+</div>
+
+<MoreLinks locale="en" lab="multi-head" paper="multi-head" />
+
+</Section>
+
+<Section id="blocks" locale="en" doc="walkthrough">
+
+<div data-main-lesson>
+
+### Preserve the original input by adding it
+
+Passing attention output alone may lose information from the input. Adding matching input entries provides a <strong>residual connection</strong>.
+Then layer normalization adjusts the scale of values within this token.
+
+<LessonComputation locale="en" stage="residual" />
+
+### Transform the normalized values within this token
+
+Attention has already gathered information between tokens. The <strong>FFN</strong> now widens and narrows the values of each token separately.
+Its input is exactly the preceding normalization output. ReLU replaces negative entries with zero.
+
+<LessonComputation locale="en" stage="feed-forward" />
+
+### Add and normalize again
+
+Add the row entering the FFN to the row leaving it, then normalize again. This produces <strong>the final representation at went</strong>, ready to score next candidates.
+
+<LessonComputation locale="en" stage="hidden" />
+
+</div>
+
+<MoreLinks locale="en" lab="blocks" />
+
+</Section>
+
+<Section id="big-picture" locale="en" doc="walkthrough">
+<span id="use-the-blocks-final-representation-to-compare-vocabulary-candidates" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+Receive the final representation from the preceding unit unchanged. Multiplying by vocabulary coefficients gives scores for <strong>I / went / to school / end</strong>.
+Softmax converts those scores into probabilities for the next chunk.
+
+<LessonComputation locale="en" stage="readout" />
+
+<strong>To school has the largest probability, 71.8%.</strong> The input still contains only I / went; to school is a next candidate.
+Training compares this prediction with a target. Generation chooses a chunk from these probabilities and appends it.
+
+<Expand id="math-readout" summary="How do input-position shares differ from vocabulary probabilities?">
+
+The two attention shares retrieve content from the two given positions. These four probabilities refer to four next-vocabulary candidates. The vocabulary coefficients turn the final representation into candidate scores.
+
+</Expand>
+
+</div>
+
+<MoreLinks locale="en" lab="big-picture" paper="big-picture" />
+
+</Section>
+
+<Section id="generation" locale="en" doc="walkthrough">
+<span id="choose-and-append-one-chunk-from-the-computed-probabilities" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+Choosing the largest probability is called <strong>greedy</strong>. Append that choice, then recompute the next probabilities from the longer input.
+
+<LessonGeneration locale="en" />
+
+<strong>Sampling</strong> instead draws according to the probabilities. Neither rule updates coefficients during generation. Next, see how learning changes a coefficient.
+
+</div>
+
+<MoreLinks locale="en" lab="generation" paper="generation" />
+
+</Section>
+
+<Section id="training" locale="en" doc="walkthrough">
+<span id="compare-the-same-prediction-with-a-separate-target" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+The input is <strong>I / went</strong>, and the target label is <strong>to school</strong>. Do not put that target into the input in advance.
+Convert the probability already assigned to the target into one loss value to measure how much this prediction needs correcting.
+
+<LessonComputation locale="en" stage="loss" />
+
+Learning adjusts coefficients to reduce loss. Below, keep <strong>the same four candidates and final representation</strong>, and update one vocabulary coefficient once. Other coefficients remain fixed.
+
+<Expand id="lesson-readout-learning" summary="Try a learning step: update one vocabulary coefficient">
+
+<LessonLearning client:load locale="en" />
+
+</Expand>
+
+Training repeats this process over many input–target pairs to update coefficients.
+
+</div>
+
+<MoreLinks locale="en" lab="training" paper="training" />
+
+</Section>
+
+<Section id="results" locale="en" doc="walkthrough">
+<span id="separate-next-chunk-probability-from-model-performance" class="lesson-anchor" aria-hidden="true"></span>
+
+<div data-main-lesson>
+
+Comparison values, reference shares, content, final representations and vocabulary probabilities formed one computation. Each appended chunk led to a new prediction.
+These probabilities select a next chunk; they do not give the probability that generated content is factual.
+
+Evaluate models using prediction loss, accuracy and compute cost on the same data under the same conditions. The paper page examines translation evaluation and the paper’s experiments.
+
+</div>
+
+<MoreLinks locale="en" paper="results" />
+
+</Section>
+
+
+---
+
+This page is based on [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+(v7, 2 Aug 2023). The mapping between its sections, equations and figures and the material
+here is kept in the repository at `docs/papers/attention-is-all-you-need-coverage.md`.

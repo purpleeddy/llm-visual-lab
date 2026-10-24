@@ -1,4 +1,67 @@
-# Current scope — restructure: one main path, a lab and a paper companion
+# Current scope — rewrite the article as “build a next-word machine”
+
+- Started: 2026-10-24, after the author judged the restructured article's structure and
+  narration still hard to follow (“지금 구조나 설명이 좋지 않다 — 서술 방식, 문서 전체 시나리오”).
+- Decisions by the author: scenario A (each chapter starts where the machine fails and adds
+  the part that fixes it); a new shared example whose numbers can be read; 합니다체.
+
+## Diagnosis of the previous narration
+
+1. The numbers carried no meaning: (1,0,1,0)-style vectors and convenient coefficients made
+   intermediate values such as (2.833, 0.167) unreadable; 71.8% for 갔다 came from a
+   hand-tuned readout.
+2. The motivating story (“어제/내일 학교에”) and the computed example disagreed, and the text
+   had to say so.
+3. It narrated the machine's pipeline order: one forward pass split over units, each ending
+   with what it hands to the next, rather than the reader's questions.
+4. Many coined names for one thing (고정 계수, 참고 숫자, 참고 비중, 몫, 표현, 어휘 출력 계수).
+5. Caveats in almost every paragraph.
+
+## The example (`src/lib/math/story.ts`, designed values, said once in the article)
+
+- Words (ko / en): 어제 · 내일 · 학교에 · 갔다 · 간다 · 끝 / Yesterday · Tomorrow · I · went · will · end.
+- Slots of a word vector: 과거 · 미래 · 장소 · 동작 / past · future · person · verb.
+  어제 (1,0,0,0), 내일 (0,1,0,0), 학교에 (0,0,1,0), 갔다 (1,0,0,1), 간다 (0,1,0,1).
+- Q/K slots: 시간 · 장소. The place position asks for time (W_Q: 장소 → 시간 3); past and
+  future offer time, the place slot offers place; V is the word's own slots.
+- Next-word score table: each candidate's column says which slots it likes
+  (갔다: 과거 +2, 미래 −2, 장소 +1, 동작 −3; 끝: 동작 +3; …).
+- Computed story (both languages share every number):
+  last word only → 갔다 31.7% = 간다 31.7% for both sentences; attention → shares 89.3% /
+  10.7%, mixed (0.893, 0, 1.107, 0), 갔다 88.1% (내일: 간다 88.1%); after appending 갔다 → 끝
+  97.1%; training pairs 어제→학교에 1.8% (loss 4.04), →갔다 88.1%, →끝 97.1%; one learning
+  step on (과거, 갔다) from an untrained table: 37.9% → 50.0%, loss 0.970 → 0.692.
+
+## Chapters (article ids)
+
+| # | id | Reader's question | Failure or hook | What is computed / shown |
+| --- | --- | --- | --- | --- |
+| 1 | `language-model` | What does an LLM compute? | Guess the word after “어제 학교에” | Interactive: first word 어제/내일 flips the top candidate; append, recompute, stop at 끝 |
+| 2 | `tokens` | How does text become numbers? | A machine computes only numbers | Word table with named slots; vector; tokens are pieces in real models |
+| 3 | `context` | Can the last word decide? | 학교에 alone gives 갔다 = 간다 | Next-word score table; score = matching slots multiplied and added (`#similarity`); softmax |
+| 4 | `attention` | How does a position use earlier words? | Needs time information from 어제 | Q/K/V as question, label, content; match scores → shares → mixed → added → 88.1% |
+| 5 | `positions` | Which words may it read, in what order? | Future words do not exist yet; attention ignores order | Mask table for 어제 학교에 갔다; position vectors in words |
+| 6 | `blocks` | Is one look enough? | One question at a time, nothing between slots | A block: several heads, adding back, a per-word network, normalization, stacked N times |
+| 7 | `generation` | How do probabilities become a sentence? | Choosing is a separate rule | Greedy vs sampling on the six probabilities; append; stop at 끝 |
+| 8 | `training` | Who set these numbers? | The untrained table cannot tell 갔다 from 간다 | One sentence → three pairs; loss; one gradient step |
+| 9 | `real-llm` | What differs in a real LLM? | — | Scale, learned unreadable slots, sub-word tokens, probability is not truth; links to the paper |
+
+Style: 합니다체; every paragraph opens with the reader's question; one idea per paragraph;
+fixed names (단어, 벡터, 칸, 일치 점수, 몫, 다음 단어 점수, 점수표, 확률, 계수); caveats in one
+“실제 LLM에서는” note per chapter; numbers in the text only when they mean something.
+
+## Files
+
+- New: `src/lib/math/story.ts` (+ unit tests), `src/components/story/*`, `tests/e2e/article.spec.ts`.
+- The previous article moves verbatim to `src/content/docs/{ko,en}/walkthrough.mdx`
+  (“숫자로 끝까지 따라가기”) with its units under `WALKTHROUGH_*` in `nav.ts`; existing e2e
+  checks follow it there. Old anchors forward from the article as before.
+- `src/content/docs/{ko,en}/index.mdx`, `nav.ts`, `Section`, `PageToc`, `MoreLinks`, the sidebar.
+- Checks as before: unit tests, sync + typecheck, build, full e2e with two workers.
+
+---
+
+# Previous scope — restructure: one main path, a lab and a paper companion
 
 - Started: 2026-10-24
 - Decisions confirmed by the author on 2026-10-24 ("추천하는 방향으로 진행"):

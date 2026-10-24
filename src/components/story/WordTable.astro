@@ -1,0 +1,22 @@
+---
+/** Chapter 2: each word, its ID and the slots it has. */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_EMBEDDING, STORY_FEATURES, STORY_ID, STORY_VOCAB } from '../../lib/math/story';
+import '../../styles/story.css';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const ids = STORY_VOCAB[locale].map((_, id) => id).filter(id => id !== STORY_ID.end);
+---
+<figure class="story" data-story-words>
+  <div class="story-table-wrap" role="region" tabindex="0" aria-label={ko ? '단어별 벡터 표' : 'Word vector table'}>
+    <table class="story-table">
+      <thead><tr><th scope="col">{ko ? '단어' : 'Word'}</th><th scope="col">ID</th>{STORY_FEATURES[locale].map(name => <th scope="col">{name}</th>)}</tr></thead>
+      <tbody>{ids.map(id => <tr data-word={id}>
+        <th scope="row">{STORY_VOCAB[locale][id]}</th><td>{id}</td>
+        {STORY_EMBEDDING[id].map(value => <td data-sign={value > 0 ? 'plus' : 'zero'}>{value}</td>)}
+      </tr>)}</tbody>
+    </table>
+  </div>
+  <figcaption class="story__caption">{ko ? '줄 하나가 단어 하나의 벡터입니다. 1이 있는 칸이 그 단어가 가진 성질입니다.' : 'Each row is one word’s vector. A 1 marks a property the word has.'}</figcaption>
+</figure>

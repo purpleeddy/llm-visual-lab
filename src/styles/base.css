@@ -1319,6 +1319,15 @@ body {
 }
 .doc-section--planned .doc-section__title > span:first-child { color: var(--ink-3); }
 .doc-section--planned { padding-top: var(--sp-6); }
+.doc-section__title:lang(ko) { word-break: keep-all; overflow-wrap: anywhere; }
+.lesson-anchor { display: block; height: 0; scroll-margin-top: 4.5rem; }
+
+/* Where a unit continues on the walkthrough, lab and paper pages. */
+.prose .lesson-more { list-style: none; margin: 1.5rem 0; padding: 0.75rem 1rem; display: grid; gap: 0.5rem; border-block: 1px solid var(--line-2); background: var(--surface-panel); }
+.prose .lesson-more li { margin: 0; }
+.lesson-more a { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; font-size: 1rem; overflow-wrap: anywhere; }
+.lesson-more a > span { font-size: var(--fs-100); font-weight: var(--fw-semi); color: var(--ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+@media (max-width: 40rem) { .prose .lesson-more { padding-inline: 0.75rem; } }
 
 /* Learning aids use the existing reading and instrument surfaces. */
 .lesson-prerequisites { font-size: var(--fs-200); color: var(--ink-2); }

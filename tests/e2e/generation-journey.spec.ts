@@ -5,7 +5,7 @@ const words = { ko: ['나는', '학교에', '갔다'], en: ['I', 'went', 'to sch
 
 for (const locale of ['ko', 'en'] as const) {
   test(`${locale}: the compact opening appends, announces, stops and resets with one input`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const lab = page.locator('.lab--generation-journey');
     await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
     const input = lab.locator('[data-journey-input] .journey-token');
@@ -67,7 +67,7 @@ for (const locale of ['ko', 'en'] as const) {
   });
 
   test(`${locale}: the main article retains the opening calculation from lookup through readout`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const lab = page.locator('.lab--generation-journey');
     const stage = (name: string) => page.locator(`[data-main-lesson] [data-lesson-stage="${name}"]:visible`);
     await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(words[locale].slice(0, 2));
@@ -138,7 +138,7 @@ for (const locale of ['ko', 'en'] as const) {
   for (const layout of [{ width: 360, zoom: 100 }, { width: 280, zoom: 200 }]) {
     test(`${locale}: all three opening states stay readable at ${layout.width}px and ${layout.zoom}% text`, async ({ page }) => {
       await page.setViewportSize({ width: layout.width, height: 844 });
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       const lab = page.locator('.lab--generation-journey');
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await page.evaluate(zoom => document.documentElement.style.fontSize = `${zoom}%`, layout.zoom);

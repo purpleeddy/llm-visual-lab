@@ -1,0 +1,42 @@
+---
+/** Chapter 7: choosing from the probabilities, and the loop that appends until the end marker. */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_ID, STORY_PAST, STORY_VOCAB, storyGenerate, storyRun } from '../../lib/math/story';
+import { temperatureProbabilities } from '../../lib/math/generation';
+import { fmtPercent } from '../../lib/math/format';
+import StoryBars from './StoryBars.astro';
+import '../../styles/story.css';
+interface Props { locale: Locale; part: 'choose' | 'temperature' | 'loop'; }
+const { locale, part } = Astro.props;
+const ko = locale === 'ko';
+const words = STORY_VOCAB[locale];
+const run = storyRun(STORY_PAST);
+const scores = run.scores[run.last];
+const probabilities = run.probabilities[run.last];
+const draws = 100;
+const watched = [STORY_ID.pastVerb, STORY_ID.end, STORY_ID.futureVerb];
+const temperatures = [0.5, 1, 2];
+const steps = storyGenerate(STORY_PAST);
+---
+<div class="story" data-story-generation={part}>
+  {part === 'choose' && <>
+    <StoryBars locale={locale} probabilities={probabilities} label={ko ? '‘어제 학교에’ 다음 단어의 확률' : 'Probabilities after “Yesterday I”'} name="choose" />
+    <p data-story-greedy><strong>greedy</strong>: {ko ? `매번 ‘${words[run.nextId]}’` : `“${words[run.nextId]}” every time`}</p>
+    <p data-story-sampling><strong>sampling</strong>: {ko ? `${draws}번 뽑으면 대략 ` : `${draws} draws give roughly `}{watched.map((id, i) => <span data-story-expected={id}>{i ? ', ' : ''}{words[id]} {Math.round(probabilities[id] * draws)}{ko ? '번' : ''}</span>)}{ko ? '. 가끔 다른 단어도 나옵니다.' : '. Now and then another word comes out.'}</p>
+  </>}
+  {part === 'temperature' && <div class="story-table-wrap" role="region" tabindex="0" aria-label={ko ? '온도에 따른 확률' : 'Probabilities by temperature'}>
+    <table class="story-table" data-story-temperature>
+      <thead><tr><th scope="col">{ko ? '온도' : 'Temperature'}</th>{watched.map(id => <th scope="col">{words[id]}</th>)}</tr></thead>
+      <tbody>{temperatures.map(t => {
+        const p = temperatureProbabilities(scores, t);
+        return <tr data-temperature={t}><th scope="row">{t}</th>{watched.map(id => <td>{fmtPercent(p[id], 1)}</td>)}</tr>;
+      })}</tbody>
+    </table>
+  </div>}
+  {part === 'loop' && <ol class="story-loop" data-story-loop>
+    {steps.map(step => <li data-story-step={step.tokenIds.length}>
+      <p class="story__sentence">{step.tokenIds.map(id => words[id]).join(' ')} ___</p>
+      <p>{ko ? '1위' : 'Top'}: <strong data-story-chosen={step.chosen}>{words[step.chosen]}</strong> {fmtPercent(step.probabilities[step.chosen], 1)} → {step.chosen === STORY_ID.end ? (ko ? '멈춤' : 'stop') : (ko ? '붙이고 다시 계산' : 'append and compute again')}</p>
+    </li>)}
+  </ol>}
+</div>

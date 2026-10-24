@@ -51,7 +51,7 @@ async function expectProbabilityLayout(view: Locator, alignBars = true) {
 
 for (const locale of ['ko','en'] as const) {
   test(`${locale}: the default reading path carries one two-input snapshot through every unit`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     for (const section of sections) await expect(page.locator(`[id="${section}"]`)).toHaveCount(1);
     // The independent exercises moved to the lab and paper pages; each unit links there instead.
     await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
@@ -97,7 +97,7 @@ for (const locale of ['ko','en'] as const) {
   });
 
   test(`${locale}: position addition visibly feeds the recomputed downstream stages`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const base = page.locator('#big-picture > [data-main-lesson] [data-journey-probability]');
     const initial = await base.allTextContents();
     await page.locator('#lesson-position-extension > summary').click();
@@ -117,7 +117,7 @@ for (const locale of ['ko','en'] as const) {
   });
 
   test(`${locale}: the four-candidate loss and live status change after a readout update and reset`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     await page.locator('#lesson-readout-learning > summary').click();
     const learning = page.locator('.lesson-learning');
     await expect(learning.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr','');
@@ -161,7 +161,7 @@ for (const locale of ['ko','en'] as const) {
       await fontGate;
       await route.continue();
     });
-    await page.goto(`${locale}/`, {waitUntil:'domcontentloaded'});
+    await page.goto(`${locale}/walkthrough/`, {waitUntil:'domcontentloaded'});
     const opening = page.locator('.lab--generation-journey');
     const readout = page.locator('#big-picture > [data-main-lesson] [data-lesson-stage="readout"]:visible');
     try {
@@ -182,7 +182,7 @@ for (const locale of ['ko','en'] as const) {
   for (const width of [390,500]) {
     test(`${locale}: percentages remain on one line through generation and learning at ${width}px`, async ({ page }) => {
       await page.setViewportSize({width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(() => document.fonts.ready);
       const opening = page.locator('.lab--generation-journey');
       await expect(opening.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr','');
@@ -225,7 +225,7 @@ for (const locale of ['ko','en'] as const) {
 
     test(`${locale}: four-value vectors stay on one row without repeated mobile chrome at ${width}px`, async ({ page }) => {
       await page.setViewportSize({width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(() => document.fonts.ready);
       const vectors = page.locator('[data-main-lesson] .journey__digits[data-size="4"]:visible');
       expect(await vectors.count()).toBeGreaterThan(10);
@@ -292,7 +292,7 @@ for (const locale of ['ko','en'] as const) {
   for (const layout of [{width:360,zoom:100},{width:280,zoom:200}]) {
     test(`${locale}: primary calculations and probabilities fit ${layout.width}px at ${layout.zoom}%`, async ({ page }) => {
       await page.setViewportSize({width:layout.width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(zoom => document.documentElement.style.fontSize = `${zoom}%`,layout.zoom);
       for (const view of await page.locator('[data-lesson-stage]').all()) {
         if (await view.evaluate(node => Boolean(node.closest('details')))) continue;

@@ -8,16 +8,19 @@ import { docHref, type Locale } from '../../lib/i18n/routing';
 
 interface Props {
   locale: Locale;
+  /** Section id(s) on the walkthrough page */
+  walk?: string | string[];
   /** Section id(s) on the lab page */
   lab?: string | string[];
   /** Section id(s) on the paper page */
   paper?: string | string[];
 }
 
-const { locale, lab = [], paper = [] } = Astro.props;
+const { locale, walk = [], lab = [], paper = [] } = Astro.props;
 const ko = locale === 'ko';
 const ids = (value: string | string[]) => (Array.isArray(value) ? value : [value]);
 const links = [
+  ...ids(walk).map((id) => ({ doc: 'walkthrough', id, label: ko ? '숫자로 따라가기' : 'In numbers' })),
   ...ids(lab).map((id) => ({ doc: 'lab', id, label: ko ? '실험실' : 'Lab' })),
   ...ids(paper).map((id) => ({ doc: 'paper', id, label: ko ? '논문 읽기' : 'The paper' })),
 ].map((link) => {
