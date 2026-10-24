@@ -87,6 +87,9 @@ body {
 .site {
   display: grid;
   grid-template-rows: auto 1fr auto;
+  /* An implicit `auto` column would grow to the widest child's min-content,
+     so one unbreakable row (the masthead at 200% text) widened the whole page. */
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -125,9 +128,12 @@ body {
 }
 .masthead__tools {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   align-items: center;
   gap: var(--sp-2);
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
 }
 
@@ -571,18 +577,20 @@ body {
  * Only prose tables. Scoped to a **direct child** of a section because the
  * matrices inside a lab are tables too, and catching them here would turn an
  * instrument into a reading table.
- * A markdown table is always a direct child of its section; a lab sits one
- * component deeper.
+ * A markdown table is always a direct child of its section or of a disclosure
+ * body; a lab sits one component deeper.
  */
 .prose > table,
-.doc-section > table {
+.doc-section > table,
+.expand__body > table {
   width: 100%;
   border-collapse: collapse;
   margin: 0 0 var(--sp-5);
   font-size: var(--fs-200);
 }
 .prose > table th,
-.doc-section > table th {
+.doc-section > table th,
+.expand__body > table th {
   text-align: left;
   font-size: var(--fs-50);
   font-weight: var(--fw-bold);
@@ -593,7 +601,8 @@ body {
   border-bottom: 1px solid var(--line-2);
 }
 .prose > table td,
-.doc-section > table td {
+.doc-section > table td,
+.expand__body > table td {
   padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
   border-bottom: 1px solid var(--line-1);
   vertical-align: top;
@@ -1310,6 +1319,15 @@ body {
 }
 .doc-section--planned .doc-section__title > span:first-child { color: var(--ink-3); }
 .doc-section--planned { padding-top: var(--sp-6); }
+.doc-section__title:lang(ko) { word-break: keep-all; overflow-wrap: anywhere; }
+.lesson-anchor { display: block; height: 0; scroll-margin-top: 4.5rem; }
+
+/* Where a unit continues on the walkthrough, lab and paper pages. */
+.prose .lesson-more { list-style: none; margin: 1.5rem 0; padding: 0.75rem 1rem; display: grid; gap: 0.5rem; border-block: 1px solid var(--line-2); background: var(--surface-panel); }
+.prose .lesson-more li { margin: 0; }
+.lesson-more a { display: inline-flex; flex-wrap: wrap; gap: 0.25rem 0.75rem; align-items: baseline; font-size: 1rem; overflow-wrap: anywhere; }
+.lesson-more a > span { font-size: var(--fs-100); font-weight: var(--fw-semi); color: var(--ink-3); text-transform: uppercase; letter-spacing: var(--tracking-wide); }
+@media (max-width: 40rem) { .prose .lesson-more { padding-inline: 0.75rem; } }
 
 /* Learning aids use the existing reading and instrument surfaces. */
 .lesson-prerequisites { font-size: var(--fs-200); color: var(--ink-2); }

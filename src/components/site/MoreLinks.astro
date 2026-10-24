@@ -1,0 +1,34 @@
+---
+/**
+ * Where a unit continues: its editable experiments in the lab and its background in
+ * the paper companion. Replaces the folded drawers the main article used to carry.
+ */
+import { docSectionById } from '../../lib/nav';
+import { docHref, type Locale } from '../../lib/i18n/routing';
+
+interface Props {
+  locale: Locale;
+  /** Section id(s) on the walkthrough page */
+  walk?: string | string[];
+  /** Section id(s) on the lab page */
+  lab?: string | string[];
+  /** Section id(s) on the paper page */
+  paper?: string | string[];
+}
+
+const { locale, walk = [], lab = [], paper = [] } = Astro.props;
+const ko = locale === 'ko';
+const ids = (value: string | string[]) => (Array.isArray(value) ? value : [value]);
+const links = [
+  ...ids(walk).map((id) => ({ doc: 'walkthrough', id, label: ko ? '숫자로 따라가기' : 'In numbers' })),
+  ...ids(lab).map((id) => ({ doc: 'lab', id, label: ko ? '실험실' : 'Lab' })),
+  ...ids(paper).map((id) => ({ doc: 'paper', id, label: ko ? '논문 읽기' : 'The paper' })),
+].map((link) => {
+  const section = docSectionById(link.doc, link.id);
+  if (!section) throw new Error(`no ${link.doc} section: ${link.id}`);
+  return { ...link, title: section.title[locale], href: `${docHref(locale, link.doc)}#${link.id}` };
+});
+---
+<ul class="lesson-more" aria-label={ko ? '이어서 볼 곳' : 'Continue elsewhere'}>
+  {links.map((link) => <li><a href={link.href} data-more={link.doc}><span>{link.label}</span>{link.title}</a></li>)}
+</ul>

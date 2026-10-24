@@ -1,0 +1,92 @@
+/* The article's readable next-word machine. Every number sits under the name of its slot. */
+.story { min-width: 0; max-width: 100%; margin-block: 1.25rem 1.75rem; font-size: 1rem; overflow-wrap: anywhere; container-type: inline-size; }
+.prose .story p { font-size: 1rem; margin-block: 0.5rem; }
+.story__caption { color: var(--ink-2); font-size: var(--fs-300); }
+.story__row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-block: 0.5rem; }
+.story__op { font-family: var(--font-mono); color: var(--ink-2); }
+.story__eq { font-family: var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.story__pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 1.5rem; }
+.story__pair > * { min-width: 0; padding-inline-start: 0.75rem; border-inline-start: 2px solid var(--line-3); }
+.story__pair > [data-story-sentence='past'] { border-inline-start-color: var(--data-q); }
+.story__pair > [data-story-sentence='future'] { border-inline-start-color: var(--data-v); }
+.story__sentence { font-weight: var(--fw-semi); margin-block: 0 0.5rem; }
+@media (max-width: 40rem) { .story__pair { grid-template-columns: minmax(0, 1fr); } }
+
+/* A vector: one cell per named slot. */
+.story-vector { display: inline-grid; grid-auto-flow: column; grid-auto-columns: minmax(3.5rem, max-content); max-width: 100%; border: 1px solid var(--line-3); border-radius: var(--r-sm); background: var(--surface-panel-inset); }
+.story-vector > span { display: grid; gap: 0.1rem; padding: 0.3rem 0.5rem; text-align: center; border-inline-start: 1px solid var(--line-1); min-width: 0; }
+.story-vector > span:first-child { border-inline-start: 0; }
+.story-vector small { font-size: var(--fs-100); color: var(--ink-3); }
+.story-vector b { font: var(--fw-medium) 1rem/1.4 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-3); }
+.story-vector [data-on='true'] { background: var(--accent-wash); }
+.story-vector [data-on='true'] b { color: var(--ink-strong); }
+.story-label { display: inline-block; min-width: 4.5rem; font-weight: var(--fw-semi); }
+@media (max-width: 26rem) { .story-vector { grid-auto-columns: minmax(2.9rem, max-content); } .story-vector > span { padding-inline: 0.3rem; } }
+/* Too narrow for four slots in a row: two rows of two. */
+@container (max-width: 18em) {
+  .story-vector { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .story-vector > span:nth-child(odd) { border-inline-start: 0; }
+  .story-vector > span:nth-child(n+3) { border-top: 1px solid var(--line-1); }
+}
+
+/* Tables: words by slots, slots by candidates. */
+.story-table-wrap { max-width: 100%; overflow-x: auto; }
+.prose .story-table { border-collapse: collapse; font-size: 1rem; margin: 0.5rem 0; overflow-wrap: normal; word-break: keep-all; }
+.prose .story-table th, .prose .story-table td { padding: 0.35rem 0.6rem; border: 1px solid var(--line-2); text-align: center; }
+.prose .story-table thead th { font-size: var(--fs-300); color: var(--ink-2); font-weight: var(--fw-semi); background: var(--surface-panel); }
+.prose .story-table tbody th { text-align: start; font-weight: var(--fw-semi); }
+.story-table td { font-family: var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.story-table td[data-sign='plus'] { background: var(--accent-wash); color: var(--ink-strong); }
+.story-table td[data-sign='minus'] { background: var(--blocked-surface); color: var(--ink-2); }
+.story-table td[data-sign='zero'] { color: var(--ink-3); }
+.story-table td[data-mask='hidden'] { background: var(--blocked-surface); color: var(--blocked-ink); }
+
+/* Next-word probabilities. */
+.prose .story-bars { display: grid; gap: 0.25rem; margin: 0.5rem 0; padding: 0; list-style: none; container-type: inline-size; }
+.prose .story-bars > li { display: grid; grid-template-columns: minmax(4.5rem, max-content) 4.5rem minmax(0, 1fr); gap: 0.5rem; align-items: center; margin: 0; padding: 0.15rem 0.35rem; }
+.story-bars > li[data-top='true'] { background: var(--accent-wash); font-weight: var(--fw-semi); }
+.story-bars__value { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: end; white-space: nowrap; }
+.story-bars__track { height: 0.55rem; background: var(--line-1); border-radius: var(--r-full); overflow: hidden; }
+.story-bars__fill { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+@container (max-width: 15em) { .prose .story-bars > li { grid-template-columns: minmax(0, 1fr) max-content; } .story-bars__track { grid-column: 1 / -1; } }
+
+/* The opening: guess, append, stop. */
+.story-game { padding: 1rem; border: 1px solid var(--line-2); border-radius: var(--r-lg); background: var(--surface-panel); }
+.story-game .segmented { flex-wrap: wrap; max-width: 100%; }
+.story-game__sentence { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 0.6rem; font-size: 1.375rem; margin-block: 0.25rem 0.75rem; }
+.story-game__word[data-new='true'] { padding: 0 0.3rem; border-bottom: 3px solid var(--accent); }
+.story-game__blank { min-width: 3.5rem; border-bottom: 2px dashed var(--ink-3); color: var(--ink-3); text-align: center; }
+.story-game__controls { display: flex; flex-wrap: wrap; gap: 0.5rem 0.75rem; align-items: center; margin-top: 0.75rem; }
+.story-game__controls .btn { min-height: 2.75rem; font-size: 1rem; max-width: 100%; white-space: normal; }
+.story-game__status { color: var(--ink-2); margin-block: 0.5rem 0; }
+
+/* Attention: who takes how much from whom. */
+.story-flow { display: grid; grid-template-columns: max-content minmax(4rem, 1fr) max-content; gap: 0.75rem 0.5rem; align-items: center; margin: 1rem 0; }
+.story-flow__word { font-weight: var(--fw-semi); text-align: end; }
+.story-flow__link { position: relative; height: 0; border-top: var(--story-flow-width, 2px) solid var(--data-k); }
+.story-flow__link > span { position: absolute; left: 50%; top: 0; transform: translate(-50%, -55%); padding: 0 0.3rem; background: var(--surface-page); font: 1rem/1.3 var(--font-mono); white-space: nowrap; }
+.story-flow__target { grid-column: 3; grid-row: 1 / span 2; padding-inline-start: 0.6rem; border-inline-start: 3px solid var(--data-k); }
+.story > figure { margin: 0; }
+/* Narrow: the receiving position goes under the lines instead of beside them. */
+@container (max-width: 34em) {
+  .story-flow { grid-template-columns: max-content minmax(4rem, 1fr); }
+  .story-flow__target { grid-column: 1 / -1; grid-row: auto; padding: 0.5rem 0 0; border-inline-start: 0; border-top: 3px solid var(--data-k); }
+}
+/* Narrower still: each word above its line. */
+@container (max-width: 16em) {
+  .story-flow { grid-template-columns: minmax(0, 1fr); row-gap: 1rem; }
+  .story-flow__word { text-align: start; }
+}
+
+/* A block of a real model. */
+.story-block { display: grid; gap: 0.5rem; max-width: 30rem; margin: 1rem 0; }
+.story-block__box { padding: 0.5rem 0.75rem; border: 1px solid var(--line-3); border-radius: var(--r-md); background: var(--surface-panel); }
+.story-block__repeat { display: grid; gap: 0.5rem; padding: 0.75rem; border: 2px dashed var(--accent); border-radius: var(--r-lg); }
+.story-block__repeat > p { margin: 0; color: var(--accent); font-weight: var(--fw-semi); }
+.story-block__box[data-here='true'] { border-color: var(--accent); background: var(--accent-wash); }
+.story-block small { color: var(--ink-3); }
+
+/* The generation loop. */
+.prose .story-loop { display: grid; gap: 0.5rem; padding-inline-start: 1.5rem; margin: 0.75rem 0; }
+.prose .story-loop > li { margin: 0; padding-inline-start: 0.25rem; }
+.prose .story-loop p { margin-block: 0.15rem; }

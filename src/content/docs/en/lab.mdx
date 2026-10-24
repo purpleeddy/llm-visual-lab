@@ -1,0 +1,1406 @@
+---
+title: 'Lab: change the values'
+lead: 'Experiments that let you edit each calculation of the article on a three-chunk sentence'
+status: 'complete'
+paperRefs: []
+notYet: []
+updated: '2026-10-24'
+---
+
+import Section from '../../../components/site/Section.astro';
+import Note from '../../../components/site/Note.astro';
+import Expand from '../../../components/site/Expand.astro';
+import Figure from '../../../components/site/Figure.astro';
+import ShapeFlow from '../../../components/site/ShapeFlow.astro';
+import QKVRoles from '../../../components/site/QKVRoles.astro';
+import AttentionSteps from '../../../components/site/AttentionSteps.astro';
+import MultiHeadSplit from '../../../components/site/MultiHeadSplit.astro';
+import ResidualPath from '../../../components/site/ResidualPath.astro';
+import TransposeFlip from '../../../components/site/TransposeFlip.astro';
+import QKScoreWalk from '../../../components/site/QKScoreWalk.astro';
+import ConcatShape from '../../../components/site/ConcatShape.astro';
+import FeedForwardShape from '../../../components/site/FeedForwardShape.astro';
+import AttentionStory from '../../../components/site/AttentionStory.astro';
+import RowTimesColumn from '../../../components/site/RowTimesColumn.astro';
+import { MatrixProductExplorer } from '../../../components/lab/MatrixProductExplorer';
+import { DotProductExplorer } from '../../../components/lab/DotProductExplorer';
+import { SoftmaxExplorer } from '../../../components/lab/SoftmaxExplorer';
+import { AttentionLab } from '../../../components/lab/AttentionLab';
+import { LayerNormExplorer } from '../../../components/lab/LayerNormExplorer';
+import { ResidualExplorer } from '../../../components/lab/ResidualExplorer';
+import { LossExplorer } from '../../../components/lab/LossExplorer';
+import { BeamExplorer } from '../../../components/lab/BeamExplorer';
+import { HeadPatternsExplorer } from '../../../components/lab/HeadPatternsExplorer';
+import { DEFAULT_X, LEARNING_EXAMPLE, DEFAULT_WQ, DOT_PRODUCT_EXAMPLE, SOFTMAX_EXAMPLE_SCORES } from '../../../lib/math/examples';
+import Steps from '../../../components/site/Steps.astro';
+import { MatrixGrid } from '../../../components/lab/MatrixGrid';
+import { EmbeddingLookupExplorer } from '../../../components/lab/EmbeddingLookupExplorer';
+import { LayerTraceExplorer } from '../../../components/lab/LayerTraceExplorer';
+import { LearningUpdateExplorer } from '../../../components/lab/LearningUpdateExplorer';
+import { TokenChoiceExplorer } from '../../../components/lab/TokenChoiceExplorer';
+import { docHref } from '../../../lib/i18n/routing';
+import { DEFAULT_WO, FFN_W2, defaultMultiHeadInput } from '../../../lib/math/examples';
+import { computeMultiHead } from '../../../lib/math/multihead';
+
+<Note variant="scope" title="A different example from the article">
+The article computes with two inputs, “I / went”. This lab defaults to the three-chunk sentence “I went to school”, and some experiments use settings that differ from the article, such as switching the future mask off or an identity readout. When numbers differ from the article, that is why. Every experiment here can be edited.
+</Note>
+
+<Section id="tokens" locale="en" doc="lab">
+
+### Give the sentence chunks IDs
+
+Represent the sentence “I went to school” as numbers. Neural-network calculations take numerical inputs,
+so first assign each chunk an ID, then look up its list of values.
+
+```text
+"I went to school" → ["I", "went", "to school"]
+                     ID 0  ID 1    ID 2
+```
+
+These three readable chunks were chosen for explanation. A real **tokenizer** follows its own rules for splitting text;
+it may divide a word into smaller pieces or use different boundaries. One word is not always one token.
+Chunks and IDs depend on the tokenizer, and the vocabulary is normally fixed before model training.
+
+An ID is **an address in a table**, not a measure of meaning or importance.
+An **embedding table** retrieves a numerical vector by that ID. Here each chunk retrieves four values.
+The lesson vocabulary also includes end, but E below shows only the three rows used by the sentence.
+
+<EmbeddingLookupExplorer client:load locale="en" />
+
+### A vector — an ordered list of numbers
+
+Choosing “I” retrieves (1, 0, 1, 0). An ordered numerical list like this is a **vector**.
+(1, 0, 1, 0) and (0, 1, 0, 1) use the same digits but occupy different slots, so they are different vectors.
+The calculations later pair matching slots, making their order important.
+
+The number of values is the vector’s **dimension**. Four values make this example four-dimensional.
+The paper’s base model uses 512; this lesson uses four so the calculations can be followed.
+Individual coordinates need not have a meaning a person can read or name.
+
+### A matrix — stack the vectors in sentence order
+
+Stack the three chunk vectors and you obtain a **matrix**. Call this input table X.
+
+- “I”: (1, 0, 1, 0)
+- “went”: (0, 1, 0, 1)
+- “to school”: (1, 1, 0, 0)
+
+$$
+X = \begin{pmatrix} 1 & 0 & 1 & 0 \\ 0 & 1 & 0 & 1 \\ 1 & 1 & 0 & 0 \end{pmatrix}
+$$
+
+A horizontal line is a **row**. Vertically aligned cells form a **column**.
+Three chunks give three rows; four values per row give four columns. Write rows first: **3 × 4**.
+
+<Expand id="math-shape-three" summary="What does 3 × 4 mean in this table?">
+
+1. X has **three horizontal rows**, corresponding to “I”, “went” and “to school”.
+2. Each row has **four numerical cells**. The first is 1, 0, 1, 0. Aligning matching slots vertically gives four columns.
+3. **Row count 3 comes first; values per row 4 comes second.** The notation does not mean the single number 12 or twelve tokens.
+
+Token count determines rows; values used to represent one token determine columns. These are different counts.
+
+</Expand>
+
+### Pass three rows of numbers to the next calculation
+
+We found each chunk by ID, retrieved four numbers, and stacked the rows in sentence order. The next calculation receives **X with three rows and four columns**.
+
+| Stage | Object | This example |
+| --- | --- | --- |
+| Sentence chunks | Three input chunks | I / went / to school |
+| IDs | Addresses of embedding rows | 0 / 1 / 2 |
+| Retrieve a vector | Representation of one chunk | Four values |
+| Stack rows | Input for the sentence | X with shape 3 × 4 |
+
+```js
+// Retrieve ID 0 from the illustrative embedding table: a lookup, not multiplication.
+const vector = embeddingTable[0]; // [1, 0, 1, 0]
+```
+
+Each X row currently contains only its chunk’s values. **Predicting the next chunk also requires deciding which context positions to draw from.**
+As preparation, the next unit uses a matrix product to turn four values into two, and a dot product to compare two rows with one score. Then we turn scores into shares and mix content.
+Real embedding tables are learned, and mixing context through layers changes a token’s representation.
+
+</Section>
+
+<Section id="numbers" locale="en" doc="lab">
+
+<AttentionStory locale="en" stage="overview" />
+
+### Matrix product — creating new features from the input
+
+Next-token prediction needs useful patterns computed from the input. Learning adjusts **the combination coefficients (weights)** to reduce prediction errors.
+Multiplication controls each input’s contribution; addition collects those contributions into one new value. Multiply one row of X by one column of the coefficient table W and add: this gives **one value in the new representation Y**. A **matrix product** bundles many such combinations.
+
+<Figure caption="X remains available as the input; one row of X and one column of W produce one value in the new representation Y." wide>
+  <RowTimesColumn locale="en" />
+</Figure>
+
+During prediction, the same fixed W applies to every position. Combining content from different positions comes later in the [attention weighted sum](#attention).
+
+The first chunk, “I”, has vector $(1, 0, 1, 0)$. To turn its four values into two new values, each output needs its own coefficients. Start with one output.
+Multiply each input by a **coefficient**, then add. With coefficients $(1, 0, 1, 0)$:
+
+$$
+1 \times 1 \;+\; 0 \times 0 \;+\; 1 \times 1 \;+\; 0 \times 0 \;=\; 2
+$$
+
+**Multiply and add.** That is one cell of a matrix product.
+
+### Follow the fixed calculation
+
+Here four inputs become two outputs. Each output needs one column of coefficients, so the coefficient table is 4 × 2.
+All three token rows use the same table. A real model learns it; these values were chosen by hand.
+
+Below is $X \times W = Y$. The three rows still correspond to our three sentence chunks, each transformed from four values to two.
+Multiplying $3 \times 4$ by $4 \times 2$ gives Y with shape $3 \times 2$.
+
+Follow **the first value 2 in Y** to its four X-row/W-column pairs. Cell selection and editing are in the supplement.
+
+<MatrixProductExplorer
+  interactive={false}
+  editable={false}
+  locale="en"
+  initialA={DEFAULT_X}
+  initialB={DEFAULT_WQ}
+  nameA="X"
+  nameB="W"
+  nameC="Y"
+  rowLabelsA={LEARNING_EXAMPLE.en.tokens}
+  initialCell={{ row: 0, col: 0 }}
+/>
+
+The three-token reference exercise keeps these default coefficients and inputs fixed to the end. Follow the token row labels in X and Y above.
+
+<AttentionStory locale="en" stage="preparation" />
+
+<div data-legacy-comparison>
+
+### Build a score for comparing two rows
+
+The current-position row for “I” is (2, 0). Applying **different coefficients to the same X** gives the candidate row (2, 0) for “went”. Pair matching slots in this one pair and add their products.
+
+Simply adding all the current-row and candidate-row values gives 4 for both “went” (2, 0) and “I” (0, 2). **Multiply matching slots and add** instead: went gives 2×2 + 0×0 = **4**, while I gives 2×0 + 0×2 = **0**, distinguishing which slots line up.
+
+**2×2 + 0×0 = 4.** The contributions 4 and 0 sum to the pair’s comparison score 4. This multiplication and addition is a **dot product**. We have not assigned human-defined meanings to coordinates.
+
+### Arrange the same pair as a row and a column
+
+One pair’s dot product needs no transpose. To write the same calculation as a row-by-column matrix product, stand **this very candidate row (2, 0)** in a column.
+
+<Figure scrollable caption="The current row for I and candidate row for went are both (2, 0). Standing only the right row up still gives 2×2 + 0×0 = 4.">
+  <TransposeFlip locale="en" />
+</Figure>
+
+Moving a row into a column without changing its values is a **transpose**. No move would be needed if the candidates were already columns.
+
+<Expand id="math-transpose" summary="Check the same pair’s layout with small numbers">
+Standing the right row (2, 0) up gives a 1 × 2 current row and a 2 × 1 candidate column: a 1 × 1 score, 4. The transpose symbol is the superscript ᵀ.
+</Expand>
+
+<AttentionStory locale="en" stage="scores" />
+</div>
+
+<div id="matrix-experiments">
+
+### Independent input and coefficient experiments
+
+Change only coefficient three from 1 to 2: 1×1 + 0×0 + 1×2 + 0×0 = **3**. Set it to −1 and the result is **0**.
+These coefficients can be negative or exceed 1; they need not sum to 1.
+
+<MatrixProductExplorer
+  client:load
+  locale="en"
+  initialA={DEFAULT_X}
+  initialB={DEFAULT_WQ}
+  nameA="X"
+  nameB="W"
+  nameC="Y"
+  rowLabelsA={LEARNING_EXAMPLE.en.tokens}
+  initialCell={{ row: 0, col: 0 }}
+/>
+<Note variant="try" title="Try this">
+Open **Edit the matrix values** and set the entire first column of $W$ to zero. The first **column** of the result becomes
+all zeros — the column, not the row.
+
+That is because one column of the result comes from exactly one column on the right.
+Changing a row of X can affect only the same row of Y. Some values may stay unchanged, for example where the relevant coefficient is zero.
+</Note>
+</div>
+<Expand id="numbers-details" summary="Supplement: Σ and general matrix shapes">
+<Expand id="math-sum" summary="How does Σ abbreviate a long addition?">
+
+First use a separate list (2, 3, 5) to learn the notation: 2 + 3 + 5 = 10.
+Name the list a: a₁=2, a₂=3, a₃=5. **The small number identifies a position in the list**;
+this small written mark is called a subscript. Mathematics here counts from 1; code retrieves the first value as a[0].
+
+$\sum$ means **add all the specified values**. Thus $\sum_{k=1}^{3} a_k = 2+3+5=10$.
+Now use the counter k itself as the value to add.
+
+$$
+\sum_{k=1}^{4} k = 1 + 2 + 3 + 4 = 10
+$$
+
+- **k=1 below**: start the counter at 1.
+- **4 above**: finish at 4.
+- **k to the right**: the value added each time.
+
+Return to the matrix product in the figure. The first result cell in Y was **2**.
+It paired row 1 of X with column 1 of W. X₁₁ addresses row 1, column 1 of X;
+W₁₁ does the same for W. **A matrix cell uses two indices, row then column**,
+unlike the single index addressing the list above.
+
+$$
+\sum_{k=1}^{4} X_{1,k} W_{k,1}
+= X_{1,1}W_{1,1} + X_{1,2}W_{2,1} + X_{1,3}W_{3,1} + X_{1,4}W_{4,1}
+$$
+
+The actual values give 1×1 + 0×0 + 1×1 + 0×0 = **2**.
+k visits columns of X and rows of W in order. Σ abbreviates those four terms.
+
+</Expand>
+
+<Expand id="math-matmul" summary="How do we write the result-cell calculation briefly?">
+
+The first result cell, row 1 and column 1 of Y, was 2. Write this as **Y₁₁=2**.
+The first small number is the row and the second the column. Mathematics counts from 1 here;
+Y[0][0] in code addresses that same first cell.
+
+For an arbitrary cell, name the row i and column j.
+X has n rows and p columns; W has p rows and m columns; Y has n rows and m columns.
+
+$$
+Y_{i,j} = \sum_{k=1}^{p} X_{i,k}\, W_{k,j}
+$$
+
+Here n=3, p=4 and m=2. Choosing i=1 and j=1 gives the first output cell.
+k visits the four matching slots in row 1 of X and column 1 of W.
+The formula applies **pair, multiply and add** to every result cell.
+The left column count must match the right row count so the pairs can be made.
+
+X remains available as the input, but reducing four features to two can lose information. Y alone cannot always reconstruct the original X.
+
+</Expand>
+
+### What the shapes tell you
+
+A surprising amount can be checked without doing any arithmetic.
+
+$$
+\underbrace{X}_{3 \times 4} \cdot \underbrace{W}_{4 \times 2} = \underbrace{Y}_{3 \times 2}
+$$
+
+<Figure
+  scrollable
+  caption="The three matrices drawn as grids of cells. Edges painted the same colour are a pair; the dashed edges count the pairs summed into one cell."
+  describe="The full description is in the diagram's alternative text."
+>
+  <ShapeFlow locale="en" />
+</Figure>
+
+The inner 4 counts the four paired products summed into each result cell. Each of three input rows produces two values.
+That one rule tells you how many of everything comes out of every step ahead.
+</Expand>
+<div id="dot-experiments">
+
+### Independent dot-product and direction experiments
+
+### Build a score for comparing two rows
+
+Predicting the next chunk requires deciding how much to draw from each context position. First we need **scores comparing positions**.
+Learn to pair matching values, multiply and add. Attention later applies this to rows transformed for comparison.
+Use (2, 0), matching the first row of the earlier transformation, and vary the other row.
+These are scores of the chosen numbers, not direct measurements of word-meaning similarity.
+
+Take $q = (2, 0)$ and $k = (2, 0)$.
+
+$$
+q \cdot k = 2 \times 2 + 0 \times 0 = 4
+$$
+
+Now change $k$ to $(0, 2)$.
+
+$$
+q \cdot k = 2 \times 0 + 0 \times 2 = 0
+$$
+
+Same $q$, and the answer went from 4 to 0. The digits in $k$ are still a 2 and a 0 —
+only their positions moved.
+
+Simply adding all the values gives 4 in both cases, hiding which slots line up.
+**Multiplying matching slots** gives zero contribution when either entry is zero, and a positive contribution when both are positive. Add the contributions to obtain **one comparison score**. This multiplication and addition is called a **dot product**.
+
+### Move them and watch
+
+<DotProductExplorer
+  client:load
+  locale="en"
+  initialU={DOT_PRODUCT_EXAMPLE.u}
+  initialV={DOT_PRODUCT_EXAMPLE.v}
+  nameU="q"
+  nameV="k"
+/>
+
+<Note variant="try" title="Try this">
+**One.** Reset to q=(2, 0), k=(2, 0), then change $k$ to $(0, 2)$. The arrows become perpendicular and the value goes to 0.
+
+**Two.** Reset again, then change $k$ to $(4, 0)$. Same direction, but the value doubles from 4 to 8 —
+the first positive contribution changed from 2×2=4 to 2×4=8. Check that $\cos\theta$ stays at 1.
+
+**Three.** Reset again, then change $k$ to $(-2, 0)$. The value becomes −4.
+Opposite directions give negative results. The next section deals with that.
+</Note>
+
+<Expand id="math-dot" summary="How does 2×2 + 0×0 become dot-product notation?">
+
+Pair the values of (2, 0) and (2, 0). Their products are 4 and 0, summing to **4**.
+This is a **dot product**, written with a middle dot.
+q₁=2 and q₂=0 name the first and second values of q, and k uses the same convention.
+Each list value has **one position index**, unlike the two indices addressing a matrix cell.
+
+$$
+q \cdot k = \sum_{i=1}^{d} q_i k_i = 2\times2 + 0\times0 = 4
+$$
+
+d is the number of values in each list, here 2. The lists must have equal lengths to pair them.
+Two numerical vectors produce **one** comparison score.
+
+</Expand>
+
+<Expand id="math-direction" summary="How do direction and length change the score?">
+
+A dot product responds to two things: **direction** and **length**.
+
+$$
+q \cdot k = |q|\,|k|\cos\theta
+$$
+
+where $|q|$ is the length of $q$ and $\theta$ is the angle between them.
+
+<Expand summary="How a vector's length is measured">
+Straight from Pythagoras: square each slot, add, take the square root.
+
+$$
+|q| = \sqrt{q_1^2 + q_2^2 + \cdots + q_d^2}
+$$
+
+For $q = (2, 0)$, $|q| = \sqrt{4 + 0} = 2$. For $q = (1, 1)$, $|q| = \sqrt{2} \approx 1.414$.
+
+$\cos\theta$ runs between −1 and 1 with the angle: 1 pointing the same way,
+0 at right angles, −1 pointing opposite ways.
+</Expand>
+
+For a fixed positive cosine, increasing vector magnitudes increases the dot product. With a negative cosine it becomes more negative; magnitude and a larger signed value are different ideas.
+
+There is a trap in that. Two well-aligned vectors still give a small value if they are short,
+and two mediocre ones give a large value if they are long. The dot product alone cannot
+tell those apart.
+
+</Expand>
+</div>
+
+</Section>
+
+<Section id="proportion" locale="en" doc="lab">
+
+Continue with the same scores (0, 4, 2). Dividing limits the increase in score spread as comparisons use more values. Here each row has two values, so divide by √2≈1.414 before softmax. Keep raw and divided scores distinct.
+
+<AttentionStory locale="en" stage="shares" />
+
+### Combine the actual content with the same shares
+
+<AttentionStory locale="en" stage="mixture" />
+
+This completes the three-token reference exercise’s calculation for “I”. The next unit names the current-position, candidate and content roles, and applies the same calculation to all rows.
+
+<div id="softmax-experiments">
+
+### Unscaled scores and softmax controls
+
+This independent experiment uses (0, 4, 2) without division by √2. Its shares (0.016, 0.867, 0.117) differ from the three-token reference exercise’s scaled-score shares. Edits here do not change the fixed three-token reference calculation.
+
+### Why not just divide?
+
+The obvious move is to divide by the total. Since $0 + 4 + 2 = 6$, that gives
+$0/6$, $4/6$, $2/6$, which does add to 1.
+
+But as we just saw, **dot products can be negative**. With scores $-3$, $4$, $2$ the total
+is 3 and the first proportion is $-3/3 = -1$. "Attend −100% to this position" is not a
+statement about anything. And if the scores total zero there is nothing to divide by.
+
+So something has to make every value positive first.
+
+### What the exponential does
+
+That something is $e^x$, where $e$ is a constant of about 2.718. It has two useful properties.
+
+**One: whatever goes in, what comes out is positive.**
+$e^0 = 1$, $e^{-3} \approx 0.05$, and $e^{-100}$ is tiny but still above zero.
+The negative problem is gone.
+
+**Two: it pulls larger values much further ahead.** This is used deliberately, not tolerated.
+
+$$
+e^0 = 1, \qquad e^2 \approx 7.389, \qquad e^4 \approx 54.598
+$$
+
+The original scores spanned a range of 4. After the exponential they span 1 to 54.6 —
+a factor of about 54.
+
+### Make positive values and divide by their sum
+
+Exponentiate, then divide by the total. That is all of it.
+The calculation is called **softmax**.
+
+Applied to $0, 4, 2$:
+
+$$
+\frac{1}{62.987} \approx 0.016, \qquad
+\frac{54.598}{62.987} \approx 0.867, \qquad
+\frac{7.389}{62.987} \approx 0.117
+$$
+
+They add to 1, and the original ordering survives. What changed is the spacing —
+the second position took 87% of the total.
+
+### Move them and watch
+
+<SoftmaxExplorer
+  client:load
+  locale="en"
+  initialScores={SOFTMAX_EXAMPLE_SCORES}
+  labels={LEARNING_EXAMPLE.en.tokens.map((token, i) => `Position ${i + 1} · ${token}`)}
+/>
+
+<Note variant="plain" title="The exp column does not match the numbers just above">
+We worked out $e^4 \approx 54.598$ by hand, yet the table shows `1.000`.
+That is because the experiment **subtracts the row's largest value first** and then
+exponentiates: 4 minus 4 is 0, and $e^0 = 1$. Why it does that is just below.
+
+The probabilities come out identical either way — the probability column reads
+0.016, 0.867 and 0.117, the same values as above.
+</Note>
+
+<Note variant="try" title="Try this">
+**Raise only the first score, from 0 to 2.** That the first probability grows is unsurprising.
+But **the other two shrink as well**, and neither of them was touched.
+
+The denominator is why. Every probability in a row shares one denominator, the sum of all
+the exponentials. Raising the first score raises that sum too. The others keep their
+numerators but are divided by something larger, so they fall.
+
+Probabilities compete. What one position gains, the others give up.
+</Note>
+
+<Expand id="math-softmax" summary="How does one formula give all three candidate shares?">
+
+Candidate one is 1÷62.987≈0.016; candidate two is 54.598÷62.987≈0.867; candidate three is 7.389÷62.987≈0.117. All divide by the same total.
+
+$$
+\mathrm{softmax}(s)_i = \frac{e^{s_i}}{\sum_{j} e^{s_j}}
+$$
+
+The numerator is the exponential of score $i$; the denominator adds up **all** of them.
+Note that the denominator is identical for every term — that matters shortly.
+
+s names the three scores (0, 4, 2). For i=2, the numerator is e⁴≈54.598, and the sigma denominator is 1+54.598+7.389≈62.987. The division gives p₂≈0.867.
+
+</Expand>
+
+### Adding the same amount to everything
+
+Now use the slider to add the same number to all three scores. Nothing changes.
+
+<Expand id="math-softmax-shift" summary="Why do equal score increases leave probabilities unchanged?">
+
+Changing (0, 4, 2) to (1, 5, 3) leaves every gap unchanged. The three exponential values and their shared sum all multiply by e, leaving the ratios identical.
+
+The algebra shows why. Adding $c$ to every score:
+
+$$
+\frac{e^{s_i + c}}{\sum_j e^{s_j + c}}
+= \frac{e^{s_i} \cdot e^{c}}{e^{c} \sum_j e^{s_j}}
+= \frac{e^{s_i}}{\sum_j e^{s_j}}
+$$
+
+The same $e^c$ appears above and below and cancels.
+**Softmax sees only the differences between scores, never their absolute size.**
+
+That has a practical use. Large scores make $e^s$ overflow the range a computer can
+represent. Mathematically $e^{1000}$ is defined, but it overflows to Infinity in this exercise’s JavaScript number format. But since only differences matter, you can
+**subtract the row's largest value** first. The largest term becomes $e^0 = 1$ and
+everything else is smaller, so nothing overflows. That is the "minus the largest" column
+in the table above.
+
+</Expand>
+
+### What narrowing the gaps does
+
+Divide all scores by 2 to get (0, 2, 1): the order stays the same and the gaps halve.
+Because 2×2=4, 2 is the **square root of 4**, written √4. Watch what a shared divisor changes.
+
+Take the same $0, 4, 2$ and divide by $\sqrt{2} \approx 1.414$. It is $\sqrt{2}$ because
+our example has $d_k = 2$; a real model divides by $\sqrt{64} = 8$.
+
+| Score | Before | After dividing by $\sqrt{2}$ |
+| --- | --- | --- |
+| 0 | 0.016 | 0.045 |
+| 4 | 0.867 | 0.768 |
+| 2 | 0.117 | 0.187 |
+
+The order is untouched but the distribution is **less concentrated** — the largest share
+fell from 87% to 77%. Dividing narrowed the gaps, and the exponential responds to gaps.
+
+Attention chooses a divisor from the **number of coordinates** in each query or key. With two coordinates it uses the **positive number whose square is 2**, about 1.414. This count differs from geometric length $|q|$. Write this as $\sqrt{d_k}$, where $d_k=2$ here.
+The aim is to keep the score spread comparable as feature counts grow. The optional explanation below gives the statistical assumptions.
+
+</div>
+<div id="weighted-two">
+
+### A separate two-value weighted sum
+
+### Once you have shares, retrieve content
+
+Shares alone have not retrieved information. Multiply them by the **values** at the referenced positions, then add.
+First use the separate numbers 2 and 8 to learn this arithmetic. Later the same operation mixes the three rows of the shared sentence.
+
+<Steps>
+
+1. First contribution: 0.25 × 2 = 0.5.
+2. Second contribution: 0.75 × 8 = 6.
+3. Add: 0.5 + 6 = **6.5**.
+
+</Steps>
+
+The single result cell below does exactly that. Predict its direction before changing a value.
+
+<MatrixProductExplorer client:load locale="en" complementaryWeights initialA={[[0.25, 0.75]]} initialB={[[2], [8]]} nameA="Shares" nameB="Values" nameC="Mixture" />
+
+For a vector value, do this **for each feature**. The next unit computes all of it as a product of the attention-weight table and the value table.
+Softmax produces shares; the weighted sum mixes content. Their outputs are different objects.
+These shares are **computed from the current input** and sum to 1. W contained **multiplication coefficients changed by learning**. Attention shares are not an independently learned lookup table.
+
+</div>
+<Expand summary="Why divide by the square root of the dimension?">
+
+### More terms means larger values
+
+One last point. If the scores spread too widely, the next step piles almost everything
+onto one position, so how far they spread has to be known in advance.
+
+A dot product is a sum of terms. Two dimensions, two terms; 64 dimensions, 64 terms.
+More terms tend to mean a larger total.
+
+More precisely: the number that measures how far values sit from their mean is called the
+**spread (variance)**. Assume each component has mean 0 and spread 1. Then the dot product
+has mean 0 and **spread $d_k$**, which means its values scatter across roughly $\pm\sqrt{d_k}$.
+With $d_k = 64$ that is $\sqrt{64} = 8$, so the scores scatter across roughly ±8.
+
+This spread is a standard deviation, not an upper bound. Under independent, zero-mean, unit-variance components, the dot-product variance is dₖ; dividing by √dₖ restores variance 1.
+Strongly concentrated softmax can have small **derivatives with respect to its input scores**. This does not imply that every gradient of output cross-entropy vanishes.
+The [normalization unit](#blocks) computes variance with actual numbers. You do not need to memorise this supplement now.
+
+</Expand>
+
+</Section>
+
+<Section id="attention" locale="en" doc="lab">
+
+We represented the three chunks as X and learned to turn comparison scores into shares. Now connect those calculations so **each row receives context and produces a new representation**.
+Comparing and mixing the shared sentence’s three positions is self-attention. First calculate this operation, then add order and future masking in the next unit.
+
+Three things so far:
+
+- **matrix product** — multiply inputs by coefficients and add
+- **dot product** — how well two vectors match, as a single number
+- **softmax** — scores into proportions that sum to 1
+
+Chain those three in order and you have attention. First follow the calculations you can already perform.
+
+### Where Q, K and V come from
+
+Make separate rows for **comparison and content transfer** using separately learnable transformations of the same input X.
+Reuse the earlier W: its result Y is called **Query, Q**, for its role here. The table that makes Q is called **W_Q**. Its small Q is a role label, not a cell index. W_K makes Key rows and W_V makes Value rows.
+
+<Expand id="math-qkv" summary="How do we make three Q, K and V rows from one token?">
+
+Multiplying first input (1, 0, 1, 0) by the three tables gives first Q row (2, 0), K row (0, 2), and V row (3, 0). For Q’s first value: 1×1+0×0+1×1+0×0=2. The input stays the same; its coefficient table changes.
+
+These three tables contain hand-chosen coefficients, shared across all token rows.
+
+$$
+W_Q = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 1 & 0 \\ 0 & 1 \end{pmatrix}, \quad
+W_K = \begin{pmatrix} 0 & 1 \\ 1 & 0 \\ 0 & 1 \\ 1 & 0 \end{pmatrix}, \quad
+W_V = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 2 & 0 \\ 0 & 2 \end{pmatrix}
+$$
+
+$$
+Q = XW_Q, \qquad K = XW_K, \qquad V = XW_V
+$$
+
+</Expand>
+
+Their roles:
+
+- **Query** — what this token is looking for
+- **Key** — what this token offers
+- **Value** — what actually gets passed along
+
+<Figure
+  scrollable
+  caption="Three branches out of one row. They differ because the W they get multiplied by differs."
+  describe="The full description is in the diagram's alternative text."
+>
+  <QKVRoles locale="en" />
+</Figure>
+
+Different $W$ matrices turn the same input into different numerical rows for each role.
+
+### Start with one pair’s score
+
+To decide which position to draw information from, first compare the Q row (2, 0) at “I” with the K row (2, 0) at “went”. Add matching-slot products to get one score, then repeat the same calculation for other candidates.
+
+<QKScoreWalk locale="en" />
+
+The job is one thing: decide how much each token should look at every other token, and
+bring information across in those proportions. Read from the inside out, that is four
+steps. $QK^\top$ makes comparison scores. Query and key each contain d_k=2 values, so divide by $\sqrt{2}$≈1.414. Softmax turns the scores into shares summing to 1, and those shares
+take that much of each row of $V$ and mix them.
+
+<Figure
+  caption="The four steps and the shape that comes out of each. The experiment below uses the same names for its steps."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <AttentionSteps locale="en" />
+</Figure>
+
+The shape holds still for the first three steps and only changes on the last one.
+
+### Compute it yourself
+
+Make Q, K and V from the input, then calculate scores, divide, turn them into proportions and combine content. During generation, mask future positions between division and the proportions.
+**Choose one score cell** and inspect the two rows being compared.
+
+<AttentionLab client:load locale="en" />
+
+### Worked calculation with the default inputs
+
+**Projection.** A coefficient table linearly transforms an input into another representation. Multiplying $X$ by $W_Q$, $W_K$ and $W_V$ gives three $3 \times 2$ matrices.
+
+$$
+Q = \begin{pmatrix} 2 & 0 \\ 0 & 2 \\ 1 & 1 \end{pmatrix}, \quad
+K = \begin{pmatrix} 0 & 2 \\ 2 & 0 \\ 1 & 1 \end{pmatrix}, \quad
+V = \begin{pmatrix} 3 & 0 \\ 0 & 3 \\ 1 & 1 \end{pmatrix}
+$$
+
+**Scores.** Continue with the same first row (0, 4, 2) for I. The next two calculations turn these scores into shares.
+
+**Dividing.** This limits the increase in score spread with dimension; it does not guarantee variance 1 for this particular small row. With $d_k = 2$, divide by $\sqrt{2} \approx 1.414$.
+The first row $(0, 4, 2)$ becomes $(0,\ 2.828,\ 1.414)$.
+
+**Proportions.** The previous section applied softmax to one token's three scores. Here one
+row is one token, so softmax applies to each row separately. The first row becomes
+$(0.045,\ 0.768,\ 0.187)$, which adds to 1.
+
+**Weighted sum.** Apply the same first-row shares to V to obtain (0.323, 2.490). Giving about 76.8% to the V row (0, 3) for went completes the three-token reference exercise.
+
+<Expand id="attention-third-row" summary="Supplement: a tied comparison for another current row">
+The third score row (2, 2, 2) gives exact thirds. $(0.333,\ 0.333,\ 0.333)$ is a rounded display; only its displayed sum is 0.999.
+
+**Weighted sum.** Those proportions blend the rows of $V$. Taking the third row:
+
+$$
+\tfrac{1}{3}(3, 0) + \tfrac{1}{3}(0, 3) + \tfrac{1}{3}(1, 1) = \left(\tfrac{4}{3}, \tfrac{4}{3}\right) \approx (1.333,\ 1.333)
+$$
+
+Three values blended in equal proportion gives their plain average. The first row, by
+contrast, gave 76.8% of its weight to token 2, so its result $(0.323,\ 2.490)$ leans
+heavily towards $V$'s second row, $(0, 3)$.
+
+</Expand>
+
+<Expand id="math-attention" summary="How does one line express the four steps from scores to content?">
+
+1. Scores from the first query: (0, 4, 2).
+2. Divide by 1.414: about (0, 2.828, 1.414).
+3. Softmax shares: about (0.045388, 0.767918, 0.186694).
+4. First output value: 0.045388×3 + 0.767918×0 + 0.186694×1≈**0.323**. Repeat using matching V features for its next value.
+
+$$
+\mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
+$$
+
+QKᵀ is the 3 × 3 score table you computed; √dₖ is the divisor 1.414. A row of softmax shares multiplies and adds V’s three rows to produce an output.
+W_Q, W_K and W_V are learned parameters; Q, K, V and share table A are results computed using those parameters and **this input**.
+
+</Expand>
+
+### Switching the division off
+
+The "Divide by √dₖ" switch is the division from the previous section. Turn it off and the scores $(0, 4, 2)$ go in unchanged.
+The probabilities become $(0.016,\ 0.867,\ 0.117)$ — noticeably more concentrated.
+
+The difference is small here because $d_k$ is only 2. In the paper’s base model, $d_k = 64$ and the divisor is $\sqrt{64} = 8$. The effect also depends on the actual scores.
+
+### What this calculation represents
+
+**It uses the same three shared input rows.** All three positions are available by default. Mixing between positions of one sentence is self-attention.
+Restricting generation to earlier context is taught in <a href={docHref('en', '') + '#positions'}>positions and masks</a>.
+
+**This isolates an attention calculation, not a complete block.** Two heads, FFN, residuals and normalization are connected in the next units.
+
+**Weights A are computed for this input.** Parameter matrices W are learned; Q, K, V and A are computed results. A large entry says that more of that position’s V is mixed in, not that it alone explains an output’s cause.
+
+**The score table is 3 × 3** because three positions meet three positions. Later we check how this grows with input length.
+Attention across two separate sequences is compared after translation architecture is introduced in the <a href={docHref('en', 'paper') + '#big-picture'}>whole-route unit</a>.
+
+</Section>
+
+<Section id="positions" locale="en" doc="lab">
+
+### Switching the mask on
+
+The numbers below use the **default inputs**. If you edited them, return to the [attention lab](#attention), press **Reset**, then open **Calculation settings → Causal mask → On (decoder)** before comparing.
+
+Return to the [attention lab](#attention) and its "Causal mask" switch. The decoder is the half that
+produces text, and looking ahead at a word not yet produced would amount to copying the
+answer. So each token is allowed to see no further than its own position. Turn the switch
+on and the upper-right triangle of the score matrix fills with $-\infty$.
+
+The first row can then see only itself, so its probabilities are $(1, 0, 0)$ and its output
+is exactly $V$'s first row, $(3, 0)$ — there is nothing to blend. The second row sees the
+first two positions and comes out $(0.944,\ 0.056,\ 0)$. The third row could already see
+everything, so masking changes nothing for it. The first token retrieves no information from other positions, but still uses its own transformed V row. Later tokens can read earlier positions. When sentences of different lengths are computed
+together, the short ones are padded with empty cells masked the same way.
+
+<Note variant="why" title="Why add rather than multiply">
+There are two conceivable ways to block a position: multiply its probability by zero after
+the softmax, or add $-\infty$ to its score before it.
+
+**It is the second.** The reason is the total. Zeroing afterwards leaves the surviving
+probabilities summing to less than 1 — for the first row, just 0.045 — and the weighted sum
+that follows is then no longer an average.
+
+Blocking beforehand means $e^{-\infty} = 0$ contributes nothing to the denominator either,
+and the remaining positions share a full 1 again.
+</Note>
+
+This **causal** mask belongs to the decoder. The encoder can access the whole source sentence; padding positions may still be masked.
+
+</Section>
+
+<Section id="multi-head" locale="en" doc="lab">
+
+One head can attend to several tokens. But a single weighted mixture can blur distinctions in the original information.
+Multi-head attention projects the same input in different ways, makes separate mixtures and combines them.
+Heads are not assigned fixed grammatical roles, nor are distinct roles guaranteed.
+
+### The same input, different W
+
+The fix is plain: run the same calculation **several times over**.
+
+Each copy gets its own $W_Q$, $W_K$ and $W_V$. The input $X$ is shared and only the
+weights differ, so each copy can make a different mixture of the same sentence.
+One such copy is called a **head**.
+
+<Figure
+  caption="What happens inside a head is exactly what you have already seen. Only the W changes, and one last matrix W_O gathers the heads back together."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <MultiHeadSplit locale="en" />
+</Figure>
+
+### A second head for the worked example
+
+Each head produces one row of proportions **per query position**, and each row sums to 1. A second head reads the same sentence with different projections. Take the $W_Q$, $W_K$ and $W_V$ from
+before as head one. The second head reads only the **first two slots** of the input, chosen
+so its proportions come out visibly unlike head one's.
+
+$$
+W_Q^{(2)} = W_K^{(2)} = \begin{pmatrix} 1 & 0 \\ 0 & 1 \\ 0 & 0 \\ 0 & 0 \end{pmatrix}, \qquad
+W_V^{(2)} = \begin{pmatrix} 0 & 1 \\ 1 & 0 \\ 0 & 0 \\ 0 & 0 \end{pmatrix}
+$$
+
+Its scores come out as
+
+$$
+S^{(2)} = \begin{pmatrix} 1 & 0 & 1 \\ 0 & 1 & 1 \\ 1 & 1 & 2 \end{pmatrix}
+$$
+
+which is nothing like head one's $\begin{pmatrix} 0 & 4 & 2 \end{pmatrix}$.
+Turned into probabilities the difference is clearer still.
+
+<HeadPatternsExplorer client:load locale="en" />
+
+In head one, token 1 gives token 2 a weight of 0.768. In head two the same token 1
+gives tokens 1 and 3 about 0.401 each and token 2 only 0.198. **The same sentence,
+read two ways.**
+
+Written as a matrix, head two's weights are $S^{(2)}$ divided by $\sqrt{2}$ and passed
+through softmax row by row:
+
+$$
+A^{(2)} = \begin{pmatrix} 0.401 & 0.198 & 0.401 \\ 0.198 & 0.401 & 0.401 \\ 0.248 & 0.248 & 0.503 \end{pmatrix}
+$$
+
+The $O^{(2)}$ below is these weights blending the three rows of head two's $V^{(2)}$, the same
+calculation that produced $O^{(1)}$.
+
+### Back to one
+
+<Figure
+  caption="Following only the shapes: joining the two heads side by side and multiplying by W_O leaves the row count at the token count."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <ConcatShape locale="en" />
+</Figure>
+
+Each head produces a result — in our example two of them, each $3 \times 2$.
+
+$$
+O^{(1)} = \begin{pmatrix} 0.323 & 2.490 \\ 2.490 & 0.323 \\ 1.333 & 1.333 \end{pmatrix}, \qquad
+O^{(2)} = \begin{pmatrix} 0.599 & 0.802 \\ 0.802 & 0.599 \\ 0.752 & 0.752 \end{pmatrix}
+$$
+
+The two results have to become one matrix again before the next layer can take them, and
+that matrix must keep one row per token while returning to the original width. So they are
+laid **side by side**, not stacked. Two $3 \times 2$ matrices become one $3 \times 4$ matrix.
+
+$$
+\text{Concat} = \begin{pmatrix}
+0.323 & 2.490 & 0.599 & 0.802 \\
+2.490 & 0.323 & 0.802 & 0.599 \\
+1.333 & 1.333 & 0.752 & 0.752
+\end{pmatrix}
+$$
+
+Then that is multiplied by $W_O$. Joining alone only parks the two heads next to each
+other; nothing mixes. $W_O$ is what does the mixing. It is learned too; below we actually multiply a hand-chosen example W_O.
+
+<Expand id="math-multi-head" summary="What happens after we join the two head rows?">
+
+Place first head row (0.323, 2.490) beside second head row (0.599, 0.802), giving (0.323, 2.490, 0.599, 0.802). Multiply and sum those four values against each W_O column. The formula abbreviates these joining and multiplication steps.
+
+$$
+\mathrm{MultiHead}(Q, K, V) = \mathrm{Concat}(\text{head}_1, \dots, \text{head}_h) \, W^O
+$$
+
+<Note variant="try" title="Follow the sizes">
+Two $3 \times 2$ → joined into $3 \times 4$ → $W_O$ is $4 \times 4$ → the result is $3 \times 4$.
+
+What went in was $3 \times 4$ as well. **The size came back.** That is why the block can be
+stacked any number of times.
+</Note>
+
+</Expand>
+
+### Compute W_O as well
+
+Joining sideways and mixing are different steps. Multiply the concatenated head outputs by the 4 × 4 W_O below.
+These are hand-chosen values for checking arithmetic, not learned values.
+
+<MatrixGrid matrix={DEFAULT_WO} name="W_O" shape="4 × 4" compact />
+
+Select a result cell below. Watch how four features from both heads contribute to its products and sum.
+
+<MatrixProductExplorer client:load locale="en" initialA={computeMultiHead(defaultMultiHeadInput()).concat} initialB={DEFAULT_WO} nameA="Concat" nameB="W_O" nameC="MultiHead" rowLabelsA={LEARNING_EXAMPLE.en.tokens} />
+
+```js
+const joined = concatColumns(headOutputs); // 3 × 4
+const mixed = matmul(joined, W_O);         // 3 × 4
+```
+
+The rows still correspond to the three tokens. Each W_O column can combine features from both heads with different weights, rather than simply returning one head unchanged.
+
+</Section>
+
+<Section id="blocks" locale="en" doc="lab">
+
+After mixing context, calculate within each token, add an input path and control numeric scale to form a block.
+The isolated FFN below uses I’s original vector (1, 0, 1, 0). Normalization uses a separate four-value row to make mean and variance easy to follow. The next unit connects these operations in their actual order.
+
+### Feed forward — widen, then narrow
+
+Attention only moved information between tokens; nothing has yet been made of what was
+gathered. Feed forward is where each token does that, **on its own**. The row is widened to
+four times its width to give that work room, then narrowed back so the next layer can take
+it. The paper widens fourfold; this small example uses a twofold 4 → 8 → 4 path.
+
+Three steps: **widen, cut the negatives, narrow again.**
+$b_1$ and $b_2$ are rows of numbers simply added after the product: a "baseline" that
+mixing alone cannot produce, learned like the $W$.
+
+$\max(0, \cdot)$ is called **ReLU**. It sets negatives to zero and leaves positives
+alone, and that is all it does: $\max(0, -3) = 0$ and $\max(0, 5) = 5$.
+
+Here is the first token of our example, $(1, 0, 1, 0)$, going through. $d_{\text{model}} = 4$,
+and the width in the middle is 8. The $W_1$ and $b_1$ that do the widening are small
+integers chosen by hand:
+
+$$
+W_1 = \begin{pmatrix} 1 & -1 & 0 & 2 & 1 & 0 & -1 & 0 \\ 0 & 1 & 1 & -1 & 0 & 2 & 0 & 1 \\ 2 & 0 & -1 & 0 & 1 & 1 & 1 & -1 \\ -1 & 1 & 0 & 1 & 0 & -1 & 2 & 0 \end{pmatrix}, \qquad
+b_1 = (0, -1, 1, 0, -2, 0, 1, 0)
+$$
+
+With the input $(1, 0, 1, 0)$ that means adding rows 1 and 3 of $W_1$, then adding $b_1$.
+
+<Figure
+  caption="One token's journey: widened to eight, negatives set to zero, narrowed back to four."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <FeedForwardShape locale="en" />
+</Figure>
+
+Widening gives $(3, -2, 0, 2, 0, 1, 1, -1)$, and after the ReLU that is
+$(3, 0, 0, 2, 0, 1, 1, 0)$ — four of the eight are now zero. Across all three tokens,
+10 of the 24 entries are.
+
+<Expand id="math-ffn" summary="How do we write widening, clipping and narrowing in one line?">
+
+The following line abbreviates the multiplication, addition, clipping and final multiplication you just followed. x is the four-value input, W₁ widens it, b₁ adds eight values, and W₂ plus b₂ produce four values again.
+
+$$
+\mathrm{FFN}(x) = \max(0,\; x W_1 + b_1) W_2 + b_2
+$$
+
+</Expand>
+
+<Note variant="why" title="Why is setting things to zero necessary?">
+Without ReLU, the two matrix products and additions collapse into **one matrix product plus an addition**.
+The combined matrix is W₁W₂ and the added row is b₁W₂+b₂. Widening and narrowing alone do not expand the class of transformations.
+
+Cutting the negatives in the middle makes that impossible. The calculation can no
+longer be collapsed into a single multiplication, and stacking layers starts to mean
+something.
+</Note>
+
+<Note variant="limit" title="One position at a time">
+The paper calls this "position-wise": applied to each token **separately**. Computing
+token 1 never involves token 2's values. Only the weights are shared across positions.
+
+Attention is the only place where information moves between tokens.
+
+A real model widens $d_{\text{model}} = 512$ to $d_{ff} = 2048$ and back — four times
+wider. Counted in parameters it is the largest block in the model.
+</Note>
+
+### The path that bypasses everything
+
+An **input-addition path**, called a residual connection, gives later computations a route to the input as well as the transformed result.
+
+<Figure
+  caption="The input goes two ways. One passes through the calculation, the other passes through nothing at all, and they meet again."
+  describe="The full description is in the diagram's alternative text."
+  wide
+>
+  <ResidualPath locale="en" />
+</Figure>
+
+Write the result of $x$ passing through attention as $\mathrm{Sublayer}(x)$ — the value the
+sub-layer made from $x$. For example, adding original input (1, 0, 1, 0) to FFN output (2, 1, 2, 1) gives (3, 1, 3, 1).
+Then **the original $x$ also
+travels round the side** and is added to the result. This is the **residual connection**.
+
+$$
+x + \mathrm{Sublayer}(x)
+$$
+
+Adding alone would let the values grow at every layer, which is exactly why the
+normalization coming next sits right after the addition.
+
+With a path that bypasses the work, each layer no longer has to rebuild its input from
+scratch — it only has to decide **what to add**. When there is nothing worth adding,
+$\mathrm{Sublayer}(x)$ tends to zero and the **residual addition** leaves nearly the original input. The paper then normalizes it, so this does not make the entire block an identity.
+
+<ResidualExplorer client:load locale="en" />
+
+### Bringing the numbers back to size
+
+Stack enough layers and values tend to creep upwards or downwards. A little larger at one
+layer means larger still at the next, and after six the numbers are out of hand. Resetting
+the size at every layer stops that happening. The third part, **layer normalization**, does
+that, and it comes after the addition.
+
+Suppose one token’s values are $(2, 8, 4, 6)$.
+Their mean is (2+8+4+6)/4 = **5**. Subtracting 5 gives (−3, 3, −1, 1). Average their squared differences: (9+9+1+1)/4 = **5**. This second 5 is the **variance**.
+Since 2.236×2.236≈5, dividing by 2.236 brings the mean to 0 and variance to about 1. Predict what happens before adding 10 to every value or doubling the whole row.
+
+<LayerNormExplorer client:load locale="en" />
+
+<Expand id="math-layernorm" summary="How are this row’s mean, variance and normalization calculated?">
+
+Mean is (2+8+4+6)/4=5. Differences from it are (−3, 3, −1, 1); squares are (9, 9, 1, 1); their mean is 20/4=5. The final 5 is the variance.
+
+Two steps.
+
+1. **Subtract the mean.** It is 5, so $(2, 8, 4, 6) - 5 = (-3, 3, -1, 1)$.
+2. **Divide by the spread.** The variance is 5 and its square root about 2.236, so
+   $(-3, 3, -1, 1) \div 2.236 = (-1.342, 1.342, -0.447, 0.447)$.
+
+After normalizing, learned per-feature values $\gamma$ and $\beta$ scale the width and shift the
+position again. Mu, μ, names the mean 5; sigma squared, σ², names the variance 5. For one normalized value −0.447, multiplier 2 and offset 1 give 2×(−0.447)+1≈0.106. γ names the multiplier, β the offset.
+This lab applies shared γ and β to every feature; an actual layer learns separate values per feature. These coefficients let it adjust the normalized scale and location again. For a row (5, 5, 5, 5), variance is 0: dividing by its square root would divide by zero. Add a tiny safety value ε under the square root; this lab uses ε=0.00001. And
+a constant added equally to every slot cancels when subtracting the mean. Position vectors add different values across slots, so they do not simply disappear like a shared constant; inspect their effect on relative values.
+
+<Expand summary="What is variance?">
+One number saying how far the values sit from their mean.
+
+Take each value, subtract the mean, square it, and average the results. The squaring is
+there so that positives and negatives do not cancel out.
+
+$(-3)^2 + 3^2 + (-1)^2 + 1^2 = 9 + 9 + 1 + 1 = 20$, and dividing by 4 gives 5.
+Its square root, 2.236, is roughly "how far off they are on average", and dividing by
+that brings the spread to 1.
+</Expand>
+
+</Expand>
+
+<Note variant="limit" title="The order matters">
+The paper's order is this:
+
+$$
+\mathrm{LayerNorm}(x + \mathrm{Sublayer}(x))
+$$
+
+**Add first, then normalize.** This is called post-norm.
+
+Another design, **pre-norm**, normalizes before the sublayer computation. The connected lab follows the original paper’s **post-norm** order. A [study of their training behavior](https://proceedings.mlr.press/v119/xiong20b.html) is an optional deeper reference.
+</Note>
+
+### One layer, all of it
+
+We can now write down an entire encoder layer. The order has a reason: attention first,
+to move information between tokens, then feed forward, so each token can sort through
+what it received on its own. Normalization follows every addition so the sizes are reset
+before the next layer takes over.
+
+```text
+in     x
+  ↓
+  ├─ attention(x)
+  ↓
+  x + attention(x)  →  normalize   ... that is the first part
+  ↓
+  ├─ feed forward
+  ↓
+  + feed forward  →  normalize     ... that is the second
+  ↓
+out    the same size it arrived
+```
+
+This block is stacked six times. The size is unchanged each time, which is what makes
+stacking possible. The six layers share only their shape; the $W$ differ in every one, so
+this is six separately learned layers in turn, not one computation repeated. One pass
+through the encoder is attention 6 times and feed forward 6 times; the decoder, with two
+attentions per layer, 12 and 6.
+
+A decoder layer has one more piece: attention among the outputs so far, attention onto
+the encoder, and then the feed-forward network — each of the three wrapped in the same
+bypass and normalization.
+### Check narrowing and the residual on numbers
+
+The ReLU result was (3, 0, 0, 2, 0, 1, 1, 0). Multiply by W₂ below and add b₂ = (0, 1, 0, −1) to obtain (2, 1, 2, 1).
+Use the non-zero input features to check the first output cell by hand.
+
+<MatrixGrid matrix={FFN_W2} name="W₂" shape="8 × 4" compact />
+
+| Stage | First token’s values | Operation |
+| --- | --- | --- |
+| FFN input | (1, 0, 1, 0) | Four features of one token |
+| After ReLU | (3, 0, 0, 2, 0, 1, 1, 0) | Widen, then clip negatives |
+| FFN output | (2, 1, 2, 1) | Narrow with W₂ and add b₂ |
+| Input + output | (3, 1, 3, 1) | The input’s bypass |
+| After norm | About (1, −1, 1, −1) | Mean 2, variance 1; small ε included |
+
+This is an **isolated FFN example**, starting with the original first row of X rather than an attention output.
+The next unit’s **Connect the calculations** exercise links attention outputs from the shared input to residuals, normalization and FFN.
+
+```js
+const sum = addResidual(input, sublayerOutput);
+const next = layerNorm(sum).output;
+```
+
+Passing only sublayerOutput onward would omit the bypass in the paper’s post-norm arrangement.
+The matrices being added need matching shapes; normalization treats each row’s features separately.
+
+</Section>
+
+<Section id="big-picture" locale="en" doc="lab">
+
+Connect the calculations using the **shared sentence I / went / to school** and follow one block to next-token probabilities. Then compare this with the original paper’s translation architecture.
+
+### Connect the calculations — input to token probabilities
+
+Connect the operations explored separately, starting from **a 3 × 4 input X**. Add positions, use two causally masked heads, and then an FFN.
+The three input rows receive position vectors and a causal mask. The final vocabulary readout is the identity matrix.
+Predict each shape before advancing and compare one row’s values across stages.
+
+| Chosen setting | Integrated toy example | Original paper’s base model |
+| --- | --- | --- |
+| Token count | 3 | Depends on the sentence |
+| Feature width | 4 | 512 |
+| Heads | 2 | 8 |
+| FFN inner width | 8 | 2048 |
+| Blocks | 1 | 6 each in encoder and decoder |
+| Output vocabulary | Four entries: I, went, to school, end | Tens of thousands of translation tokens |
+
+<LayerTraceExplorer client:load locale="en" />
+
+<Expand id="math-readout-identity" summary="How do the final row’s four values become next-chunk probabilities?">
+
+At the default settings, the final “to school” row is about (0.288, −0.064, −1.506, 1.282). The readout is a 4 × 4 identity matrix: diagonal entries 1, all others 0. Multiplication passes the values directly to the four candidate scores.
+The hidden width and candidate count both being 4 is an illustrative choice; real models need not have equal counts.
+
+Candidates are **I / went / to school / end**. Exponentials are about (1.334, 0.938, 0.222, 3.604), totaling about 6.098.
+Divide each by the total to obtain about **(0.219, 0.154, 0.036, 0.591)**. The lab computes with full precision and rounds only the display.
+Attention-share columns referred to input positions; these columns refer to vocabulary candidates. Always check **what the shares refer to**.
+
+</Expand>
+
+A row initially represents its own token; after a block it contains mixed information from allowed context.
+The final **vocabulary readout** turns that row into candidate scores. Columns of attention weights A referred to input positions; these probability columns refer to vocabulary entries.
+Both use softmax, but their objects and sizes differ.
+
+</Section>
+
+<Section id="generation" locale="en" doc="lab">
+
+<p><a href={docHref('en', 'exercises/next-token')}>Separate page: compare selection rules using chosen probability tables</a></p>
+
+### Probability computation and token choice are separate
+
+Compare two rules on the same logits. **Greedy** takes the highest probability; **sampling** assigns bins proportional to probabilities and chooses with a uniform draw.
+For (0.5, 0.4, 0.1), bins are [0, 0.5), [0.5, 0.9) and [0.9, 1).
+`[start, end)` includes the left endpoint and excludes the right endpoint.
+
+Temperature **T** is one positive divisor: `softmax(logits / T)`. T = 1 gives the original distribution; lower T concentrates it, higher T flattens it.
+It preserves the candidate ranking and serves a different purpose from attention’s √dₖ.
+
+<TokenChoiceExplorer client:load locale="en" />
+
+<Expand id="math-temperature" summary="Why does dividing logits by temperature change selection shares?">
+
+Use a separate three-candidate example with scores (0, 2, 1). Temperature 1 gives softmax about (0.090, 0.665, 0.245). Temperature 2 narrows scores to (0, 1, 0.5), giving about (0.186, 0.506, 0.307).
+In `softmax(scores/T)`, T is the divisor. Candidate two remains highest, but other sampling bins grow. A draw u=0.1 is in candidate two’s bin in the first distribution, and candidate one’s bin in the second.
+
+</Expand>
+
+Predict the selected bin before moving u. Sampling can make different choices with unchanged weights.
+Beam search instead compares several sequence candidates and is the method used in the paper’s translation experiments below.
+
+### Taking the best word every time
+
+Once the probabilities for the next word are out, why not take the largest?
+
+That is called **greedy** decoding. It is simple and fast, and it has a problem: the
+best step is not the best sentence.
+
+Use a **separate probability example** with short candidates a, b, c and an end marker. The chosen tables compare search methods; they are not probabilities calculated from the shared sentence’s vectors. In the experiment below, with the candidate count at 1, the solid path is the one that
+takes the best word every time. What changes at 2 is for the next heading. Follow it at 1 first.
+
+<BeamExplorer client:load locale="en" />
+
+At the first step `a` is 0.5 and `b` is 0.4, so greedy takes `a`. The largest thing
+after `a` is the end marker at 0.4, giving `a .` with a probability of
+$0.5 \times 0.4 = 0.2$ over the whole sentence.
+
+But what if it had taken `b`? After `b`, the word `a` has probability 0.9.
+$0.4 \times 0.9 = 0.36$, and following that with the end marker at 0.95 gives $0.342$.
+
+**0.342 beats 0.2.** The branch that lost the first step won overall.
+
+### Carrying several candidates
+
+The answer is not to commit to one. Keep the best few **at the same time** and follow
+them all to the end. That is **beam search**, and how many you keep is the **beam size**.
+
+With a beam of 2:
+
+1. First step: keep both `a` (0.5) and `b` (0.4).
+2. Second step: extend each by one word. Eight candidates appear, and `b a` leads at 0.36.
+   `a .` has already finished at 0.2.
+3. Extending `b a` gives `b a .` at 0.342, the best of the finished sentences.
+
+It found what greedy missed. A finished candidate stays in the beam without expansion and still occupies a beam slot; only live candidates grow. When no live candidate can still beat
+the finished ones, the search stops and the best finished sentence is the answer.
+
+<Note variant="why" title="So is a bigger beam always better?">
+Carrying more candidates does raise the chance of finding a better sentence, at
+proportionally more computation — a beam of 4 means four times the work at every step.
+
+And in machine translation it is known that quality stops improving well before the beam
+gets large. The paper uses a **beam size of 4**.
+
+One more thing: multiplying probabilities makes long sentences score lower simply for
+being long. The paper corrects for that with a length penalty: the score is adjusted by the sentence
+length with strength $\alpha = 0.6$. The divided score is the **log probability score (zero or negative)**, rather than the positive probability. For example, dividing the log score −1.609 (probability 0.2) by 2 gives −0.805. Making the negative score less negative reduces the bias against longer sentences. The actual divisor is $((5+\text{length})/6)^{\alpha}$ ([GNMT section 7](https://arxiv.org/abs/1609.08144)).
+</Note>
+
+### Knowing when to stop
+
+A sentence ends when the end marker appears. And when it does not?
+
+The paper caps the output length at **the input length plus 50**, and stops earlier
+where it can. A safety net.
+
+<Note variant="scope" title="Not covered here">
+- Basic sampling is covered above. Further filters such as top-k and top-p are outside this guide; the paper’s translation experiments use beam search.
+- Storing earlier computation and reusing it. That is the practical answer to generation
+  being slow, and it is outside the paper.
+</Note>
+### Sequence probability multiplies conditional probabilities
+
+P(b) is the first-choice probability; P(a | b) is the probability of a after b is already present.
+The b → a → end path here has probability 0.4 × 0.9 × 0.95 = 0.342. Each step uses **its own preceding context**.
+
+<Expand id="math-logs" summary="How does adding logs preserve 0.4×0.9×0.95?">
+
+Implementations can add natural logs to reduce underflow from multiplying tiny probabilities.
+Numerically, ln 0.4≈−0.9163, ln 0.9≈−0.1054 and ln 0.95≈−0.0513 sum to about −1.073; $e^{-1.073} \approx 0.342$ recovers the same probability. Abbreviate this as `ln(product) = sum of logs`.
+Finding a high-probability path and producing a good answer for a person require separate evaluation.
+
+</Expand>
+
+</Section>
+
+<Section id="training" locale="en" doc="lab">
+
+The earlier coefficients were illustrative values. Learning requires **scoring the prediction against a target and adjusting coefficients to reduce loss**.
+Training from scratch typically starts with small random values and repeatedly compares predictions with targets in the data.
+
+### Align input and target by one position
+
+Putting the answer into its own input position would let the model copy it.
+The input is **context already available at that position**; the target is **the following token**.
+
+| Position | Decoder input | Target | Available input |
+| --- | --- | --- | --- |
+| 1 | start | I | start |
+| 2 | I | went | start, I |
+| 3 | went | to school | start, I, went |
+| 4 | to school | end | start, I, went, to school |
+
+Training knows the targets and can compute all four positions together. But if input position 1 reads “I” at position 2, it sees its own answer.
+The causal mask blocks that route. Each position’s vocabulary distribution is scored against its target.
+
+### How wrong, as one number
+
+Before anything can be corrected, **how wrong it was** has to be measured.
+
+The last thing the model produces is a probability for each candidate next word. Take a
+small vocabulary with I / went / to school / end. After “I”, the target is the second candidate, **went**. These loss-training probabilities are a separate arithmetic example, not the connected block’s prediction.
+
+<LossExplorer client:load locale="en" />
+
+This is one position. A translated sentence has many, each giving a value like this; they
+are averaged into one loss per sentence, and the sentences processed together are combined
+into the single number that training pushes down.
+
+First lower the probability of correct candidate went from 0.6 to 0.1. A worse prediction should receive a larger loss. Move it back towards 1 and the loss approaches 0.
+
+| Probability given to correct went | Scored loss | Interpretation |
+| --- | --- | --- |
+| 1 | 0 | All probability on the correct candidate |
+| 0.6 | About 0.511 | Some probability missing from the answer |
+| 0.1 | About 2.303 | Very low probability on the answer |
+
+<Expand id="math-loss" summary="Why does correct probability 0.6 receive loss 0.511?">
+
+Use the inverse of the exponential from softmax. Since $e^{-0.511} \approx 0.6$, the answer to “what power of e gives 0.6?” is about −0.511. That question is the **natural logarithm ln**. Reverse the sign to get score 0.511.
+
+$$
+\text{loss} = -\ln(\text{probability given to the answer}) = -\ln(0.6) \approx 0.511
+$$
+
+ln names the inverse exponential calculation; the minus sign reverses its sign. This **loss** grows as the probability of the answer approaches 0. Confident wrong predictions receive a larger penalty; learning tries to reduce it.
+
+</Expand>
+
+<Expand summary="What about the words that were not the answer?">
+Pair target shares (0, 1, 0, 0) with prediction (0.1, 0.6, 0.2, 0.1): 0×(−ln 0.1) + 1×(−ln 0.6) + 0×(−ln 0.2) + 0×(−ln 0.1). Only went’s term survives.
+The full expression abbreviates the sum of those four terms:
+
+$$
+\text{loss} = -\sum_{i} t_i \ln(p_i)
+$$
+
+$t_i$ is how much of the answer sits on word $i$ and $p_i$ is what the model gave it.
+Writing the answer as “1 on went, 0 elsewhere” makes every term with $t_i = 0$ vanish,
+leaving only the term for the right word — hence $-\ln(p_{\text{right}})$.
+
+And the probabilities sum to 1, so they are tied together. Raising the right one forces
+the others down. Watching the right word handles the rest.
+</Expand>
+
+### Which way to nudge
+
+With the loss in hand, the next question is which direction reduces it.
+
+If nudging one entry of $W_Q$ upwards makes the loss larger, that entry should come
+down; if the loss falls, it should go up. Working out, for every entry, which way the
+loss moves when it changes slightly, gives the **gradient**.
+
+Not just $W_Q$. Every head's $W_Q$, $W_K$, $W_V$, the $W_O$ that joins them, the two
+feed-forward matrices, the $\gamma$ and $\beta$ of every normalization, all six layers'
+worth, and the embedding table too: learned parameters are adjusted together. Scores S and shares A are computed results, not independently learned weight tables. The base model has about 65 million of them.
+
+Every entry is then moved a little in the opposite direction. How much "a little" is
+comes from the **learning rate**.
+
+<Expand summary="This example and full backpropagation">
+Below, we calculate a derivative and update one weight. Backpropagation through all of attention, FFN and normalization is outside this example.
+</Expand>
+
+### From a gradient to one actual update
+
+Start with just **one weight w**. Multiply input 1 by w to make two logits (w, 0), with “went” first as the target and “to school” second as the alternative. This is a separate two-candidate, one-weight practice.
+At w = 0, softmax(0, 0) = (0.5, 0.5), and loss is −ln 0.5 ≈ 0.693.
+
+Start with input 1, then change only the input to 0 or −1. The same coefficient’s output and update direction depend on what it multiplies.
+
+<LearningUpdateExplorer client:load locale="en" />
+
+With initial input 1, applying the update gives coefficient 0 → 0.1, correct probability 0.5 → about 0.525, and loss 0.693 → about 0.644. Expand the direction and step-size calculation below.
+
+<Expand id="math-gradient" summary="Which way should a loss change of −0.001 move the coefficient?">
+
+| Small change to w | Loss against the correct answer |
+| --- | --- |
+| −0.001 | About 0.693647 |
+| 0 | About 0.693147 |
+| +0.001 | About 0.692647 |
+
+Increasing w lowers the loss. Divide the loss change, about −0.001, by the weight change 0.002 to obtain a slope of about **−0.5**.
+In the lab, **keep input 1 first** and change w to inspect probability and loss. Then set the input to 0: any w still gives logits (0, 0). Set input to −1 and increasing w lowers the correct logit, so the update direction reverses.
+
+Now abbreviate the calculation. **L** names the measured loss; **w** is the coefficient multiplying the input. Dividing the small loss change by the weight change gave −0.5.
+The rate as this interval shrinks is a **derivative**. Holding other values fixed and measuring it for w alone is written **∂L/∂w**. It names the direction and rate you just observed when changing w.
+
+<Steps>
+
+1. **Direction as a number.** Gradient g = −0.5. With input 1, this two-candidate example gives P(went) − 1 = 0.5 − 1.
+2. **Step size.** Choose learning rate 0.2. Its formula name is η.
+3. **Take the opposite step.** New w = 0 − 0.2 × (−0.5) = **0.1**. Abbreviate as w ← w − ηg; the arrow assigns the new value.
+4. **Compute again.** Input×new w → logits → softmax → P(went)≈0.525 → loss≈**0.644**. The multiplication coefficient changed; probability was not edited directly.
+
+</Steps>
+
+```js
+const probabilities = softmaxRow([w, 0]).probabilities;
+const gradient = probabilities[0] - 1; // derivative for this example with input 1
+const nextWeight = w - learningRate * gradient;
+```
+
+Unlike moving a probability slider in the loss experiment, this **updates a weight and computes new probabilities**.
+The analytic derivative can be compared with the finite-difference slope. Actual backpropagation propagates derivatives along the computation graph rather than perturbing every weight separately.
+This experiment does not execute all the weights, data or backpropagation of a real LLM.
+
+</Expand>
+
+</Section>

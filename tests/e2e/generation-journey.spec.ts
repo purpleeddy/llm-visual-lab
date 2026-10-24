@@ -5,7 +5,7 @@ const words = { ko: ['나는', '학교에', '갔다'], en: ['I', 'went', 'to sch
 
 for (const locale of ['ko', 'en'] as const) {
   test(`${locale}: the compact opening appends, announces, stops and resets with one input`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const lab = page.locator('.lab--generation-journey');
     await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
     const input = lab.locator('[data-journey-input] .journey-token');
@@ -15,7 +15,7 @@ for (const locale of ['ko', 'en'] as const) {
     await expect(lab).toHaveAttribute('data-stage', 'purpose');
     await expect(lab.locator('[data-journey-input]')).toHaveCount(1);
     await expect(input).toHaveText(words[locale].slice(0, 2));
-    await expect(lab.locator('[data-journey-input] [data-token-id=2]')).toHaveCount(0);
+    await expect(lab.locator('[data-journey-input] [data-token-id="2"]')).toHaveCount(0);
     await expect(lab.locator('[data-journey-preview], .journey__previous, .journey__overview, .stepper')).toHaveCount(0);
     await expect(lab.locator('[data-journey-probabilities]')).toHaveCount(1);
     await expect(lab.locator('[data-journey-probability]')).toHaveText(['11.5%', '11.6%', '71.8%', '5.2%']);
@@ -48,7 +48,7 @@ for (const locale of ['ko', 'en'] as const) {
     await expect(lab).toHaveAttribute('data-progress', '3/3');
     await expect(lab).toHaveAttribute('data-finished', 'true');
     await expect(input).toHaveText(words[locale]);
-    await expect(lab.locator('[data-journey-input] [data-token-id=3]')).toHaveCount(0);
+    await expect(lab.locator('[data-journey-input] [data-token-id="3"]')).toHaveCount(0);
     await expect(lab.locator('.journey__next')).toHaveCount(0);
     await expect(status).not.toHaveText(appendedStatus!);
     await expect(status).toContainText(locale === 'ko' ? '멈췄습니다' : 'stopped');
@@ -67,7 +67,7 @@ for (const locale of ['ko', 'en'] as const) {
   });
 
   test(`${locale}: the main article retains the opening calculation from lookup through readout`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const lab = page.locator('.lab--generation-journey');
     const stage = (name: string) => page.locator(`[data-main-lesson] [data-lesson-stage="${name}"]:visible`);
     await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(words[locale].slice(0, 2));
@@ -77,8 +77,8 @@ for (const locale of ['ko', 'en'] as const) {
     await expect(page.locator('.lab--next-token')).toHaveCount(0);
     expect(await lab.evaluate(node => Boolean(node.compareDocumentPosition(document.querySelector('#tokens')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
     await expect(lab.getByRole('button', { name: /^(?:자동으로 보기|재생|일시정지|Play|Pause)$/i })).toHaveCount(0);
-    await expect(stage('tokens').locator('[data-embedding-id=0] > span')).toHaveText(['1', '0', '1', '0']);
-    await expect(stage('tokens').locator('[data-embedding-id=1] > span')).toHaveText(['0', '1', '0', '1']);
+    await expect(stage('tokens').locator('[data-embedding-id="0"] > span')).toHaveText(['1', '0', '1', '0']);
+    await expect(stage('tokens').locator('[data-embedding-id="1"] > span')).toHaveText(['0', '1', '0', '1']);
     for (const name of ['tokens', 'projection', 'comparison', 'transpose', 'scores', 'shares', 'aggregation']) {
       await expect(stage(name)).toHaveAttribute('data-lesson-prefix', '0,1');
       await expect(stage(name)).not.toContainText(words[locale][2]);
@@ -86,15 +86,15 @@ for (const locale of ['ko', 'en'] as const) {
     }
     const projection = stage('projection');
     await expect(projection.locator(':scope > .lesson-value').first().locator('.journey__digits > span')).toHaveText(['0', '1', '0', '1']);
-    await expect(projection.locator('[data-projection-coordinate=1] .journey__digits > span')).toHaveText(['0', '1', '0', '1']);
-    await expect(projection.locator('[data-projection-coordinate=1] .lesson-equation')).toHaveText('0 × 0 + 1 × 1 + 0 × 0 + 1 × 1 = 2');
+    await expect(projection.locator('[data-projection-coordinate="1"] .journey__digits > span')).toHaveText(['0', '1', '0', '1']);
+    await expect(projection.locator('[data-projection-coordinate="1"] .lesson-equation')).toHaveText('0 × 0 + 1 × 1 + 0 × 0 + 1 × 1 = 2');
     await expect(projection.locator(':scope > .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0', '2']);
     await projection.locator('details > summary').click();
     await expect(projection.locator('[data-matrix] .mgrid__value')).toHaveText(['0', '1', '1', '0', '0', '1', '1', '0']);
     const comparison = stage('comparison');
     await expect(comparison.locator(':scope > .lesson-value .journey__digits > span')).toHaveText(['0', '2']);
-    await expect(comparison.locator('[data-reference-id=0] .journey__digits > span')).toHaveText(['0', '2']);
-    await expect(comparison.locator('[data-reference-id=0] [data-lesson-score]')).toHaveText('4');
+    await expect(comparison.locator('[data-reference-id="0"] .journey__digits > span')).toHaveText(['0', '2']);
+    await expect(comparison.locator('[data-reference-id="0"] [data-lesson-score]')).toHaveText('4');
     await expect(comparison.locator('[data-lesson-score]')).toHaveText(['4', '0']);
     const transpose = stage('transpose');
     await expect(transpose.locator('[data-lesson-transposed] > span')).toHaveText(['0', '2']);
@@ -123,14 +123,14 @@ for (const locale of ['ko', 'en'] as const) {
     await expect(stage('aggregation').locator('[data-journey-exact-head-output]')).toHaveText(['2.832578', '0.167422']);
     await expect(stage('attention').locator('.lesson-attention-flow')).toContainText('÷ √2');
     await expect(stage('attention').locator('.lesson-attention-flow')).toContainText('× V = (2.833, 0.167)');
-    await expect(stage('heads').locator('[data-lesson-head=0] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['2.833', '0.167']);
-    await expect(stage('heads').locator('[data-lesson-head=1] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.670', '0.330']);
+    await expect(stage('heads').locator('[data-lesson-head="0"] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['2.833', '0.167']);
+    await expect(stage('heads').locator('[data-lesson-head="1"] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.670', '0.330']);
     await expect(stage('hidden').locator('.lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.520', '−0.513', '1.313', '−1.320']);
     await expect(stage('readout').locator('.lesson-value').last().locator('.journey__digits > span')).toHaveText(['−0.520', '−0.513', '1.313', '−1.320']);
     await expect(stage('readout').locator('[data-journey-probability]')).toHaveText(['11.5%', '11.6%', '71.8%', '5.2%']);
     await expect(stage('readout').locator('[data-largest=true] .journey-token')).toHaveText(words[locale][2]);
     await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(words[locale].slice(0, 2));
-    await expect(page.locator('#legacy-numbers')).not.toHaveAttribute('open');
+    await expect(page.locator('#legacy-numbers')).toHaveCount(0);
     await expect(page.locator('#lesson-position-extension')).not.toHaveAttribute('open');
     await expect(stage('mask')).toHaveAttribute('data-lesson-mask', 'on');
   });
@@ -138,7 +138,7 @@ for (const locale of ['ko', 'en'] as const) {
   for (const layout of [{ width: 360, zoom: 100 }, { width: 280, zoom: 200 }]) {
     test(`${locale}: all three opening states stay readable at ${layout.width}px and ${layout.zoom}% text`, async ({ page }) => {
       await page.setViewportSize({ width: layout.width, height: 844 });
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       const lab = page.locator('.lab--generation-journey');
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await page.evaluate(zoom => document.documentElement.style.fontSize = `${zoom}%`, layout.zoom);

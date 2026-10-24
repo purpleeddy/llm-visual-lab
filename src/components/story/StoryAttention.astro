@@ -1,0 +1,77 @@
+---
+/**
+ * Chapter 4, one part at a time: the final position takes time information from the
+ * earlier word and adds it to its own slots. Every number comes from storyRun.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_FEATURES, STORY_FUTURE, STORY_ID, STORY_KEY_FEATURES, STORY_PAST, STORY_VOCAB, storyLastWordOnly, storyRun } from '../../lib/math/story';
+import { fmt, fmtCompact, fmtPercent } from '../../lib/math/format';
+import StoryVector from './StoryVector.astro';
+import StoryBars from './StoryBars.astro';
+import '../../styles/story.css';
+interface Props { locale: Locale; part: 'flow' | 'qk' | 'scores' | 'shares' | 'take' | 'add' | 'result'; }
+const { locale, part } = Astro.props;
+const ko = locale === 'ko';
+const words = STORY_VOCAB[locale];
+const features = STORY_FEATURES[locale];
+const keys = STORY_KEY_FEATURES[locale];
+const run = storyRun(STORY_PAST);
+const a = run.attention;
+const row = run.last;
+const ids = run.tokenIds;
+const shares = a.weights[row].slice(0, ids.length);
+const here = words[ids[row]];
+---
+<div class="story" data-story-attention={part}>
+  {part === 'flow' && <figure>
+    <div class="story-flow" role="img" aria-label={ko ? `‘${here}’ 자리가 ‘${words[ids[0]]}’에서 ${fmtPercent(shares[0])}, ‘${here}’에서 ${fmtPercent(shares[1])}를 가져와 새 값을 만듭니다.` : `The ${here} position takes ${fmtPercent(shares[0])} from ${words[ids[0]]} and ${fmtPercent(shares[1])} from ${here} to form new values.`}>
+      {ids.map((id, i) => <>
+        <span class="story-flow__word">{words[id]}</span>
+        <span class="story-flow__link" style={`--story-flow-width: ${(1.5 + 8 * shares[i]).toFixed(1)}px`}><span data-flow-share={i}>{fmtPercent(shares[i], 1)}</span></span>
+      </>)}
+      <div class="story-flow__target"><strong>{here}</strong><StoryVector values={run.mixed[row]} names={features} name="flow-mixed" /></div>
+    </div>
+    <figcaption class="story__caption">{ko ? `선의 굵기가 가져오는 몫입니다. ‘${words[ids[0]]}’의 과거 정보가 ‘${here}’ 자리로 들어옵니다.` : `Line width shows each share. The past information of ${words[ids[0]]} flows into the ${here} position.`}</figcaption>
+  </figure>}
+
+  {part === 'qk' && <>
+    <StoryVector values={a.Q[row]} names={keys} label={ko ? `질문 Q · ${here}` : `Question Q · ${here}`} name="query" />
+    {ids.map((id, i) => <StoryVector values={a.K[i]} names={keys} label={ko ? `꼬리표 K · ${words[id]}` : `Label K · ${words[id]}`} name={`key-${i}`} />)}
+  </>}
+
+  {part === 'scores' && <>
+    {ids.map((id, i) => <p class="story__eq" data-story-match={i}>{words[id]}: {a.Q[row].map((q, j) => `${fmtCompact(q)}×${fmtCompact(a.K[i][j])}`).join(' + ')} = <strong>{fmtCompact(a.scores[row][i])}</strong></p>)}
+  </>}
+
+  {part === 'shares' && <>
+    {ids.map((id, i) => <p class="story__eq">{words[id]}: {fmtCompact(a.scores[row][i])} ÷ √2 = {fmt(a.scaledScores[row][i], 3)}</p>)}
+    <ul class="story-bars" aria-label={ko ? '앞 단어에서 가져올 몫' : 'Shares to take from each word'} data-story-bars="shares">
+      {shares.map((p, i) => <li data-top={String(i === 0)}><span>{words[ids[i]]}</span><span class="story-bars__value" data-story-share>{fmtPercent(p, 1)}</span><span class="story-bars__track" aria-hidden="true"><span class="story-bars__fill" style={`width: ${(p * 100).toFixed(2)}%`}></span></span></li>)}
+    </ul>
+  </>}
+
+  {part === 'take' && <>
+    {ids.map((id, i) => <StoryVector values={a.V[i]} names={features} label={ko ? `내용 V · ${words[id]} × ${fmtPercent(shares[i], 1)}` : `Content V · ${words[id]} × ${fmtPercent(shares[i], 1)}`} name={`value-${i}`} />)}
+    <StoryVector values={a.output[row]} names={features} label={ko ? '가져온 값' : 'Taken'} name="taken" />
+  </>}
+
+  {part === 'add' && <>
+    <StoryVector values={run.X[row]} names={features} label={ko ? `원래 ${here}` : `Original ${here}`} name="original" />
+    <StoryVector values={a.output[row]} names={features} label={ko ? '+ 가져온 값' : '+ Taken'} name="taken-again" />
+    <StoryVector values={run.mixed[row]} names={features} label={ko ? '= 새 값' : '= New values'} name="mixed" />
+  </>}
+
+  {part === 'result' && <div class="story__pair">
+    {([['past', STORY_PAST], ['future', STORY_FUTURE]] as const).map(([name, sentence]) => {
+      const result = storyRun(sentence);
+      const before = storyLastWordOnly(sentence).probabilities;
+      const verb = name === 'past' ? STORY_ID.pastVerb : STORY_ID.futureVerb;
+      return <div data-story-sentence={name}>
+        <p class="story__sentence">{sentence.map(id => words[id]).join(' ')} ___</p>
+        <StoryVector values={result.mixed[result.last]} names={features} label={ko ? '새 값' : 'New values'} name="result-mixed" />
+        <StoryBars locale={locale} probabilities={result.probabilities[result.last]} label={ko ? 'attention 뒤 확률' : 'Probabilities after attention'} name="after-attention" />
+        <p class="story__caption" data-story-gain>{ko ? `${words[verb]}: 마지막 단어만 볼 때 ${fmtPercent(before[verb], 1)} → ${fmtPercent(result.probabilities[result.last][verb], 1)}` : `${words[verb]}: ${fmtPercent(before[verb], 1)} from the last word alone → ${fmtPercent(result.probabilities[result.last][verb], 1)}`}</p>
+      </div>;
+    })}
+  </div>}
+</div>

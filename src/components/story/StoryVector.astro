@@ -1,0 +1,13 @@
+---
+/** One vector, each number under the name of its slot. Non-zero slots are tinted. */
+import { fmtCompact } from '../../lib/math/format';
+import '../../styles/story.css';
+interface Props { values: number[]; names: string[]; label?: string; name?: string; }
+const { values, names, label, name } = Astro.props;
+---
+<span class="story__row" data-story-vector={name}>
+  {label ? <span class="story-label">{label}</span> : null}
+  <span class="story-vector" role="group" aria-label={label ?? names.join(', ')}>
+    {values.map((value, i) => <span data-on={String(Math.abs(value) > 1e-9)} data-slot={names[i]} aria-label={`${names[i]} ${fmtCompact(value)}`}><small aria-hidden="true">{names[i]}</small><b aria-hidden="true">{fmtCompact(value)}</b></span>)}
+  </span>
+</span>

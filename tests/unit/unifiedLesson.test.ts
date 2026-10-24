@@ -36,15 +36,16 @@ describe('one snapshot through the complete reading path', () => {
   });
 
   it('Korean section headings keep words intact while allowing emergency overflow wrapping', () => {
-    const css = readFileSync(new URL('../../src/styles/lesson.css', import.meta.url), 'utf8');
+    const css = readFileSync(new URL('../../src/styles/base.css', import.meta.url), 'utf8');
     const heading = css.match(/\.doc-section__title:lang\(ko\)\s*\{([^}]+)\}/)?.[1] ?? '';
     expect(heading).toMatch(/word-break\s*:\s*keep-all/);
     expect(heading).toMatch(/overflow-wrap\s*:\s*anywhere/);
   });
 
   it.each(['ko', 'en'] as const)('%s: aggregation keeps its caption without a repeated following output paragraph', locale => {
-    const source = readFileSync(new URL(`../../src/content/docs/${locale}/index.mdx`, import.meta.url), 'utf8');
-    const following = source.match(/<LessonComputation locale="(?:ko|en)" stage="aggregation" \/>([\s\S]*?)<\/div>/)![1];
+    const source = readFileSync(new URL(`../../src/content/docs/${locale}/walkthrough.mdx`, import.meta.url), 'utf8');
+    // What follows the computation within its own step: up to the next heading or the end of the lesson.
+    const following = source.match(/<LessonComputation locale="(?:ko|en)" stage="aggregation" \/>([\s\S]*?)(?=\n### |<\/div>)/)![1];
     expect(following).not.toContain('(2.833, 0.167)');
     expect(following).not.toMatch(/첫 갈래의 내용|content gathered by the first head/);
     const html = renderToStaticMarkup(createElement(LessonComputation, { locale, stage: 'aggregation' }));

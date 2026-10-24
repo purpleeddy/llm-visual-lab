@@ -1,0 +1,27 @@
+---
+/** Chapter 5: which words each position may read in “어제 학교에 갔다”, and what it must predict. */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_ID, STORY_VOCAB } from '../../lib/math/story';
+import { causalMask } from '../../lib/math/softmax';
+import '../../styles/story.css';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const words = STORY_VOCAB[locale];
+const sentence = [STORY_ID.past, STORY_ID.middle, STORY_ID.pastVerb];
+const next = [STORY_ID.middle, STORY_ID.pastVerb, STORY_ID.end];
+const allowed = causalMask(sentence.length, sentence.length);
+---
+<figure class="story" data-story-mask>
+  <div class="story-table-wrap" role="region" tabindex="0" aria-label={ko ? '읽을 수 있는 자리' : 'Positions each word may read'}>
+    <table class="story-table">
+      <thead><tr><th scope="col">{ko ? '이 자리는 ＼ 이 단어를' : 'This position \\ reads'}</th>{sentence.map(id => <th scope="col">{words[id]}</th>)}<th scope="col">{ko ? '맞힐 다음 단어' : 'Must predict'}</th></tr></thead>
+      <tbody>{sentence.map((id, i) => <tr>
+        <th scope="row">{words[id]}</th>
+        {sentence.map((_, j) => <td data-mask={allowed[i][j] ? 'read' : 'hidden'}>{allowed[i][j] ? (ko ? '읽음' : 'reads') : (ko ? '가림' : 'hidden')}</td>)}
+        <td data-story-target={next[i]}>{words[next[i]]}</td>
+      </tr>)}</tbody>
+    </table>
+  </div>
+  <figcaption class="story__caption">{ko ? '각 자리는 자기와 앞 단어만 읽습니다. 가린 칸의 첫 단어가 바로 그 자리가 맞혀야 할 답입니다.' : 'Each position reads itself and earlier words only. The first hidden word is exactly the one it must predict.'}</figcaption>
+</figure>

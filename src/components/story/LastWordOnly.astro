@@ -1,0 +1,30 @@
+---
+/**
+ * Chapter 3: the first machine scores the next word from the last word alone. Both
+ * sentences end in the same word, so it gives both the same probabilities.
+ */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_FEATURES, STORY_FUTURE, STORY_ID, STORY_PAST, STORY_READOUT, STORY_VOCAB, storyLastWordOnly } from '../../lib/math/story';
+import { fmtCompact } from '../../lib/math/format';
+import StoryVector from './StoryVector.astro';
+import StoryBars from './StoryBars.astro';
+import '../../styles/story.css';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const words = STORY_VOCAB[locale];
+const sentences = [['past', STORY_PAST], ['future', STORY_FUTURE]] as const;
+const factor = (value: number) => (value < 0 ? `(${fmtCompact(value)})` : fmtCompact(value));
+const line = (vector: number[], id: number) => `${vector.map((v, i) => `${fmtCompact(v)}×${factor(STORY_READOUT[i][id])}`).join(' + ')} = ${fmtCompact(vector.reduce((sum, v, i) => sum + v * STORY_READOUT[i][id], 0))}`;
+---
+<div class="story story__pair" data-story-last-word-only>
+  {sentences.map(([name, ids]) => {
+    const result = storyLastWordOnly(ids);
+    return <div data-story-sentence={name}>
+      <p class="story__sentence">{ids.map(id => words[id]).join(' ')} ___</p>
+      <StoryVector values={result.lastVector} names={STORY_FEATURES[locale]} label={ko ? `보는 것: ${words[ids[ids.length - 1]]}` : `Sees: ${words[ids[ids.length - 1]]}`} name="last-word" />
+      {[STORY_ID.pastVerb, STORY_ID.futureVerb].map(id => <p class="story__eq" data-story-score={id}>{words[id]}: {line(result.lastVector, id)}</p>)}
+      <StoryBars locale={locale} probabilities={result.probabilities} label={ko ? '마지막 단어만 본 확률' : 'Probabilities from the last word alone'} name="last-word" />
+    </div>;
+  })}
+</div>

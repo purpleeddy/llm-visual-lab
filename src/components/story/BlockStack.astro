@@ -1,0 +1,33 @@
+---
+/** Chapter 6: the machine so far against one block of a real model, stacked many times. */
+import type { Locale } from '../../lib/i18n/routing';
+import '../../styles/story.css';
+interface Props { locale: Locale; }
+const { locale } = Astro.props;
+const ko = locale === 'ko';
+const L = ko ? {
+  input: '단어 벡터', position: '위치 정보 더하기', repeat: '블록 — 실제 모델은 이 상자를 수십 번 쌓습니다',
+  heads: 'attention: 여러 질문을 동시에 (multi-head)', add1: '원래 값에 더하기 (잔차 연결)',
+  ffn: '단어별 계산: 칸끼리 조합해 새 성질 만들기 (FFN)', add2: '다시 더하기', norm: '숫자 크기 맞추기 (층 정규화)',
+  out: '다음 단어 점수표 → 확률', here: '이 글의 기계가 한 부분',
+} : {
+  input: 'Word vectors', position: 'Add position information', repeat: 'A block — a real model stacks this box dozens of times',
+  heads: 'Attention: several questions at once (multi-head)', add1: 'Add back to the original (residual connection)',
+  ffn: 'Per-word computation: combine slots into new properties (FFN)', add2: 'Add back again', norm: 'Keep numbers in range (layer normalization)',
+  out: 'Next-word score table → probabilities', here: 'part this article’s machine has',
+};
+---
+<figure class="story story-block" data-story-block>
+  <div class="story-block__box" data-here="true">{L.input} <small>· {L.here}</small></div>
+  <div class="story-block__box">{L.position}</div>
+  <div class="story-block__repeat">
+    <p>{L.repeat}</p>
+    <div class="story-block__box" data-here="true">{L.heads} <small>· {L.here}: {ko ? '질문 하나' : 'one question'}</small></div>
+    <div class="story-block__box" data-here="true">{L.add1} <small>· {L.here}</small></div>
+    <div class="story-block__box">{L.ffn}</div>
+    <div class="story-block__box">{L.add2}</div>
+    <div class="story-block__box">{L.norm}</div>
+  </div>
+  <div class="story-block__box" data-here="true">{L.out} <small>· {L.here}</small></div>
+  <figcaption class="story__caption">{ko ? '파란 상자는 이 글의 기계에도 있는 부분입니다. 나머지는 실제 모델이 더하는 부분입니다.' : 'Blue boxes are parts this article’s machine also has; the rest are what a real model adds.'}</figcaption>
+</figure>

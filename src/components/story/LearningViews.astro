@@ -1,0 +1,37 @@
+---
+/** Chapter 8: training pairs from one sentence, and one gradient step on the score table. */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_ID, STORY_VOCAB, STORY_FEATURES, STORY_UNTRAINED_READOUT, storyLearningStep, storyTrainingPairs } from '../../lib/math/story';
+import { fmt, fmtCompact, fmtPercent } from '../../lib/math/format';
+import StoryBars from './StoryBars.astro';
+import ScoreTable from './ScoreTable.astro';
+import '../../styles/story.css';
+interface Props { locale: Locale; part: 'pairs' | 'before' | 'step'; }
+const { locale, part } = Astro.props;
+const ko = locale === 'ko';
+const words = STORY_VOCAB[locale];
+const pairs = storyTrainingPairs();
+const step = storyLearningStep(1);
+const last = step.before.last;
+---
+<div class="story" data-story-learning={part}>
+  {part === 'pairs' && <div class="story-table-wrap" role="region" tabindex="0" aria-label={ko ? '한 문장에서 만든 학습 쌍' : 'Training pairs from one sentence'}>
+    <table class="story-table" data-story-pairs>
+      <thead><tr><th scope="col">{ko ? '입력' : 'Input'}</th><th scope="col">{ko ? '정답' : 'Answer'}</th><th scope="col">{ko ? '정답의 확률' : 'Its probability'}</th><th scope="col">{ko ? '손실' : 'Loss'}</th></tr></thead>
+      <tbody>{pairs.map(pair => <tr data-story-pair={pair.target}>
+        <th scope="row">{pair.input.map(id => words[id]).join(' ')}</th><td>{words[pair.target]}</td>
+        <td data-story-pair-probability>{fmtPercent(pair.probability, 1)}</td><td data-story-pair-loss>{fmt(pair.loss, 3)}</td>
+      </tr>)}</tbody>
+    </table>
+  </div>}
+  {part === 'before' && <>
+    <ScoreTable locale={locale} weights={STORY_UNTRAINED_READOUT} name="untrained" caption={ko ? `학습 전 점수표: ${words[STORY_ID.pastVerb]}와 ${words[STORY_ID.futureVerb]} 열이 시간 칸에 아무 반응을 하지 않습니다.` : `Before learning: the “${words[STORY_ID.pastVerb]}” and “${words[STORY_ID.futureVerb]}” columns ignore the time slots.`} />
+    <StoryBars locale={locale} probabilities={step.before.probabilities[last]} label={ko ? '학습 전 확률' : 'Probabilities before learning'} name="before-learning" />
+  </>}
+  {part === 'step' && <>
+    <p class="story__eq" data-story-gradient>{ko ? `기울기 = ${STORY_FEATURES[locale][step.slot]} 칸 값 ${fmt(step.before.mixed[last][step.slot], 3)} × (확률 ${fmt(step.before.probabilities[last][step.target], 3)} − 1) = ${fmt(step.gradient, 3)}` : `Gradient = ${STORY_FEATURES[locale][step.slot]} slot ${fmt(step.before.mixed[last][step.slot], 3)} × (probability ${fmt(step.before.probabilities[last][step.target], 3)} − 1) = ${fmt(step.gradient, 3)}`}</p>
+    <p class="story__eq" data-story-update>{ko ? `계수(${STORY_FEATURES[locale][step.slot]}, ${words[step.target]}) = ${fmtCompact(step.weight)} − ${fmtCompact(step.learningRate)} × (${fmt(step.gradient, 3)}) = ${fmt(step.nextWeight, 3)}` : `Coefficient (${STORY_FEATURES[locale][step.slot]}, ${words[step.target]}) = ${fmtCompact(step.weight)} − ${fmtCompact(step.learningRate)} × (${fmt(step.gradient, 3)}) = ${fmt(step.nextWeight, 3)}`}</p>
+    <StoryBars locale={locale} probabilities={step.after.probabilities[last]} label={ko ? '한 번 고친 뒤 확률' : 'Probabilities after one update'} name="after-learning" />
+    <p class="story__caption" data-story-loss>{ko ? `손실 ${fmt(step.loss, 3)} → ${fmt(step.lossAfter, 3)}` : `Loss ${fmt(step.loss, 3)} → ${fmt(step.lossAfter, 3)}`}</p>
+  </>}
+</div>

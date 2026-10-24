@@ -1,0 +1,17 @@
+---
+/** Next-word probabilities for the six candidates, the largest marked (every one of them on a tie). */
+import type { Locale } from '../../lib/i18n/routing';
+import { STORY_VOCAB } from '../../lib/math/story';
+import { fmtPercent } from '../../lib/math/format';
+import '../../styles/story.css';
+interface Props { locale: Locale; probabilities: number[]; label: string; name?: string; }
+const { locale, probabilities, label, name } = Astro.props;
+const top = Math.max(...probabilities);
+---
+<ul class="story-bars" aria-label={label} data-story-bars={name}>
+  {probabilities.map((p, i) => <li data-top={String(top - p < 1e-9)} data-word={i}>
+    <span>{STORY_VOCAB[locale][i]}</span>
+    <span class="story-bars__value" data-story-probability>{fmtPercent(p, 1)}</span>
+    <span class="story-bars__track" aria-hidden="true"><span class="story-bars__fill" style={`width: ${(p * 100).toFixed(2)}%`}></span></span>
+  </li>)}
+</ul>

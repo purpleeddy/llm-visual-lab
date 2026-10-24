@@ -36,7 +36,7 @@
 .prose .journey__table { border-collapse: collapse; width: 100%; min-width: 0; table-layout: fixed; margin: 0; }
 .prose .journey__table th, .prose .journey__table td { padding: 0.65rem; text-align: start; border-block-end: 1px solid var(--line-2); white-space: normal; overflow-wrap: anywhere; min-width: 0; }
 .journey__table caption { text-align: start; color: var(--ink-2); padding-block-end: 0.5rem; }
-.journey__probabilities { width: 100%; min-width: 0; margin-block: 1rem; }
+.journey__probabilities { width: 100%; min-width: 0; margin-block: 1rem; container-type: inline-size; }
 .journey__probabilities > dl { margin: 0; padding: 0; min-width: 0; }
 .journey__probability-row { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 0.5rem 1rem; align-items: center; padding: 0.4rem; min-width: 0; border-block-end: 1px solid var(--line-2); }
 .journey__probability-row[data-largest='true'] { background: var(--accent-wash); }
@@ -102,6 +102,11 @@
   .journey__probability-row { grid-template-columns: minmax(0,0.85fr) minmax(0,1.15fr); }
   .journey__mixture-result { grid-template-columns: minmax(0,1fr); }
   .journey__mixture-result > .journey-token { justify-self: start; }
+}
+/* Measured against the list itself, so enlarged text stacks the label above its value
+   even when the viewport media queries (which ignore the root font size) do not fire. */
+@container (max-width: 14em) {
+  .journey__probability-row { grid-template-columns: minmax(0,1fr); }
 }
 @media (max-width: 20rem) {
   .journey__digits { grid-template-columns: repeat(4,minmax(0,1fr)); }

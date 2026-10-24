@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from '@playwright/test';
 
-const sections = ['language-model','tokens','numbers','proportion','attention','positions','multi-head','blocks','big-picture','generation','training','results'];
+const sections = ['language-model','tokens','attention','positions','multi-head','blocks','big-picture','generation','training','results'];
 const stages = ['tokens','projection','comparison','transpose','scores','shares','aggregation','attention','mask','heads','residual','feed-forward','hidden','readout','loss'];
 const words = { ko: ['나는','학교에','갔다'], en: ['I','went','to school'] };
 
@@ -51,10 +51,11 @@ async function expectProbabilityLayout(view: Locator, alignBars = true) {
 
 for (const locale of ['ko','en'] as const) {
   test(`${locale}: the default reading path carries one two-input snapshot through every unit`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     for (const section of sections) await expect(page.locator(`[id="${section}"]`)).toHaveCount(1);
-    await expect(page.locator('[data-legacy-exercise]')).toHaveCount(11);
-    for (const drawer of await page.locator('[data-legacy-exercise]').all()) await expect(drawer).not.toHaveAttribute('open');
+    // The independent exercises moved to the lab and paper pages; each unit links there instead.
+    await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
+    await expect(page.locator('.lesson-more')).toHaveCount(sections.length - 1);
     await expect(page.locator('.lab--next-token')).toHaveCount(0);
     await expect(page.locator('#lesson-position-extension')).not.toHaveAttribute('open');
     await expect(page.locator('#lesson-readout-learning')).not.toHaveAttribute('open');
@@ -81,22 +82,22 @@ for (const locale of ['ko','en'] as const) {
       expect(primaryText).not.toMatch(/다른 실행|오프닝과 다른|different run|different settings from the opening/);
     }
     const tokens = page.locator('#tokens > [data-main-lesson]');
-    await expect(tokens.locator('[data-embedding-id=0] > span')).toHaveText(['1','0','1','0']);
-    await expect(tokens.locator('[data-embedding-id=1] > span')).toHaveText(['0','1','0','1']);
+    await expect(tokens.locator('[data-embedding-id="0"] > span')).toHaveText(['1','0','1','0']);
+    await expect(tokens.locator('[data-embedding-id="1"] > span')).toHaveText(['0','1','0','1']);
     await expect(tokens).toContainText('2 × 4');
-    await expect(page.locator('#numbers > [data-main-lesson] [data-lesson-score]')).toHaveText(['4','0','4','0']);
-    await expect(page.locator('#proportion > [data-main-lesson] [data-lesson-share]')).toHaveText(['94.4%','5.6%']);
-    await expect(page.locator('#proportion > [data-main-lesson] [data-journey-head-output]')).toHaveText(['2.833','0.167']);
-    const heads = page.locator('#multi-head > [data-main-lesson] [data-lesson-head=1] .lesson-value').last();
+    await expect(page.locator('#attention > [data-main-lesson] [data-lesson-score]')).toHaveText(['4','0','4','0']);
+    await expect(page.locator('#attention > [data-main-lesson] [data-lesson-share]')).toHaveText(['94.4%','5.6%']);
+    await expect(page.locator('#attention > [data-main-lesson] [data-journey-head-output]')).toHaveText(['2.833','0.167']);
+    const heads = page.locator('#multi-head > [data-main-lesson] [data-lesson-head="1"] .lesson-value').last();
     await expect(heads.locator('.journey__digits > span')).toHaveText(['0.670','0.330']);
     await expect(page.locator('#blocks > [data-main-lesson] [data-lesson-stage=hidden] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.520','−0.513','1.313','−1.320']);
     await expect(page.locator('#big-picture > [data-main-lesson] [data-journey-probability]')).toHaveText(['11.5%','11.6%','71.8%','5.2%']);
     await expect(page.locator('#training > [data-main-lesson] [data-lesson-target-probability]')).toHaveText('0.7179269');
-    for (const anchor of ['similarity','problem','math-shape','math-readout','math-gradient']) await expect(page.locator(`[id="${anchor}"]`)).toHaveCount(1);
+    for (const anchor of ['similarity','math-shape','math-readout']) await expect(page.locator(`[id="${anchor}"]`)).toHaveCount(1);
   });
 
   test(`${locale}: position addition visibly feeds the recomputed downstream stages`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     const base = page.locator('#big-picture > [data-main-lesson] [data-journey-probability]');
     const initial = await base.allTextContents();
     await page.locator('#lesson-position-extension > summary').click();
@@ -116,12 +117,12 @@ for (const locale of ['ko','en'] as const) {
   });
 
   test(`${locale}: the four-candidate loss and live status change after a readout update and reset`, async ({ page }) => {
-    await page.goto(`${locale}/`);
+    await page.goto(`${locale}/walkthrough/`);
     await page.locator('#lesson-readout-learning > summary').click();
     const learning = page.locator('.lesson-learning');
     await expect(learning.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr','');
     await expect(learning.locator('[data-learning-input] .journey-token')).toHaveText(words[locale].slice(0,2));
-    await expect(learning.locator('[data-learning-input] [data-token-id=2]')).toHaveCount(0);
+    await expect(learning.locator('[data-learning-input] [data-token-id="2"]')).toHaveCount(0);
     await expect(learning.locator('[data-learning-target]')).toHaveText('0.7179269');
     const beforeLoss = Number(await learning.locator('[data-learning-loss]').textContent());
     const status = learning.getByRole('status');
@@ -160,7 +161,7 @@ for (const locale of ['ko','en'] as const) {
       await fontGate;
       await route.continue();
     });
-    await page.goto(`${locale}/`, {waitUntil:'domcontentloaded'});
+    await page.goto(`${locale}/walkthrough/`, {waitUntil:'domcontentloaded'});
     const opening = page.locator('.lab--generation-journey');
     const readout = page.locator('#big-picture > [data-main-lesson] [data-lesson-stage="readout"]:visible');
     try {
@@ -181,7 +182,7 @@ for (const locale of ['ko','en'] as const) {
   for (const width of [390,500]) {
     test(`${locale}: percentages remain on one line through generation and learning at ${width}px`, async ({ page }) => {
       await page.setViewportSize({width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(() => document.fonts.ready);
       const opening = page.locator('.lab--generation-journey');
       await expect(opening.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr','');
@@ -224,7 +225,7 @@ for (const locale of ['ko','en'] as const) {
 
     test(`${locale}: four-value vectors stay on one row without repeated mobile chrome at ${width}px`, async ({ page }) => {
       await page.setViewportSize({width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(() => document.fonts.ready);
       const vectors = page.locator('[data-main-lesson] .journey__digits[data-size="4"]:visible');
       expect(await vectors.count()).toBeGreaterThan(10);
@@ -272,7 +273,7 @@ for (const locale of ['ko','en'] as const) {
       await expect(page.locator('[data-learning-overview]')).toHaveCount(0);
       await expect(page.locator('.lab--generation-journey [data-journey-input]')).toHaveCount(1);
       await expect(page.locator('.lesson-generation button, .lesson-generation [data-journey-probabilities]')).toHaveCount(0);
-      await expect(page.locator('[data-lesson-check]')).toHaveCount(12);
+      await expect(page.locator('[data-lesson-check]')).toHaveCount(sections.length);
       for (const check of await page.locator('[data-lesson-check]').all()) await expect(check).not.toHaveAttribute('open');
       const primaryText = await page.locator('main').evaluate(node => {
         const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT); const parts: string[] = [];
@@ -291,7 +292,7 @@ for (const locale of ['ko','en'] as const) {
   for (const layout of [{width:360,zoom:100},{width:280,zoom:200}]) {
     test(`${locale}: primary calculations and probabilities fit ${layout.width}px at ${layout.zoom}%`, async ({ page }) => {
       await page.setViewportSize({width:layout.width,height:844});
-      await page.goto(`${locale}/`);
+      await page.goto(`${locale}/walkthrough/`);
       await page.evaluate(zoom => document.documentElement.style.fontSize = `${zoom}%`,layout.zoom);
       for (const view of await page.locator('[data-lesson-stage]').all()) {
         if (await view.evaluate(node => Boolean(node.closest('details')))) continue;

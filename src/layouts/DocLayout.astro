@@ -15,9 +15,11 @@ interface Props {
   paperRefs: string[];
   notYet: string[];
   updated: string;
+  /** Anchor id → page URL, for ids that used to live on this page and moved to another */
+  movedAnchors?: Record<string, string>;
 }
 
-const { locale, docId, title, lead, eyebrow, status, paperRefs, notYet, updated } = Astro.props;
+const { locale, docId, title, lead, eyebrow, status, paperRefs, notYet, updated, movedAnchors = {} } = Astro.props;
 
 const ui = t(locale);
 const statusLabel = ui.status[status];
@@ -81,16 +83,21 @@ const statusNote =
       </article>
     </main>
 
-    <PageToc locale={locale} />
+    <PageToc locale={locale} docId={docId} />
   </div>
 
-  <script is:inline>
+  <script is:inline define:vars={{ movedAnchors }}>
     (() => {
       const reveal = () => {
         let id;
         try { id = decodeURIComponent(location.hash.slice(1)); } catch { return; }
         if (!id) return;
         const target = document.getElementById(id);
+        // An old link into content that now lives on the lab or paper page.
+        if (!target && Object.hasOwn(movedAnchors, id)) {
+          location.replace(`${movedAnchors[id]}#${encodeURIComponent(id)}`);
+          return;
+        }
         if (!target) return;
         for (let node = target; node; node = node.parentElement) {
           if (node instanceof HTMLDetailsElement) node.open = true;
