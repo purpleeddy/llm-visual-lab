@@ -22,6 +22,15 @@ import { GROUPS } from '../../src/lib/nav';
 const ARTICLE_KO = 'ko/';
 const ARTICLE_EN = 'en/';
 const ALL_PAGES = [ARTICLE_KO, ARTICLE_EN];
+// Editable experiments and the paper's background moved out of the article's drawers.
+const LAB_KO = 'ko/lab/';
+const LAB_EN = 'en/lab/';
+const PAPER_KO = 'ko/paper/';
+const PAPER_EN = 'en/paper/';
+const LAB_OF: Record<string, string> = { [ARTICLE_KO]: LAB_KO, [ARTICLE_EN]: LAB_EN };
+const PAPER_OF: Record<string, string> = { [ARTICLE_KO]: PAPER_KO, [ARTICLE_EN]: PAPER_EN };
+const COMPANION_PAGES = [LAB_KO, LAB_EN, PAPER_KO, PAPER_EN];
+const EVERY_PAGE = [...ALL_PAGES, ...COMPANION_PAGES];
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:4321/llm-visual-lab/';
 /** Must be in the same order as src/lib/nav.ts */
 const SECTION_IDS = [
@@ -84,7 +93,7 @@ function watchFailures(page: Page) {
 }
 
 test.describe('deployment paths and assets', () => {
-  for (const path of ALL_PAGES) {
+  for (const path of EVERY_PAGE) {
     test(`opens directly with no 404s: /${path}`, async ({ page }) => {
       const failures = watchFailures(page);
       const res = await visitWithExercises(page, path, { waitUntil: 'networkidle' });
@@ -102,7 +111,7 @@ test.describe('deployment paths and assets', () => {
 
   test('the KaTeX fonts and styles all load', async ({ page }) => {
     const failures = watchFailures(page);
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, LAB_KO, { waitUntil: 'networkidle' });
 
     // KaTeX keeps the original TeX in a MathML annotation, for accessibility
     // and for copying. Finding TeX in textContent is normal, so check what is
@@ -123,7 +132,7 @@ test.describe('deployment paths and assets', () => {
 
   test('every internal link resolves', async ({ page, request }) => {
     const seen = new Set<string>();
-    for (const path of ALL_PAGES) {
+    for (const path of EVERY_PAGE) {
       await visitWithExercises(page, path);
       const hrefs = await page
         .locator('a[href]')
@@ -133,10 +142,10 @@ test.describe('deployment paths and assets', () => {
         );
       for (const h of hrefs) seen.add(h.split('#')[0]);
     }
-    // Each locale links to the article and its separate optional choice exercise.
+    // Each locale links to the article, its lab and paper pages, and the separate choice exercise.
     expect([...seen].sort()).toEqual([
-      `${BASE}en/`, `${BASE}en/exercises/next-token/`,
-      `${BASE}ko/`, `${BASE}ko/exercises/next-token/`,
+      `${BASE}en/`, `${BASE}en/exercises/next-token/`, `${BASE}en/lab/`, `${BASE}en/paper/`,
+      `${BASE}ko/`, `${BASE}ko/exercises/next-token/`, `${BASE}ko/lab/`, `${BASE}ko/paper/`,
     ]);
     for (const url of seen) {
       const res = await request.get(url);
@@ -228,22 +237,42 @@ test.describe('the single-page structure', () => {
   });
 
   test('no section is a stub', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
     // A placeholder used to be three lines of "this will be written later". Every
-    // section should now carry real prose, sub-headings and at least one figure
-    // or lab — otherwise it is a stub wearing a finished section's clothes.
-    const report = await page.evaluate(() =>
+    // unit should carry real prose, sub-headings and at least one figure or lab —
+    // otherwise it is a stub wearing a finished section's clothes. A unit's
+    // experiments and paper background now sit on the lab and paper pages under
+    // the same section id, so the unit is measured across the three documents.
+    const measure = () => page.evaluate(() =>
       [...document.querySelectorAll('[data-section]')].map((el) => ({
-        id: (el as HTMLElement).dataset.section,
+        id: (el as HTMLElement).dataset.section!,
         words: (el.textContent ?? '').trim().length,
         subHeadings: el.querySelectorAll('h3[id]').length,
         visuals: el.querySelectorAll('.figure__frame svg, .lab').length,
+        computed: el.querySelectorAll('[data-lesson-stage], .lesson-generation').length,
         openingInputs: el.querySelectorAll('[data-journey-input] .journey-token').length,
         openingProbabilities: [...el.querySelectorAll('[data-journey-probability]')].map(value => value.textContent),
         openingExplanation: el.querySelector('[data-model-intro]')?.textContent ?? '',
         modelScope: el.querySelector('#lesson-model-scope')?.textContent ?? '',
       })),
     );
+    await visitWithExercises(page, ARTICLE_KO);
+    const main = await measure();
+    const companions: Awaited<ReturnType<typeof measure>> = [];
+    for (const path of [LAB_KO, PAPER_KO]) {
+      await visitWithExercises(page, path);
+      companions.push(...await measure());
+    }
+    for (const id of new Set(companions.map((c) => c.id))) {
+      expect(SECTION_IDS, `companion section #${id} must belong to an article unit`).toContain(id);
+    }
+    const report = main.map((s) => {
+      const parts = [s, ...companions.filter((c) => c.id === s.id)];
+      return { ...s, words: parts.reduce((n, p) => n + p.words, 0), subHeadings: parts.reduce((n, p) => n + p.subHeadings, 0), visuals: parts.reduce((n, p) => n + p.visuals, 0) };
+    });
+    for (const s of main) {
+      if (s.id === 'language-model' || s.id === 'results') continue;
+      expect(s.computed, `#${s.id} in the article computes on the shared example`).toBeGreaterThan(0);
+    }
     for (const s of report) {
       if (s.id === 'language-model') {
         // The opening is intentionally compact: assert a complete example, not prose length.
@@ -355,30 +384,31 @@ test.describe('learning path on the left, contents on the right', () => {
 /**
  * Figure checks.
  *
- * Seven figures share one DOM, so no two id prefixes may collide. If they do,
+ * Figures on one page share a DOM, so no two id prefixes may collide. If they do,
  * aria-labelledby points at somebody else's title and nothing on screen says so.
+ * `doc` is the page each figure moved to with the article's drawers.
  */
-const FIGURES = [
-  { id: 'aa', section: 'attention' },
-  { id: 'pld', section: 'attention' },
-  { id: 'sw', section: 'attention' },
-  { id: 'tmap', section: 'big-picture' },
-  { id: 'sf', section: 'numbers' },
-  { id: 'rc', section: 'numbers' },
-  { id: 'tf', section: 'numbers' },
-  { id: 'qkv', section: 'attention' },
-  { id: 'as', section: 'attention' },
-  { id: 'mhs', section: 'multi-head' },
-  { id: 'cs', section: 'multi-head' },
-  { id: 'hb', section: 'multi-head' },
-  { id: 'ffs', section: 'blocks' },
-  { id: 'rp', section: 'blocks' },
-  { id: 'lrc', section: 'training' },
-  { id: 'gl', section: 'generation' },
-  { id: 'gs', section: 'generation' },
-  { id: 'pr', section: 'positions' },
-  { id: 'xs', section: 'big-picture' },
-  { id: 'be', section: 'results' },
+const FIGURES: { id: string; doc: 'lab' | 'paper'; section: string }[] = [
+  { id: 'aa', doc: 'paper', section: 'attention' },
+  { id: 'pld', doc: 'paper', section: 'attention' },
+  { id: 'sw', doc: 'paper', section: 'attention' },
+  { id: 'tmap', doc: 'paper', section: 'big-picture' },
+  { id: 'sf', doc: 'lab', section: 'numbers' },
+  { id: 'rc', doc: 'lab', section: 'numbers' },
+  { id: 'tf', doc: 'lab', section: 'numbers' },
+  { id: 'qkv', doc: 'lab', section: 'attention' },
+  { id: 'as', doc: 'lab', section: 'attention' },
+  { id: 'mhs', doc: 'lab', section: 'multi-head' },
+  { id: 'cs', doc: 'lab', section: 'multi-head' },
+  { id: 'hb', doc: 'paper', section: 'multi-head' },
+  { id: 'ffs', doc: 'lab', section: 'blocks' },
+  { id: 'rp', doc: 'lab', section: 'blocks' },
+  { id: 'lrc', doc: 'paper', section: 'training' },
+  { id: 'gl', doc: 'paper', section: 'generation' },
+  { id: 'gs', doc: 'paper', section: 'generation' },
+  { id: 'pr', doc: 'paper', section: 'positions' },
+  { id: 'xs', doc: 'paper', section: 'big-picture' },
+  { id: 'be', doc: 'paper', section: 'results' },
 ];
 
 /**
@@ -392,7 +422,8 @@ const FIGURES = [
  */
 test.describe('the styling is still attached', () => {
   test('the key parts are not left at their unstyled defaults', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    // The lab page carries the prose tables, figures and labs; the blockquote is on the paper page.
+    await visitWithExercises(page, LAB_KO, { waitUntil: 'networkidle' });
 
     const check = async (selector: string, prop: string, initial: string[]) => {
       const el = page.locator(selector).first();
@@ -416,9 +447,9 @@ test.describe('the styling is still attached', () => {
     await check('.badge__dot', 'background-color', ['rgba(0, 0, 0, 0)', 'transparent']);
     await check('.note', 'border-left-width', ['0px']);
     await check('.note__title', 'font-weight', ['400', 'normal']);
-    await check('.prose blockquote', 'border-left-width', ['0px']);
     await check('.prose pre', 'background-color', ['rgba(0, 0, 0, 0)', 'transparent']);
-    await check('[data-legacy-exercise] > .expand__body > table th', 'border-bottom-width', ['0px']);
+    await check('.doc-section > table th', 'border-bottom-width', ['0px']);
+    await check('.expand__body > table th', 'border-bottom-width', ['0px']);
     await check('.expand', 'border-left-width', ['0px']);
     await check('.site-footer', 'border-top-width', ['0px']);
     await check('.lab--attention .btn', 'border-radius', ['0px']);
@@ -426,10 +457,14 @@ test.describe('the styling is still attached', () => {
     await check('.toc__link', 'text-decoration-line', ['underline']);
     await check('.sidebar__link', 'text-decoration-line', ['underline']);
     await check('.figure__frame', 'border-radius', ['0px']);
+    await visitWithExercises(page, PAPER_KO, { waitUntil: 'networkidle' });
+    await check('.prose blockquote', 'border-left-width', ['0px']);
+    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await check('.lesson-more', 'border-top-width', ['0px']);
   });
 
   test('the chosen side looks different from the unchosen one', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, LAB_KO, { waitUntil: 'networkidle' });
     const group = page.locator('.lab--attention .segmented').first();
     const read = (pressed: boolean) =>
       group
@@ -451,27 +486,32 @@ test.describe('the styling is still attached', () => {
     test(`the article has a single right edge at ${width}px`, async ({ browser }) => {
       const ctx = await browser.newContext({ viewport: { width, height: 900 } });
       const page = await ctx.newPage();
-      await visitWithExercises(page, BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
+      // The article carries prose, notes and links; figures, tables and labs moved to the lab page.
+      for (const path of [ARTICLE_KO, LAB_KO]) {
+      await visitWithExercises(page, BASE + path, { waitUntil: 'networkidle' });
 
-      const { paragraphs, ...widths } = await page.evaluate(() => {
+      const { paragraphs, ...widths } = await page.evaluate((article) => {
         const round = (el: Element | null) =>
           el ? Math.round(el.getBoundingClientRect().width) : null;
         // Measure article prose, not inset captions inside an opening lab.
         // Check every substantial body/intro paragraph instead of just the first.
-        const paras = [...document.querySelectorAll('.doc-section > [data-main-lesson] > p, [data-model-intro] > p')].filter(
+        const paras = [...document.querySelectorAll('.doc-section > [data-main-lesson] > p, [data-model-intro] > p, .doc-section > p')].filter(
           (e) => (e.textContent ?? '').trim().length > 60,
         );
-        return {
+        const shared = {
           paragraphs: paras.map(round),
           paragraph: round(paras[0] ?? null),
           note: round(document.querySelector('.note')),
           lead: round(document.querySelector('.doc-header__lead')),
+        };
+        return article ? { ...shared, more: round(document.querySelector('.lesson-more')) } : {
+          ...shared,
           caption: round(document.querySelector('.figure__caption')),
           figure: round(document.querySelector('.figure__frame')),
-          table: round(document.querySelector('[data-legacy-exercise] > .expand__body > table')),
+          table: round(document.querySelector('.doc-section > table')),
           lab: round(document.querySelector('.lab--attention')),
         };
-      });
+      }, path === ARTICLE_KO);
 
       const values = [...Object.values(widths), ...paragraphs];
       expect(paragraphs.length, 'substantial article paragraphs must be present').toBeGreaterThan(0);
@@ -480,8 +520,9 @@ test.describe('the styling is still attached', () => {
       );
       expect(
         new Set(values).size,
-        `every one of these should be the same width: ${JSON.stringify(widths)}`,
+        `every one of these should be the same width on /${path}: ${JSON.stringify(widths)}`,
       ).toBe(1);
+      }
       await ctx.close();
     });
   }
@@ -506,6 +547,8 @@ test.describe('the styling is still attached', () => {
     // an empty string. Nothing on screen says so.
     const dangling = await page.evaluate(() => {
       const names = new Set<string>();
+      // A component may scope a variable to its own rule (`.journey-token { --token-color: … }`).
+      const declared = new Set<string>();
       for (const sheet of [...document.styleSheets]) {
         let rules: CSSRuleList;
         try {
@@ -516,6 +559,8 @@ test.describe('the styling is still attached', () => {
         const walk = (list: CSSRuleList) => {
           for (const rule of [...list]) {
             if ('cssRules' in rule) walk((rule as CSSGroupingRule).cssRules);
+            const style = (rule as CSSStyleRule).style;
+            if (style) for (const prop of [...style]) if (prop.startsWith('--')) declared.add(prop);
             const text = rule.cssText ?? '';
             for (const m of text.matchAll(/var\(\s*(--[\w-]+)/g)) names.add(m[1]);
           }
@@ -526,7 +571,7 @@ test.describe('the styling is still attached', () => {
       // The ones components set inline are correctly absent from :root
       const inline = ['--heat', '--heat-ink', '--cell-w', '--cell-h', '--grid-line'];
       return [...names].filter(
-        (n) => !inline.includes(n) && root.getPropertyValue(n).trim() === '',
+        (n) => !inline.includes(n) && !declared.has(n) && root.getPropertyValue(n).trim() === '',
       );
     });
     expect(dangling, 'no CSS variable may be referenced without a definition').toEqual([]);
@@ -534,10 +579,10 @@ test.describe('the styling is still attached', () => {
 });
 
 test.describe('figures', () => {
-  for (const path of ALL_PAGES) {
+  for (const path of COMPANION_PAGES) {
     test(`figures sit in the right section and carry alt text: /${path}`, async ({ page }) => {
       await visitWithExercises(page, path);
-      for (const f of FIGURES) {
+      for (const f of FIGURES.filter(f => path.endsWith(`/${f.doc}/`))) {
         const svg = page.locator(`svg[aria-labelledby="${f.id}-t ${f.id}-d"]`);
         await expect(svg, `there has to be exactly one ${f.id} figure`).toHaveCount(1);
 
@@ -557,8 +602,9 @@ test.describe('figures', () => {
   }
 
   test('readable figures scroll inside their frame without widening the page', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
-    for (const f of FIGURES) {
+    for (const path of [LAB_KO, PAPER_KO]) {
+    await visitWithExercises(page, path);
+    for (const f of FIGURES.filter(f => path.endsWith(`/${f.doc}/`))) {
       const svg = page.locator(`svg[aria-labelledby="${f.id}-t ${f.id}-d"]`);
       await revealSupplement(svg);
       await svg.scrollIntoViewIfNeeded();
@@ -577,10 +623,11 @@ test.describe('figures', () => {
       if (geometry.wide) expect(geometry.svgWidth, `${f.id}: text retains its intrinsic size`).toBeGreaterThanOrEqual(geometry.intrinsic-1);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(page.viewportSize()!.width);
+    }
   });
 
   test('the figures read their numbers from the example, not from a copy', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO + '#problem');
+    await visitWithExercises(page, LAB_KO);
 
     // The two heads must really differ, or the multi-head section makes no point.
     const weights = await page.locator('.lab--heads .hp__value').allTextContents();
@@ -590,6 +637,7 @@ test.describe('figures', () => {
     );
 
     // Position 0 of the sinusoids is exactly 0, 1, 0, 1.
+    await visitWithExercises(page, PAPER_KO + '#problem');
     const pe = await page.locator('.lab--position .hp__value').allTextContents();
     expect(pe.slice(0, 4)).toEqual(['0.00', '1.00', '0.00', '1.00']);
 
@@ -599,7 +647,7 @@ test.describe('figures', () => {
 
   test('preparation figures consistently show generic X times W to Y before the Q projection', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const prep = page.locator('#numbers');
       await expect(prep.locator('svg[aria-labelledby="sf-t sf-d"] .tmap__head')).toHaveText(['X', 'W', 'Y']);
       await expect(prep.locator('#sf-d')).toContainText(path === ARTICLE_KO ? '결과인 Y' : 'result Y');
@@ -612,7 +660,7 @@ test.describe('figures', () => {
   });
 
   test('the dimensions in the figures match the worked example', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO + '#problem');
+    await visitWithExercises(page, LAB_KO);
     // ShapeFlow takes its dimensions from examples.ts, so they have to agree
     // with the 3 × 4 · 4 × 2 = 3 × 2 in the prose.
     const sf = await page.locator('#sf-d').textContent();
@@ -653,8 +701,8 @@ test.describe('switching between Korean and English', () => {
       await chooseStep(page.locator('.lab--attention'), 5);
       return page.locator('.lab--attention .mgrid--weight .mgrid__value').allInnerTexts();
     };
-    const ko = await read(ARTICLE_KO);
-    const en = await read(ARTICLE_EN);
+    const ko = await read(LAB_KO);
+    const en = await read(LAB_EN);
     expect(ko).toEqual(en);
     expect(ko.slice(0, 3)).toEqual(['0.045', '0.768', '0.187']);
   });
@@ -667,6 +715,8 @@ test.describe('switching between Korean and English', () => {
         .evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.section));
     };
     expect(await ids(ARTICLE_KO)).toEqual(await ids(ARTICLE_EN));
+    expect(await ids(LAB_KO)).toEqual(await ids(LAB_EN));
+    expect(await ids(PAPER_KO)).toEqual(await ids(PAPER_EN));
   });
 });
 
@@ -719,7 +769,7 @@ test.describe('the big-picture walk', () => {
 
   for (const path of ALL_PAGES) {
     test(`${path}: moves through the seven frames and ends on the two charts`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, PAPER_OF[path]);
       const walk = page.locator(WALK);
       await expect(walk).toHaveCount(1);
       const chips = walk.locator('.stepper__chip');
@@ -759,7 +809,7 @@ test.describe('the attention lab', () => {
   const LAB = '.lab--attention';
 
   test('moves back and forth through the seven steps', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     const chips = lab.locator('.stepper__chip');
     await expect(chips).toHaveCount(7);
@@ -776,7 +826,7 @@ test.describe('the attention lab', () => {
   });
 
   test('selecting a cell opens the working for it', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
 
@@ -795,7 +845,7 @@ test.describe('the attention lab', () => {
   test('on a wide screen, connectors are drawn to where the cell came from', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, BASE + LAB_KO, { waitUntil: 'networkidle' });
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
     await lab.locator('.mgrid--score button.mgrid__cell').nth(1).click();
@@ -808,7 +858,7 @@ test.describe('the attention lab', () => {
     // Once the matrices stack vertically a line would cut across the text, so it is suppressed.
     const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const page = await ctx.newPage();
-    await visitWithExercises(page, BASE + ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, BASE + LAB_KO, { waitUntil: 'networkidle' });
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
     await lab.locator('.mgrid--score button.mgrid__cell').nth(1).click();
@@ -819,7 +869,7 @@ test.describe('the attention lab', () => {
   });
 
   test('changing an input moves every result with it', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
     const scores = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
@@ -835,7 +885,7 @@ test.describe('the attention lab', () => {
   });
 
   test('resetting returns to the starting values and the first step', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 3);
     await openFold(lab, '.lab__settings');
@@ -851,7 +901,7 @@ test.describe('the attention lab', () => {
   });
 
   test('with the causal mask on, the first row sees only itself', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await openFold(lab, '.lab__settings');
     await lab.getByRole('button', { name: /켬 \(decoder/ }).click();
@@ -868,7 +918,7 @@ test.describe('the attention lab', () => {
   });
 
   test('switching the division off makes the probabilities more lopsided', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 5);
     const on = await lab.locator('.mgrid--weight .mgrid__value').allInnerTexts();
@@ -885,7 +935,7 @@ test.describe('keyboard access', () => {
   const LAB = '.lab--attention';
 
   test('the arrow keys move between matrix cells', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
 
@@ -904,7 +954,8 @@ test.describe('keyboard access', () => {
   });
 
   test('the skip-to-content link works from the keyboard', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    // A fresh load: opening drawers first would leave focus on their summaries.
+    await page.goto(ARTICLE_KO);
     await page.keyboard.press('Tab');
     const skip = page.locator('.skip-link');
     await expect(skip).toBeFocused();
@@ -914,7 +965,7 @@ test.describe('keyboard access', () => {
   });
 
   test('tab stops only at the selected cell (roving tabindex)', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator(LAB);
     await chooseStep(lab, 2);
     const tabbable = await lab
@@ -925,7 +976,7 @@ test.describe('keyboard access', () => {
 });
 
 test.describe('responsiveness and reading', () => {
-  for (const path of ALL_PAGES) {
+  for (const path of EVERY_PAGE) {
     test(`the page never scrolls sideways: /${path}`, async ({ page }) => {
       await visitWithExercises(page, path, { waitUntil: 'networkidle' });
       const { scroll, client } = await page.evaluate(() => ({
@@ -939,7 +990,7 @@ test.describe('responsiveness and reading', () => {
   test('no sideways scroll at a 768px tablet width either', async ({ browser }) => {
     const ctx = await browser.newContext({ viewport: { width: 768, height: 1024 } });
     const page = await ctx.newPage();
-    for (const path of [ARTICLE_KO, ARTICLE_EN]) {
+    for (const path of EVERY_PAGE) {
       await visitWithExercises(page, BASE + path, { waitUntil: 'networkidle' });
       const { scroll, client } = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
@@ -951,7 +1002,7 @@ test.describe('responsiveness and reading', () => {
   });
 
   test('the screen updates within 100ms of an interaction', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO, { waitUntil: 'networkidle' });
+    await visitWithExercises(page, LAB_KO, { waitUntil: 'networkidle' });
     const lab = page.locator('.lab--attention');
     await chooseStep(lab, 2);
 
@@ -976,7 +1027,7 @@ test.describe('responsiveness and reading', () => {
     // Zooming a browser to 200% halves the viewport measured in CSS pixels.
     const ctx = await browser.newContext({ viewport: { width: 720, height: 450 } });
     const page = await ctx.newPage();
-    for (const path of [ARTICLE_KO, ARTICLE_EN]) {
+    for (const path of EVERY_PAGE) {
       await visitWithExercises(page, BASE + path, { waitUntil: 'networkidle' });
       const { scroll, client } = await page.evaluate(() => ({
         scroll: document.documentElement.scrollWidth,
@@ -1053,10 +1104,14 @@ test.describe('responsiveness and reading', () => {
     await visitWithExercises(page, BASE + ARTICLE_KO);
 
     await expect(page.locator('main h1')).toHaveText('눈으로 이해하는 LLM 원리');
-    await expect(page.locator('.katex').first()).toBeVisible();
 
     // The sections and the labs have to be in the static HTML already
     await expect(page.locator('[data-section]')).toHaveCount(SECTION_IDS.length);
+    await expect(page.locator('#tokens > [data-main-lesson] [data-lesson-stage="tokens"] [data-embedding-id="0"] > span')).toHaveText(['1', '0', '1', '0']);
+    await expect(page.locator('#big-picture > [data-main-lesson] [data-lesson-stage="readout"] [data-journey-probability]')).toHaveText(['11.5%', '11.6%', '71.8%', '5.2%']);
+
+    await visitWithExercises(page, BASE + LAB_KO);
+    await expect(page.locator('.katex').first()).toBeVisible();
     expect(await page.locator('.lab--attention .emat__input').count()).toBeGreaterThan(0);
     await expect(page.locator('.lab--attention .lab__stage .mgrid__value')).toHaveText(['1','0','1','0','0','1','0','1','1','1','0','0']);
     await expect(page.locator('.lab--attention .terms__table')).toHaveCount(0);
@@ -1069,15 +1124,15 @@ test.describe('responsiveness and reading', () => {
   });
 });
 
-test.describe('the labs inside the article', () => {
+test.describe('the labs on the lab and paper pages', () => {
   test('matrix product: choosing a cell highlights the row and column and opens the terms', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
     await revealSupplement(lab);
 
-    // Y(2,2) = row 2 of X · column 2 of W = 0×0 + 1×1 + 0×0 + 1×1 = 2
+    // Y(학교에, 2) = the 학교에 row of X · column 2 of W = 0×0 + 1×1 + 0×0 + 1×1 = 2
     await lab.locator('.mgrid--score button.mgrid__cell').nth(3).click();
-    await expect(lab.locator('.terms__result')).toContainText('Y(2, 2)');
+    await expect(lab.locator('.terms__result')).toContainText('Y(학교에, 2)');
     await expect(lab.locator('.terms__running').last()).toHaveText('2');
 
     // The visible source row and column identify the selected result cell.
@@ -1087,7 +1142,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('matrix product: editing the inputs updates the result, and reset works', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('#numbers .lab--matmul[data-matmul-mode=interactive]');
     await revealSupplement(lab);
     const result = () => lab.locator('.mgrid--score .mgrid__value').allInnerTexts();
@@ -1105,7 +1160,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('dot product: changing a coordinate moves the value and cos θ with it', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--dot');
     await revealSupplement(lab);
     const total = () => lab.locator('.terms__running').last();
@@ -1133,7 +1188,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('dot product: the two arrows stay distinguishable when they coincide', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const widths = await page
       .locator('.lab--dot svg g line')
       .evaluateAll((els) => els.map((e) => e.getAttribute('stroke-width')));
@@ -1141,7 +1196,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('softmax: raising one score lowers the others', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--softmax');
     await revealSupplement(lab);
     const probs = () =>
@@ -1160,7 +1215,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('softmax: adding the same number to every score leaves the probabilities alone', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--softmax');
     await revealSupplement(lab);
     const probs = () =>
@@ -1182,7 +1237,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('positions: moving the position moves the marked cell and the readout', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, PAPER_KO);
     const lab = page.locator('.lab--position');
     await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
     await expect(lab.locator('.explorer__line').first()).toContainText('1:');
@@ -1194,7 +1249,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('layer norm: adding the same number to every value leaves the output alone', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--layernorm');
     const out = () => lab.locator('.terms__running').textContent();
     const before = await out();
@@ -1207,7 +1262,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('residual: switching the bypass off changes the last layer', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--residual');
     const last = () => lab.locator('tr.is-active .terms__running').textContent();
     const withSkip = await last();
@@ -1216,7 +1271,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('loss: lowering the probability on the right word raises the loss', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--loss');
     await expect(lab.locator('#loss-p')).toBeEnabled();
     await expect(lab).toContainText('0.511');
@@ -1231,7 +1286,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('beam: carrying two candidates finds the better sentence', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--beam');
     await expect(lab.locator('.explorer__line').nth(1)).toContainText('0.200');
     await lab.getByRole('button', { name: '2개' }).click();
@@ -1239,7 +1294,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('bleu against cost: the language pair switches', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, PAPER_KO);
     const lab = page.locator('.lab--bleucost');
     await expect(lab).toContainText('28.4');
     await lab.getByRole('button', { name: /프랑스어/ }).click();
@@ -1247,7 +1302,7 @@ test.describe('the labs inside the article', () => {
   });
 
   test('heads: choosing a token moves the highlighted row in both grids', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO);
+    await visitWithExercises(page, LAB_KO);
     const lab = page.locator('.lab--heads');
     await expect(lab.locator('.explorer__line')).toContainText('1번 토큰');
     await lab.getByRole('button', { name: '토큰 3' }).click();
@@ -1267,7 +1322,7 @@ test.describe('the complete learning progression', () => {
       expect(weight).toBeGreaterThanOrEqual(600);
       await expect(page.locator('.doc-header__lead')).not.toContainText('**');
       await expect(page.locator('#language-model')).not.toContainText('**');
-      const unparsed = await page.locator('.prose').evaluate(root => {
+      const unparsed = () => page.locator('.prose').evaluate(root => {
         const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         const found: string[] = [];
         while (walker.nextNode()) {
@@ -1276,7 +1331,12 @@ test.describe('the complete learning progression', () => {
         }
         return found;
       });
-      expect(unparsed, 'article prose must not expose unused Markdown emphasis').toEqual([]);
+      expect(await unparsed(), 'article prose must not expose unused Markdown emphasis').toEqual([]);
+      // The prose that moved to the lab and paper pages is held to the same rule.
+      for (const companion of [LAB_OF[path], PAPER_OF[path]]) {
+        await visitWithExercises(page, companion);
+        expect(await unparsed(), `${companion} prose must not expose unused Markdown emphasis`).toEqual([]);
+      }
     }
   });
 
@@ -1331,7 +1391,7 @@ test.describe('the complete learning progression', () => {
         await expect(check.locator(':scope > summary')).toHaveText(path === ARTICLE_KO ? '이해 확인' : 'Check your understanding');
         await expect(check.locator('.point--check')).not.toBeVisible();
       }
-      for (const id of ['problem', 'similarity', ...SECTION_IDS]) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+      for (const id of ['similarity', ...SECTION_IDS]) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
       const question = page.locator('#training [data-lesson-check]');
       await question.locator(':scope > summary').click();
       await expect(question.locator('.point--check')).toBeVisible();
@@ -1341,9 +1401,53 @@ test.describe('the complete learning progression', () => {
     }
   });
 
+  test('old anchors forward to the page their content moved to', async ({ page }) => {
+    for (const path of ALL_PAGES) {
+      // #problem is the README's promised anchor; #math-sum and #paper-training are drawer anchors.
+      for (const [id, target] of [['problem', PAPER_OF[path]], ['math-sum', LAB_OF[path]], ['paper-training', PAPER_OF[path]]]) {
+        await page.goto(`${path}#${id}`);
+        await page.waitForURL(new URL(`${target}#${id}`, BASE).href);
+        await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+        await expect(page.locator(`[id="${id}"]`)).toBeInViewport();
+      }
+      // An anchor the article still owns stays put.
+      await page.goto(`${path}#similarity`);
+      await expect(page).toHaveURL(new URL(`${path}#similarity`, BASE).href);
+      await expect(page.locator('#similarity')).toBeInViewport();
+    }
+  });
+
+  test('each article unit links to its lab and paper sections', async ({ page }) => {
+    const expected: Record<string, string[]> = {
+      tokens: ['lab'], numbers: ['lab'], proportion: ['lab'], attention: ['lab', 'paper'], positions: ['lab', 'paper'],
+      'multi-head': ['lab', 'paper'], blocks: ['lab'], 'big-picture': ['lab', 'paper'], generation: ['lab', 'paper'],
+      training: ['lab', 'paper'], results: ['paper'],
+    };
+    for (const path of ALL_PAGES) {
+      await page.goto(path);
+      await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
+      for (const [unit, docs] of Object.entries(expected)) {
+        const links = page.locator(`#${unit} > .lesson-more a`);
+        await expect(links).toHaveCount(docs.length);
+        for (const [i, doc] of docs.entries()) {
+          const href = await links.nth(i).getAttribute('href');
+          expect(href).toBe(`${new URL(doc === 'lab' ? LAB_OF[path] : PAPER_OF[path], BASE).pathname}#${unit}`);
+        }
+      }
+      for (const doc of ['lab', 'paper'] as const) {
+        await page.goto(doc === 'lab' ? LAB_OF[path] : PAPER_OF[path]);
+        const ids = await page.locator('[data-section]').evaluateAll(nodes => nodes.map(node => node.id));
+        expect(ids).toEqual(Object.entries(expected).filter(([, docs]) => docs.includes(doc)).map(([unit]) => unit));
+        await expect(page.locator('[data-lesson-check]')).toHaveCount(0);
+        await expect(page.locator('#course-nav a[aria-current="page"]')).toHaveCount(1);
+        await expect(page.locator('#doc-nav [data-section-link]')).toHaveCount(ids.length);
+      }
+    }
+  });
+
   test('embedding lookup retrieves the chosen ID row in both languages', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab=page.locator('.lab--embedding-lookup');
       await expect(lab.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr', '');
       await expect(lab.locator('.embedding-lookup__vector')).toHaveText('(1, 0, 1, 0)');
@@ -1601,6 +1705,7 @@ test.describe('the complete learning progression', () => {
       await opening.locator('.journey__detail').click();
       await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('2/12');
       await expect(page.locator('[data-section="tokens"]')).toBeInViewport();
+      await visitWithExercises(page, LAB_OF[path]);
       const lookup=page.locator('.lab--embedding-lookup');
       const expectedRows=['(1, 0, 1, 0)','(0, 1, 0, 1)','(1, 1, 0, 0)'];
       for (let i=0;i<3;i++) {
@@ -1627,7 +1732,7 @@ test.describe('the complete learning progression', () => {
 
   test('one actual weight update changes the displayed weight, probability and loss', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path); const lab=page.locator('.lab--learning-update');
+      await visitWithExercises(page, LAB_OF[path]); const lab=page.locator('.lab--learning-update');
       await expect(lab.locator('.learning-update__weight')).toHaveText('0.000');
       await expect(lab.locator('.learning-update__loss')).toHaveText('0.693147');
       await expect(lab.locator('.learning-update__after-loss')).toHaveText('0.644397');
@@ -1640,7 +1745,7 @@ test.describe('the complete learning progression', () => {
 
   test('the input changes the weight-update direction and zero input gives no update', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('.lab--learning-update');
       const input = lab.getByRole('slider', {name: path==='ko/' ? '입력 x' : 'Input x', exact:true});
       await input.focus(); await input.press('Home');
@@ -1659,7 +1764,7 @@ test.describe('the complete learning progression', () => {
 
   test('the integrated block reaches vocabulary probabilities and reacts to position input', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path); const lab=page.locator('.lab--layer-trace');
+      await visitWithExercises(page, LAB_OF[path]); const lab=page.locator('.lab--layer-trace');
       await chooseStep(lab, 'last');
       await expect(lab).toHaveAttribute('data-stage','probabilities');
       const before=await lab.locator('.layer-trace__prediction').innerText();
@@ -1674,7 +1779,7 @@ test.describe('the complete learning progression', () => {
 
   test('the position checkbox stays beside its label and controls only the toy input calculation', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('.lab--layer-trace');
       await openFold(lab, '.layer-trace__settings');
       const checkbox = lab.getByRole('checkbox');
@@ -1703,7 +1808,7 @@ test.describe('the complete learning progression', () => {
 
   test('sampling can choose different tokens from unchanged logits', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path); const lab=page.locator('.lab--token-choice');
+      await visitWithExercises(page, LAB_OF[path]); const lab=page.locator('.lab--token-choice');
       const initialScores=await lab.locator('tbody td:nth-child(2)').allTextContents();
       const initialProbabilities=await lab.locator('.token-choice__probability').allTextContents();
       await lab.getByRole('button',{name:'sampling',exact:true}).click();
@@ -1721,17 +1826,20 @@ test.describe('the complete learning progression', () => {
   });
 
   test('math help is local, collapsed by default and accessible from the keyboard', async ({ page }) => {
-    const expected = {
-      'language-model':'conditional', tokens:'shape', numbers:'sum', proportion:'softmax',
-      attention:'attention', positions:'position', 'multi-head':'multi-head', blocks:'layernorm',
-      'big-picture':'readout', training:'gradient', generation:'temperature', results:'cost',
+    // Each unit's local maths help sits with the calculation it explains, on whichever page that is.
+    const expected: Record<'main' | 'lab' | 'paper', Record<string, string>> = {
+      main: { 'language-model':'conditional', tokens:'shape', 'big-picture':'readout' },
+      lab: { numbers:'sum', proportion:'softmax', attention:'attention', 'multi-head':'multi-head', blocks:'layernorm', training:'gradient', generation:'temperature' },
+      paper: { positions:'position', results:'cost' },
     };
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
-      await expect(page.locator('#symbols, .math-primer')).toHaveCount(0);
-      await expect(page.locator('[data-local-math][open]')).toHaveCount(0);
-      for (const [unit, help] of Object.entries(expected)) {
-        await expect(page.locator(`[data-section="${unit}"] #math-${help}`)).toHaveCount(1);
+      for (const doc of ['main', 'paper', 'lab'] as const) {
+        await visitWithExercises(page, doc === 'main' ? path : doc === 'lab' ? LAB_OF[path] : PAPER_OF[path]);
+        await expect(page.locator('#symbols, .math-primer')).toHaveCount(0);
+        await expect(page.locator('[data-local-math][open]')).toHaveCount(0);
+        for (const [unit, help] of Object.entries(expected[doc])) {
+          await expect(page.locator(`[data-section="${unit}"] #math-${help}`)).toHaveCount(1);
+        }
       }
       const sum = page.locator('#math-sum');
       await revealSupplement(sum);
@@ -1753,16 +1861,21 @@ test.describe('the complete learning progression', () => {
 
   test('a direct link opens the local calculation and marks its owning unit', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path+'#math-gradient');
+      await visitWithExercises(page, path+'#math-readout');
+      await expect(page.locator('#math-readout')).toHaveAttribute('open','');
+      await expect(page.locator('#math-readout')).toBeInViewport();
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('9/12');
+      await expect(page.locator('#doc-nav [data-toc-stage="layer"]')).toHaveAttribute('open','');
+      // The same holds on the lab page, whose contents is one flat list.
+      await visitWithExercises(page, LAB_OF[path]+'#math-gradient');
       await expect(page.locator('#math-gradient')).toHaveAttribute('open','');
       await expect(page.locator('#math-gradient')).toBeInViewport();
-      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('11/12');
-      await expect(page.locator('#doc-nav [data-toc-stage="use"]')).toHaveAttribute('open','');
+      await expect(page.locator('#doc-nav [data-current-lesson]')).toContainText('10/10');
     }
   });
 
   test('smoothing loss can be lower for a low correct probability', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_KO); const lab=page.locator('.lab--loss');
+    await visitWithExercises(page, LAB_KO); const lab=page.locator('.lab--loss');
     const probability=lab.getByRole('slider').first(); await expect(probability).toBeEnabled(); await probability.focus(); await probability.press('Home');
     for (let i=0;i<7;i++) await probability.press('ArrowRight');
     await expect(probability).toHaveValue('0.08');
@@ -1778,11 +1891,12 @@ test.describe('the complete learning progression', () => {
 
 test('contents prioritizes the current coarse stage and opens fine headings on demand', async ({ page }) => {
   for (const path of ALL_PAGES) {
-    await visitWithExercises(page, path + '#training');
+    // A unit whose article part has sub-headings.
+    await visitWithExercises(page, path + '#blocks');
     const toc=page.locator('#doc-nav');
     await expect(toc.locator('[data-toc-stage][open]')).toHaveCount(1);
-    await expect(toc.locator('[data-toc-stage="use"]')).toHaveAttribute('open','');
-    await expect(toc.locator('[data-current-lesson]')).toContainText('11/12');
+    await expect(toc.locator('[data-toc-stage="layer"]')).toHaveAttribute('open','');
+    await expect(toc.locator('[data-current-lesson]')).toContainText('8/12');
     await expect(toc.locator('.toc__details')).not.toHaveAttribute('open','');
     await toc.locator('.toc__details > summary').click();
     await expect(toc.locator('.toc__sublist')).toBeVisible();
@@ -1798,7 +1912,7 @@ test('contents prioritizes the current coarse stage and opens fine headings on d
 test.describe('visible static transpose explanation', () => {
   test('one shared comparison pair keeps the same values and score when its right row stands up', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const diagram = page.locator('#numbers svg[aria-labelledby="tf-t tf-d"]');
       await expect(diagram.locator('.hp__value')).toHaveText(['2','0','2','0','2','0','2','0','4']);
       await expect(diagram.locator('[data-pair-row="left"] .hp__value')).toHaveText(['2','0']);
@@ -1826,7 +1940,7 @@ test.describe('visible static transpose explanation', () => {
 test.describe('static Q–K comparisons', () => {
   test('three visible steps keep the pair, key rows, transpose columns and raw scores identical', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const walk = page.locator('[data-qk-score-walk]');
       await expect(walk).toHaveCount(1);
       await expect(walk.locator('[data-step]')).toHaveCount(3);
@@ -1869,7 +1983,7 @@ test.describe('static Q–K comparisons', () => {
 
   test('key row colours follow their columns in both themes and the static tables stay within the page', async ({ page }) => {
     for (const path of ALL_PAGES) {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       for (const theme of ['light','dark']) {
         await page.evaluate(theme => document.documentElement.setAttribute('data-theme',theme),theme);
         const walk = page.locator('[data-qk-score-walk]');
@@ -1917,7 +2031,8 @@ test('the article title and visual subtitle retain hierarchy without a duplicate
     const openingHeadings = await page.locator('.doc-header h1, .lab--generation-journey .lab__title').allTextContents();
     expect(openingHeadings).toEqual([title]);
     await expect(lab.locator('[data-journey-input] .journey-token')).toHaveText(ko ? ['나는','학교에'] : ['I','went']);
-    await expect(lab.locator('[data-journey-input] [data-token-id=2]')).toHaveCount(0);
+    await expect(lab.locator('[data-journey-input] [data-token-id="2"]')).toHaveCount(0);
+    await visitWithExercises(page, LAB_OF[path]);
     await expect(page.locator('#math-transpose summary')).toContainText(ko ? '작은 숫자로' : 'small numbers');
   }
 });
@@ -1934,8 +2049,10 @@ test('learning prose omits lab bookkeeping and retains numerical scope and obser
     await expect(page.locator('#tokens')).toContainText(ko ? '손으로 계산할 수 있도록 작은 예시 숫자' : 'small illustrative numbers that can be worked out by hand');
     await expect(page.locator('#tokens')).not.toContainText(ko ? '학교의 의미를 학습한 것은 아닙니다' : 'Naming a row “school”');
     await expect(page.locator('#language-model')).toContainText(ko ? '확률표 선택 규칙 실습' : 'probability-table selection exercise');
-    await expect(page.locator('#training')).toContainText(ko ? '실제 LLM의 수많은 가중치·데이터·역전파 전체' : 'all the weights, data or backpropagation of a real LLM');
+    await visitWithExercises(page, PAPER_OF[path]);
     await expect(page.locator('#big-picture')).toContainText(ko ? '도식의 ID·확률은 설명용' : 'IDs and probabilities are illustrative');
+    await visitWithExercises(page, LAB_OF[path]);
+    await expect(page.locator('#training')).toContainText(ko ? '실제 LLM의 수많은 가중치·데이터·역전파 전체' : 'all the weights, data or backpropagation of a real LLM');
     const attention = page.locator('.lab--attention');
     await chooseStep(attention, 1);
     await attention.locator('.lab__inputs > summary').click();
@@ -1945,8 +2062,8 @@ test('learning prose omits lab bookkeeping and retains numerical scope and obser
 
 test('the projection creates one position’s new features while keeping X visible and reconstruction qualified', async ({ page }) => {
   for (const path of ALL_PAGES) {
-    await visitWithExercises(page, path);
-    const ko=path===ARTICLE_KO; const numbers=page.locator('#legacy-numbers');
+    await visitWithExercises(page, LAB_OF[path]);
+    const ko=path===ARTICLE_KO; const numbers=page.locator('#numbers');
     await expect(numbers.locator('h3').first()).toHaveText(ko ? '행렬곱 — 입력에서 새로운 특징 만들기' : 'Matrix product — creating new features from the input');
     const motivation=await numbers.locator('h3').first().evaluate(heading=>{
       const paragraphs: string[]=[]; let next=heading.nextElementSibling;
@@ -1974,6 +2091,7 @@ test('the projection creates one position’s new features while keeping X visib
     await expect(lab.locator('[data-matrix="Y"] .mgrid__value')).toHaveText(['3','0','0','2','1','1']);
     await lab.locator('[data-matrix="Y"] button[data-r="2"][data-c="1"]').click();
     expect(await x.evaluateAll(inputs=>inputs.map(input=>(input as HTMLInputElement).value))).toEqual(before);
+    await revealSupplement(numbers.locator('#math-matmul'));
     await numbers.locator('#math-matmul > summary').click();
     await expect(numbers.locator('#math-matmul')).toContainText(ko ? 'Y만으로 원래 X를 항상 복원할 수는 없습니다' : 'Y alone cannot always reconstruct the original X');
   }
@@ -1982,7 +2100,7 @@ test('the projection creates one position’s new features while keeping X visib
 
 test.describe('review regressions: controls and current values', () => {
   test('typing a negative coordinate preserves its sign in every numeric editor', async ({ page }) => {
-    await visitWithExercises(page, ARTICLE_EN);
+    await visitWithExercises(page, LAB_EN);
     const cases = [
       ['.lab--dot .vecinput__field', '.lab--dot'],
       ['.lab--softmax .softmax__score', '.lab--softmax'],
@@ -2013,7 +2131,7 @@ test.describe('review regressions: controls and current values', () => {
 
   for (const path of ALL_PAGES) {
     test(`${path}: initial steps show only the current calculation and few controls`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const attention = page.locator('.lab--attention');
       expect(await attention.locator('button:visible').count()).toBe(3);
       expect(await attention.locator('input:visible').count()).toBe(0);
@@ -2036,7 +2154,7 @@ test.describe('review regressions: controls and current values', () => {
     });
 
     test(`${path}: edited attention guidance agrees with the displayed matrices`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('.lab--attention');
       await openFold(lab, '.lab__inputs');
       await lab.locator('[data-matrix="X"] input').first().fill('3');
@@ -2051,7 +2169,7 @@ test.describe('review regressions: controls and current values', () => {
     });
 
     test(`${path}: mixture shares stay nonnegative and sum to one`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('#proportion .lab--matmul[data-matmul-mode=interactive]');
       await revealSupplement(lab);
       const p = lab.getByRole('slider');
@@ -2069,7 +2187,7 @@ test.describe('review regressions: controls and current values', () => {
     });
 
     test(`${path}: only sampling exposes the random draw and bins`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const lab = page.locator('.lab--token-choice');
       await expect(lab.getByRole('slider')).toHaveCount(1);
       await expect(lab.locator('.sampling-bins')).toHaveCount(0);
@@ -2083,7 +2201,8 @@ test.describe('review regressions: controls and current values', () => {
       await expect(lab.getByRole('slider')).toHaveCount(1);
       await expect(lab.locator('.sampling-bins')).toHaveCount(0);
       await expect(lab.locator('.token-choice__selected')).toHaveText(greedy);
-      await expect(lab.locator('.lab__note')).toContainText(path===ARTICLE_KO ? '앞 실습에서 바꾼 설정은' : 'do not carry over');
+      // The note states this lab's own settings rather than relying on another lab's state.
+      await expect(lab.locator('.lab__note')).toContainText(path===ARTICLE_KO ? '단위행렬 어휘 출력' : 'identity vocabulary readout');
     });
   }
 });
@@ -2092,10 +2211,20 @@ test.describe('review regressions: controls and current values', () => {
 test.describe('review regressions: diagram bounds and training alignment', () => {
   for (const path of ALL_PAGES) {
     test(`${path}: annotations stay inside position, normalization and loss plots`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      const inside = async (lab: Locator) => {
+        const overflow = await lab.locator('svg text').evaluateAll(texts => texts.map(text => {
+          const b = (text as SVGGraphicsElement).getBBox();
+          const v = text.closest('svg')!.viewBox.baseVal;
+          return { x: b.x, y: b.y, right: b.x+b.width-v.width, bottom: b.y+b.height-v.height };
+        }));
+        for (const p of overflow) { expect(p.x).toBeGreaterThanOrEqual(-1); expect(p.y).toBeGreaterThanOrEqual(-1); expect(p.right).toBeLessThanOrEqual(1); expect(p.bottom).toBeLessThanOrEqual(1); }
+      };
+      await visitWithExercises(page, PAPER_OF[path]);
       const position = page.locator('.lab--position');
       await position.getByRole('slider').focus();
       await position.getByRole('slider').press('End');
+      await inside(position);
+      await visitWithExercises(page, LAB_OF[path]);
       const norm = page.locator('.lab--layernorm');
       for (const value of await norm.locator('input[type="number"]').all()) await value.fill('-8');
       await norm.locator('#ln-gamma').focus(); await norm.locator('#ln-gamma').press('End');
@@ -2117,18 +2246,11 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
       await reset.click();
       await expect(loss.locator('#loss-p')).toHaveValue('0.6');
       await expect(loss.locator('#loss-eps')).toHaveValue('0.1');
-      for (const lab of [position, norm, loss]) {
-        const overflow = await lab.locator('svg text').evaluateAll(texts => texts.map(text => {
-          const b = (text as SVGGraphicsElement).getBBox();
-          const v = text.closest('svg')!.viewBox.baseVal;
-          return { x: b.x, y: b.y, right: b.x+b.width-v.width, bottom: b.y+b.height-v.height };
-        }));
-        for (const p of overflow) { expect(p.x).toBeGreaterThanOrEqual(-1); expect(p.y).toBeGreaterThanOrEqual(-1); expect(p.right).toBeLessThanOrEqual(1); expect(p.bottom).toBeLessThanOrEqual(1); }
-      }
+      for (const lab of [norm, loss]) await inside(lab);
     });
 
     test(`${path}: FFN labels and residual formula have separate space`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       for (const id of ['ffs','rp']) {
         const svg = page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`);
         const bounds = await svg.locator('text').evaluateAll(texts => texts.map(text => {
@@ -2151,7 +2273,7 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
     });
 
     test(`${path}: training input is shifted and decoder preserves its three output rows`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, PAPER_OF[path]);
       const training = page.locator('svg[aria-labelledby="gl-t gl-d"]');
       await expect(training.locator('[data-training-input]')).toHaveText(path===ARTICLE_KO ? ['시작','나는','학교에','갔다'] : ['start','I','went','to school']);
       await expect(training.locator('[data-training-target]')).toHaveText(path===ARTICLE_KO ? ['나는','학교에','갔다','끝'] : ['I','went','to school','end']);
@@ -2165,13 +2287,18 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
       await expect(walk).not.toContainText('the whole correct sentence is in the input');
     });
 
-    test(`${path}: advanced paper settings are folded and evaluation conditions are precise`, async ({ page }) => {
-      await visitWithExercises(page, path);
-      for (const id of ['paper-translation','paper-smoothing','paper-training']) await expect(page.locator(`#${id}`)).not.toHaveAttribute('open');
+    test(`${path}: paper settings read openly on the paper page and evaluation conditions are precise`, async ({ page }) => {
+      await visitWithExercises(page, PAPER_OF[path]);
+      // On the paper page these are the content itself, no longer folded away from a main path.
+      for (const id of ['paper-translation','paper-smoothing','paper-training']) {
+        await expect(page.locator(`#${id}`)).toBeVisible();
+        expect(await page.locator(`#${id}`).evaluate(node => Boolean(node.closest('details')))).toBe(false);
+      }
       const results = page.locator('#results');
       await expect(results).toContainText(path===ARTICLE_KO ? '23~55배' : '23–55 times');
       await expect(results).toContainText(path===ARTICLE_KO ? '5개를 평균' : 'five checkpoints');
       await expect(results).toContainText(path===ARTICLE_KO ? '체크포인트 평균을 쓰지 않습니다' : 'no checkpoint averaging');
+      await visitWithExercises(page, LAB_OF[path]);
       await expect(page.locator('#generation')).toContainText('−1.609');
       await expect(page.locator('#generation')).toContainText('−0.805');
       await expect(page.locator('.lab--learning-update svg')).toContainText(path===ARTICLE_KO ? '갱신 뒤' : 'Updated');
@@ -2183,7 +2310,7 @@ test.describe('review regressions: diagram bounds and training alignment', () =>
 test.describe('remaining review', () => {
   for (const path of ALL_PAGES) {
     test(`${path}: initial loss and matrices keep optional controls folded`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const loss = page.locator('.lab--loss');
       await expect(loss.getByRole('slider')).toHaveCount(1);
       await expect(loss.locator('#loss-eps')).not.toBeVisible();
@@ -2206,7 +2333,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: default mask example has a working reset route after edits`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       await expect(page.locator('#positions')).toContainText(path===ARTICLE_KO ? '기본값 기준' : 'default inputs');
       const lab = page.locator('.lab--attention');
       await openFold(lab, '.lab__inputs');
@@ -2221,7 +2348,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: selected score working reaches the scaled and masked cell`, async ({ page }) => {
-      await visitWithExercises(page, path); const lab = page.locator('.lab--attention');
+      await visitWithExercises(page, LAB_OF[path]); const lab = page.locator('.lab--attention');
       await chooseStep(lab, 3);
       const trace = lab.locator('.attention__scoretrace');
       await expect(trace).not.toContainText('S(1, 2) = 4.000 ÷ √2');
@@ -2252,7 +2379,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: decoder explanation has three matching operations and step units precede the curve`, async ({ page }) => {
-      await visitWithExercises(page, path); const walk = page.locator('.lab--walk'); await chooseStep(walk, 5);
+      await visitWithExercises(page, PAPER_OF[path]); const walk = page.locator('.lab--walk'); await chooseStep(walk, 5);
       await expect(walk.locator('.walk__points > li')).toHaveCount(3);
       await expect(walk.locator('.walk__points').nth(0)).toContainText(path===ARTICLE_KO ? '가려진 attention' : 'Masked attention');
       await expect(walk.locator('.walk__points')).toContainText(path===ARTICLE_KO ? '다섯 행' : 'five source rows');
@@ -2263,7 +2390,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: BLEU labels stay separate for both pairs and retain readable mobile size`, async ({ page }) => {
-      await visitWithExercises(page, path); const lab = page.locator('.lab--bleucost');
+      await visitWithExercises(page, PAPER_OF[path]); const lab = page.locator('.lab--bleucost');
       for (const language of [/독일어|German/, /프랑스어|French/]) {
         await lab.getByRole('button', { name: language }).click();
         await page.evaluate(()=>document.fonts.ready);
@@ -2284,8 +2411,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: dense paper diagrams keep their intrinsic text size at 400px`, async ({ page }) => {
-      await page.setViewportSize({width:400,height:844}); await visitWithExercises(page, path);
-      await openFold(page.locator('#big-picture'), '#paper-translation');
+      await page.setViewportSize({width:400,height:844}); await visitWithExercises(page, PAPER_OF[path]);
       for (const id of ['lrc','xs','gl','gs']) {
         const svg=page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`);
         const b=await svg.evaluate(svg=>({actual:svg.getBoundingClientRect().width,view:(svg as SVGSVGElement).viewBox.baseVal.width}));
@@ -2295,7 +2421,7 @@ test.describe('remaining review', () => {
     });
 
     test(`${path}: ReLU distinguishes new zeros and the exponential is limited by this number format`, async ({ page }) => {
-      await visitWithExercises(page, path);
+      await visitWithExercises(page, LAB_OF[path]);
       const desc=page.locator('#ffs-d');
       await expect(desc).toContainText(path===ARTICLE_KO ? '음수 2칸' : '2 negative entries');
       await expect(desc).toContainText(path===ARTICLE_KO ? '이미 0인 2칸' : '2 existing zeros');
@@ -2308,7 +2434,7 @@ test.describe('remaining review', () => {
 test.describe('translation diagram readability', () => {
   for (const path of ALL_PAGES) {
     test(`${path}: 400px frames 2, 6 and 7 retain readable numbers and keyboard scrolling`, async ({ page }) => {
-      await page.setViewportSize({width:400,height:844}); await visitWithExercises(page, path);
+      await page.setViewportSize({width:400,height:844}); await visitWithExercises(page, PAPER_OF[path]);
       const walk=page.locator('.lab--walk');
       await expect(walk.locator('button')).toHaveCount(9);
       for (const index of [1,5,6]) {
@@ -2335,7 +2461,7 @@ test.describe('translation diagram readability', () => {
     });
 
     test(`${path}: scroll cues appear only for actual overflow and react to resize`, async ({ page }) => {
-      await page.setViewportSize({width:1440,height:900}); await visitWithExercises(page, path);
+      await page.setViewportSize({width:1440,height:900}); await visitWithExercises(page, LAB_OF[path]);
       const loss=page.locator('.lab--loss'); await openFold(loss,'.loss__comparison');
       const region=loss.locator('.scroll-region'); const viewport=region.locator('.scroll-region__viewport');
       await expect.poll(()=>viewport.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(false);
@@ -2345,13 +2471,15 @@ test.describe('translation diagram readability', () => {
       await expect.poll(()=>viewport.evaluate(el=>el.scrollWidth>el.clientWidth+1)).toBe(true);
       await expect(region).toHaveAttribute('data-overflow','true');
       await expect(region.locator('.scroll-region__hint')).toBeVisible();
+      await page.setViewportSize({width:1440,height:900});
+      await expect(region).toHaveAttribute('data-overflow','false');
+      await expect(region.locator('.scroll-region__hint')).toHaveCount(0);
+      // The BLEU chart moved to the paper page; at 400px it overflows into its own scroll region.
+      await page.setViewportSize({width:400,height:844}); await visitWithExercises(page, PAPER_OF[path]);
       const bleu=page.locator('.lab--bleucost .scroll-region');
       await expect(bleu).toHaveAttribute('data-overflow','true');
       await expect(bleu.locator('.scroll-region__hint')).toBeVisible();
       await expect(bleu.locator('.scroll-region__viewport')).toHaveAttribute('tabindex','0');
-      await page.setViewportSize({width:1440,height:900});
-      await expect(region).toHaveAttribute('data-overflow','false');
-      await expect(region.locator('.scroll-region__hint')).toHaveCount(0);
     });
   }
 });
@@ -2361,8 +2489,8 @@ test.describe('final six diagram regressions', () => {
   for (const path of ALL_PAGES) {
     for (const width of [400, 1440]) {
       test(`${path}: six diagrams preserve separate headings and readable labels at ${width}px`, async ({ page }) => {
-        await page.setViewportSize({width,height:900}); await visitWithExercises(page, path);
-        await openFold(page.locator('#problem'), '.expand');
+        // The walk, pld and hb are on the paper page; the beam, qkv and sf on the lab page.
+        await page.setViewportSize({width,height:900}); await visitWithExercises(page, PAPER_OF[path]);
         const walk=page.locator('.lab--walk');
         await page.evaluate(()=>document.fonts.ready);
         for (const index of [0,1]) {
@@ -2381,14 +2509,11 @@ test.describe('final six diagram regressions', () => {
         const titleBox=(await title.boundingBox())!; const noteBox=(await note.boundingBox())!;
         expect.soft(noteBox.y,'the 512-cell note occupies a separate line below its heading').toBeGreaterThanOrEqual(titleBox.y+titleBox.height+2);
 
-        const beam=page.locator('.lab--beam');
-        const figures=[
-          {name:'beam probabilities',svg:beam.locator('svg'),labels:'.tmap__note',region:beam.locator('.scroll-region__viewport')},
-          ...['pld','qkv','hb','sf'].map(id=>({
-            name:id,svg:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`),labels:'.tmap__note',
-            region:page.locator('.figure__frame').filter({has:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`)}),
-          })),
-        ];
+        const diagram=(id: string)=>({
+          name:id,svg:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`),labels:'.tmap__note',
+          region:page.locator('.figure__frame').filter({has:page.locator(`svg[aria-labelledby="${id}-t ${id}-d"]`)}),
+        });
+        const checkFigures=async (figures: {name:string; svg:Locator; labels:string; region:Locator}[])=>{
         for (const figure of figures) {
           await revealSupplement(figure.svg);
           const text=await figure.svg.locator(figure.labels).evaluateAll(nodes=>nodes.map(el=>{
@@ -2413,6 +2538,16 @@ test.describe('final six diagram regressions', () => {
             await expect.poll(()=>figure.region.evaluate(el=>el.scrollLeft),{message:`${figure.name}: ArrowRight moves the diagram`}).toBeGreaterThan(before);
           }
         }
+        };
+        await checkFigures(['pld','hb'].map(diagram));
+        expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(width);
+        await visitWithExercises(page, LAB_OF[path]);
+        await page.evaluate(()=>document.fonts.ready);
+        const beam=page.locator('.lab--beam');
+        await checkFigures([
+          {name:'beam probabilities',svg:beam.locator('svg'),labels:'.tmap__note',region:beam.locator('.scroll-region__viewport')},
+          ...['qkv','sf'].map(diagram),
+        ]);
         await expect(beam.locator('button')).toHaveCount(3);
         await beam.locator('button').nth(1).click();
         await expect(beam.locator('.explorer__line').nth(1)).toContainText('0.342');
@@ -2425,8 +2560,8 @@ test.describe('final six diagram regressions', () => {
 
 test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows the role introduction', async ({ page }) => {
   for (const path of ALL_PAGES) {
-    await visitWithExercises(page, path);
-    const numbers=page.locator('#legacy-numbers'); const ko=path===ARTICLE_KO;
+    await visitWithExercises(page, LAB_OF[path]);
+    const numbers=page.locator('#numbers'); const ko=path===ARTICLE_KO;
     const headings=await numbers.locator('h3').allTextContents();
     const dot=headings.indexOf(ko ? '두 숫자 줄을 비교하는 점수 만들기' : 'Build a score for comparing two rows');
     const transpose=headings.indexOf(ko ? '같은 한 쌍을 행 × 열로 놓아 보기' : 'Arrange the same pair as a row and a column');
@@ -2449,7 +2584,7 @@ test('one-pair arithmetic precedes transpose and the Q–K walkthrough follows t
 
 test('the preserved three-token attention exercise carries its first-row example from purpose to content', async ({ page }) => {
   for (const path of ALL_PAGES) {
-    await visitWithExercises(page, path);
+    await visitWithExercises(page, LAB_OF[path]);
     const ko=path===ARTICLE_KO;
     const overview=page.locator('[data-attention-story="overview"]');
     await revealSupplement(overview); await overview.scrollIntoViewIfNeeded();

@@ -15,16 +15,22 @@ Twelve units in four learning stages:
 3. **Blocks and models**: multi-head attention → FFN, residual and layer norm → the full route and a computed one-block decoder.
 4. **Generation and learning**: greedy, sampling and beam search → target alignment, loss and one weight update → evaluation and limits.
 
-The article explains each operation once. Optional checkpoints and advanced experiments stay folded; the opening links directly into the same calculation.
+The article explains each operation once. Optional checkpoints stay folded and advanced experiments live on the lab page; the opening links directly into the same calculation.
 Maths help belongs to the calculation that needs it: native, initially closed disclosures
 show actual numbers and connect them to notation. There is no front-loaded symbol dictionary.
 The contents opens the current stage; detailed headings are available on request.
-Old anchors such as `#problem`, `#similarity` and `#attention` still work.
+Old anchors such as `#problem`, `#similarity` and `#attention` still work; an anchor whose
+content moved to the lab or paper page forwards there.
+
+Two companion pages sit beside the article: a **lab** (`/ko/lab/`, `/en/lab/`) with the
+editable experiments on a three-chunk sentence, and a **paper** page (`/ko/paper/`,
+`/en/paper/`) with the original translator, its training setup and results. Each article
+unit links to its sections there.
 
 Experiments compute from explicitly hand-chosen inputs. IDs in conceptual illustrations
 and prefix probability tables are illustrative; benchmark values come from the paper.
 The tiny decoder is a one-block, post-norm illustration, not a trained GPT or full translator.
-The folded legacy decoder uses X+PE without the paper’s embedding rescaling and an identity vocabulary readout. The main two-input lesson omits position addition by default, keeps the causal mask on, and uses diag(−1, 1, 1, 1) as its vocabulary readout. Its optional position extension recomputes downstream values from X+PE. The training experiment really updates one coefficient and recomputes
+The lab page's one-block decoder uses X+PE without the paper’s embedding rescaling and an identity vocabulary readout. The main two-input lesson omits position addition by default, keeps the causal mask on, and uses diag(−1, 1, 1, 1) as its vocabulary readout. Its optional position extension recomputes downstream values from X+PE. The training experiment really updates one coefficient and recomputes
 loss; it does not implement backpropagation through an entire LLM.
 
 ## Try it
@@ -62,7 +68,7 @@ npx playwright install chromium && npm run test:e2e
 
 ## Layout
 
-- `src/content/docs/{ko,en}/index.mdx` – the page text
+- `src/content/docs/{ko,en}/index.mdx` – the article text; `lab.mdx` and `paper.mdx` – the companion pages
 - `src/lib/math/` – pure functions; everything on screen comes from these
 - `src/components/lab/` – React experiments
 - `src/components/site/` – SVG figures, rendered at build time from the same math

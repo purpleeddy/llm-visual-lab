@@ -16,6 +16,12 @@
 > examples extend the original walkthrough. Calculation details are local disclosures.
 > The GPT bridge cites its original paper §3.1; the toy is not a full GPT implementation.
 
+> 2026-10-24: the folded drawers left the article. Paper-specific material (`#problem`,
+> sinusoidal positions, the head budget, the translator walk, training setup, results)
+> now lives on `/{ko,en}/paper/` and the editable experiments on `/{ko,en}/lab/`, under
+> the same section ids. An anchor in the "Explained in" column that is no longer on the
+> article forwards there, so `/ko/#problem` lands on `/ko/paper/#problem`.
+
 This document records how each section, equation, figure and table of the paper
 maps onto the commentary in the wiki. It is the coverage map required by section
 4.1 of `docs/plan.md`, and it is updated as the commentary grows.

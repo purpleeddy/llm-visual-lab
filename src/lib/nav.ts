@@ -449,3 +449,36 @@ export const SECTIONS: SectionItem[] = [
 ];
 export function sectionById(id: string): SectionItem | undefined { return SECTIONS.find(s => s.id === id); }
 export function groupById(id: string): SectionGroup | undefined { return GROUPS.find(g => g.id === id); }
+
+/**
+ * The companion documents. Their sections reuse the main article's ids, so a unit's
+ * experiments and its paper background share one anchor name across the three pages.
+ */
+export interface PageSection {
+  id: string;
+  title: Record<Locale, string>;
+  navTitle: Record<Locale, string>;
+}
+export const LAB_SECTIONS: PageSection[] = [
+  { id: 'tokens', title: { ko: '토큰·ID·embedding 조회', en: 'Tokens, IDs and embedding lookup' }, navTitle: { ko: '토큰과 벡터', en: 'Tokens and vectors' } },
+  { id: 'numbers', title: { ko: '행렬곱과 내적 직접 바꿔 보기', en: 'Change matrix products and dot products' }, navTitle: { ko: '행렬곱과 내적', en: 'Matrix arithmetic' } },
+  { id: 'proportion', title: { ko: 'softmax와 가중합 직접 바꿔 보기', en: 'Change softmax and weighted sums' }, navTitle: { ko: '점수와 비중', en: 'Scores and shares' } },
+  { id: 'attention', title: { ko: '세 토큰 전체 attention 계산', en: 'Full three-token attention' }, navTitle: { ko: 'Self-attention', en: 'Self-attention' } },
+  { id: 'positions', title: { ko: '가리기를 켜고 끄기', en: 'Switch the mask on and off' }, navTitle: { ko: '가리기', en: 'Mask' } },
+  { id: 'multi-head', title: { ko: '두 head와 출력 계수 W_O', en: 'Two heads and the output coefficients W_O' }, navTitle: { ko: 'Multi-head', en: 'Multi-head' } },
+  { id: 'blocks', title: { ko: 'FFN·잔차·정규화 직접 바꿔 보기', en: 'Change the FFN, residual and normalization' }, navTitle: { ko: '한 층의 부품', en: 'Block components' } },
+  { id: 'big-picture', title: { ko: '설정을 바꾸는 한 층', en: 'One block with changeable settings' }, navTitle: { ko: '한 층 전체', en: 'Whole block' } },
+  { id: 'generation', title: { ko: 'greedy·sampling·beam search', en: 'Greedy, sampling and beam search' }, navTitle: { ko: '생성 규칙', en: 'Generation rules' } },
+  { id: 'training', title: { ko: '손실과 두 후보 학습', en: 'Loss and two-candidate learning' }, navTitle: { ko: '손실과 갱신', en: 'Loss and updates' } },
+];
+export const PAPER_SECTIONS: PageSection[] = [
+  { id: 'attention', title: { ko: '왜 attention인가 — 순서대로 읽기의 두 문제', en: 'Why attention: two problems with reading in order' }, navTitle: { ko: '왜 attention인가', en: 'Why attention' } },
+  { id: 'positions', title: { ko: 'sin·cos으로 위치 알려 주기', en: 'Positions from sine and cosine' }, navTitle: { ko: 'sin·cos 위치', en: 'Sinusoidal positions' } },
+  { id: 'multi-head', title: { ko: 'head 여덟 개와 같은 계산량', en: 'Eight heads at the same cost' }, navTitle: { ko: 'head와 계산량', en: 'Heads and cost' } },
+  { id: 'big-picture', title: { ko: '번역기 전체 구조 — encoder와 decoder', en: 'The translator: encoder and decoder' }, navTitle: { ko: '번역기 구조', en: 'Translator' } },
+  { id: 'generation', title: { ko: '번역기의 학습과 생성', en: 'Training and generation in the translator' }, navTitle: { ko: '학습과 생성', en: 'Training and generation' } },
+  { id: 'training', title: { ko: '논문의 학습 설정', en: 'The paper’s training setup' }, navTitle: { ko: '학습 설정', en: 'Training setup' } },
+  { id: 'results', title: { ko: '결과와 한계 — BLEU·비용·ablation', en: 'Results and limits: BLEU, cost and ablations' }, navTitle: { ko: '결과와 한계', en: 'Results and limits' } },
+];
+export const DOC_SECTIONS: Record<string, PageSection[]> = { lab: LAB_SECTIONS, paper: PAPER_SECTIONS };
+export function docSectionById(docId: string, id: string): PageSection | undefined { return DOC_SECTIONS[docId]?.find(s => s.id === id); }

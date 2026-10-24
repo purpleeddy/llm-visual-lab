@@ -7,7 +7,7 @@
  * quietly break the contents links and the cross-references in the prose.
  * `data-section` is what the scroll-position script reads.
  */
-import { sectionById } from '../../lib/nav';
+import { sectionById, docSectionById } from '../../lib/nav';
 import Point from './Point.astro';
 import Expand from './Expand.astro';
 import type { Locale } from '../../lib/i18n/routing';
@@ -17,14 +17,17 @@ interface Props {
   locale: Locale;
   /** One line of summary under the heading */
   lead?: string;
+  /** A companion document ('lab', 'paper'); the main article when omitted */
+  doc?: string;
 }
 
-const { id, locale, lead } = Astro.props;
-const meta = sectionById(id);
-if (!meta) throw new Error(`no such section id in nav.ts: ${id}`);
+const { id, locale, lead, doc = '' } = Astro.props;
+const lesson = doc === '' ? sectionById(id) : undefined;
+const meta = lesson ?? docSectionById(doc, id);
+if (!meta) throw new Error(`no such section id in nav.ts for doc '${doc}': ${id}`);
 
 const title = meta.title[locale];
-const planned = meta.status === 'planned';
+const planned = lesson?.status === 'planned';
 const hasOpening = Astro.slots.has('opening');
 const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not written yet';
 ---
@@ -38,18 +41,20 @@ const plannedLabel = locale === 'ko' ? '아직 쓰지 않았습니다' : 'Not wr
       planned ? (
         <span class="doc-section__pending">
           {plannedLabel}
-          {meta.stage ? <span class="doc-section__stage">{meta.stage}</span> : null}
+          {lesson?.stage ? <span class="doc-section__stage">{lesson.stage}</span> : null}
         </span>
       ) : null
     }
   </h2>
   {lead ? <p class="doc-section__lead">{lead}</p> : null}
   <slot />
-  <details class="expand lesson-check" data-lesson-check={id}>
-    <summary>{locale === 'ko' ? '이해 확인' : 'Check your understanding'}</summary>
-    <div class="expand__body">
-      <Point kind="check" locale={locale}>{meta.check.question[locale]}</Point>
-      <Expand summary={locale === 'ko' ? '답과 이유 보기' : 'Answer and reasoning'}><p>{meta.check.answer[locale]}</p></Expand>
-    </div>
-  </details>
+  {lesson ? (
+    <details class="expand lesson-check" data-lesson-check={id}>
+      <summary>{locale === 'ko' ? '이해 확인' : 'Check your understanding'}</summary>
+      <div class="expand__body">
+        <Point kind="check" locale={locale}>{lesson.check.question[locale]}</Point>
+        <Expand summary={locale === 'ko' ? '답과 이유 보기' : 'Answer and reasoning'}><p>{lesson.check.answer[locale]}</p></Expand>
+      </div>
+    </details>
+  ) : null}
 </section>

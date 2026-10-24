@@ -28,7 +28,11 @@ export interface CourseGroup {
 export const COURSE: CourseGroup[] = [
   {
     title: { ko: '이 학습 글', en: 'This learning guide' },
-    items: [{ id: '', title: { ko: '눈으로 이해하는 LLM 원리', en: 'LLM Principles, Visually Explained' } }],
+    items: [
+      { id: '', title: { ko: '눈으로 이해하는 LLM 원리', en: 'LLM Principles, Visually Explained' } },
+      { id: 'lab', title: { ko: '실험실 — 값을 바꿔 보기', en: 'Lab: change the values' } },
+      { id: 'paper', title: { ko: '논문 읽기 — Attention Is All You Need', en: 'Reading the paper: Attention Is All You Need' } },
+    ],
   },
   {
     title: { ko: '이어지는 길', en: 'Where it goes' },

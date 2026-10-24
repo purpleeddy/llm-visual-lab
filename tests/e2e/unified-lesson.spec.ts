@@ -53,8 +53,9 @@ for (const locale of ['ko','en'] as const) {
   test(`${locale}: the default reading path carries one two-input snapshot through every unit`, async ({ page }) => {
     await page.goto(`${locale}/`);
     for (const section of sections) await expect(page.locator(`[id="${section}"]`)).toHaveCount(1);
-    await expect(page.locator('[data-legacy-exercise]')).toHaveCount(11);
-    for (const drawer of await page.locator('[data-legacy-exercise]').all()) await expect(drawer).not.toHaveAttribute('open');
+    // The independent exercises moved to the lab and paper pages; each unit links there instead.
+    await expect(page.locator('[data-legacy-exercise]')).toHaveCount(0);
+    await expect(page.locator('.lesson-more')).toHaveCount(11);
     await expect(page.locator('.lab--next-token')).toHaveCount(0);
     await expect(page.locator('#lesson-position-extension')).not.toHaveAttribute('open');
     await expect(page.locator('#lesson-readout-learning')).not.toHaveAttribute('open');
@@ -81,18 +82,18 @@ for (const locale of ['ko','en'] as const) {
       expect(primaryText).not.toMatch(/다른 실행|오프닝과 다른|different run|different settings from the opening/);
     }
     const tokens = page.locator('#tokens > [data-main-lesson]');
-    await expect(tokens.locator('[data-embedding-id=0] > span')).toHaveText(['1','0','1','0']);
-    await expect(tokens.locator('[data-embedding-id=1] > span')).toHaveText(['0','1','0','1']);
+    await expect(tokens.locator('[data-embedding-id="0"] > span')).toHaveText(['1','0','1','0']);
+    await expect(tokens.locator('[data-embedding-id="1"] > span')).toHaveText(['0','1','0','1']);
     await expect(tokens).toContainText('2 × 4');
     await expect(page.locator('#numbers > [data-main-lesson] [data-lesson-score]')).toHaveText(['4','0','4','0']);
     await expect(page.locator('#proportion > [data-main-lesson] [data-lesson-share]')).toHaveText(['94.4%','5.6%']);
     await expect(page.locator('#proportion > [data-main-lesson] [data-journey-head-output]')).toHaveText(['2.833','0.167']);
-    const heads = page.locator('#multi-head > [data-main-lesson] [data-lesson-head=1] .lesson-value').last();
+    const heads = page.locator('#multi-head > [data-main-lesson] [data-lesson-head="1"] .lesson-value').last();
     await expect(heads.locator('.journey__digits > span')).toHaveText(['0.670','0.330']);
     await expect(page.locator('#blocks > [data-main-lesson] [data-lesson-stage=hidden] .lesson-value').last().locator('.journey__digits > span')).toHaveText(['0.520','−0.513','1.313','−1.320']);
     await expect(page.locator('#big-picture > [data-main-lesson] [data-journey-probability]')).toHaveText(['11.5%','11.6%','71.8%','5.2%']);
     await expect(page.locator('#training > [data-main-lesson] [data-lesson-target-probability]')).toHaveText('0.7179269');
-    for (const anchor of ['similarity','problem','math-shape','math-readout','math-gradient']) await expect(page.locator(`[id="${anchor}"]`)).toHaveCount(1);
+    for (const anchor of ['similarity','math-shape','math-readout']) await expect(page.locator(`[id="${anchor}"]`)).toHaveCount(1);
   });
 
   test(`${locale}: position addition visibly feeds the recomputed downstream stages`, async ({ page }) => {
@@ -121,7 +122,7 @@ for (const locale of ['ko','en'] as const) {
     const learning = page.locator('.lesson-learning');
     await expect(learning.locator('xpath=ancestor::astro-island')).not.toHaveAttribute('ssr','');
     await expect(learning.locator('[data-learning-input] .journey-token')).toHaveText(words[locale].slice(0,2));
-    await expect(learning.locator('[data-learning-input] [data-token-id=2]')).toHaveCount(0);
+    await expect(learning.locator('[data-learning-input] [data-token-id="2"]')).toHaveCount(0);
     await expect(learning.locator('[data-learning-target]')).toHaveText('0.7179269');
     const beforeLoss = Number(await learning.locator('[data-learning-loss]').textContent());
     const status = learning.getByRole('status');

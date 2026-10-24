@@ -1,15 +1,28 @@
 ---
 /** Four coarse stages; open the current stage, then request its detailed headings. */
-import { GROUPS, SECTIONS } from '../../lib/nav';
+import { GROUPS, SECTIONS, DOC_SECTIONS } from '../../lib/nav';
 import { type Locale } from '../../lib/i18n/routing';
 import { t } from '../../lib/i18n/ui';
-interface Props { locale: Locale; }
-const { locale } = Astro.props;
+interface Props { locale: Locale; docId?: string; }
+const { locale, docId = '' } = Astro.props;
 const ui = t(locale);
+/** A companion document lists its sections flat; only the main article has stages. */
+const flat = docId === '' ? null : DOC_SECTIONS[docId] ?? [];
+const first = flat ? flat[0] : SECTIONS[0];
+const total = flat ? flat.length : SECTIONS.length;
 ---
 <nav class="toc" id="doc-nav" aria-label={ui.nav.onThisPage}>
   <p class="toc__title">{ui.nav.contents}</p>
-  <p class="toc__current" aria-live="polite"><span>{locale === 'ko' ? '현재 위치' : 'Current unit'}</span><strong data-current-lesson>1/{SECTIONS.length} · {SECTIONS[0].navTitle[locale]}</strong></p>
+  {first ? <p class="toc__current" aria-live="polite"><span>{locale === 'ko' ? '현재 위치' : 'Current unit'}</span><strong data-current-lesson>1/{total} · {first.navTitle[locale]}</strong></p> : null}
+  {flat ? (
+    <ol class="toc__list toc__stage-list" data-section-nav>
+      {flat.map((s, i) => <li data-section-item={s.id}>
+        <a class="toc__link" href={`#${s.id}`} data-section-link={s.id} data-short-title={s.navTitle[locale]}>
+          <span class="toc__num">{i + 1}</span>{s.navTitle[locale]}
+        </a>
+      </li>)}
+    </ol>
+  ) : (
   <ol class="toc__list" data-section-nav>
     {GROUPS.map((group, gi) => <li class="toc__group">
       <details class="toc__stage" data-toc-stage={group.id} open={gi === 0}>
@@ -24,4 +37,5 @@ const ui = t(locale);
       </details>
     </li>)}
   </ol>
+  )}
 </nav>
