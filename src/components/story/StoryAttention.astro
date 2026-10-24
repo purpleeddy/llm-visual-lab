@@ -68,7 +68,6 @@ const here = words[ids[row]];
       const verb = name === 'past' ? STORY_ID.pastVerb : STORY_ID.futureVerb;
       return <div data-story-sentence={name}>
         <p class="story__sentence">{sentence.map(id => words[id]).join(' ')} ___</p>
-        <StoryVector values={result.mixed[result.last]} names={features} label={ko ? '새 값' : 'New values'} name="result-mixed" />
         <StoryBars locale={locale} probabilities={result.probabilities[result.last]} label={ko ? 'attention 뒤 확률' : 'Probabilities after attention'} name="after-attention" />
         <p class="story__caption" data-story-gain>{ko ? `${words[verb]}: 마지막 단어만 볼 때 ${fmtPercent(before[verb], 1)} → ${fmtPercent(result.probabilities[result.last][verb], 1)}` : `${words[verb]}: ${fmtPercent(before[verb], 1)} from the last word alone → ${fmtPercent(result.probabilities[result.last][verb], 1)}`}</p>
       </div>;

@@ -2,29 +2,43 @@
 /**
  * Chapter 3: the first machine scores the next word from the last word alone. Both
  * sentences end in the same word, so it gives both the same probabilities.
+ * `verdict` shows that result; `scores` shows, for the fold, where the two scores come from.
  */
 import type { Locale } from '../../lib/i18n/routing';
 import { STORY_FEATURES, STORY_FUTURE, STORY_ID, STORY_PAST, STORY_READOUT, STORY_VOCAB, storyLastWordOnly } from '../../lib/math/story';
-import { fmtCompact } from '../../lib/math/format';
+import { fmtCompact, fmtPercent } from '../../lib/math/format';
 import StoryVector from './StoryVector.astro';
 import StoryBars from './StoryBars.astro';
 import '../../styles/story.css';
-interface Props { locale: Locale; }
-const { locale } = Astro.props;
+interface Props { locale: Locale; part: 'verdict' | 'scores'; }
+const { locale, part } = Astro.props;
 const ko = locale === 'ko';
 const words = STORY_VOCAB[locale];
+const features = STORY_FEATURES[locale];
 const sentences = [['past', STORY_PAST], ['future', STORY_FUTURE]] as const;
+const verbs = [STORY_ID.pastVerb, STORY_ID.futureVerb];
+const lastWord = words[STORY_PAST[STORY_PAST.length - 1]];
+const result = storyLastWordOnly(STORY_PAST);
 const factor = (value: number) => (value < 0 ? `(${fmtCompact(value)})` : fmtCompact(value));
-const line = (vector: number[], id: number) => `${vector.map((v, i) => `${fmtCompact(v)}×${factor(STORY_READOUT[i][id])}`).join(' + ')} = ${fmtCompact(vector.reduce((sum, v, i) => sum + v * STORY_READOUT[i][id], 0))}`;
+/** Only the slots that hold a value contribute, so only those terms are written out. */
+const line = (vector: number[], id: number) => {
+  const terms = vector.flatMap((v, i) => (v === 0 ? [] : [`${features[i]} ${fmtCompact(v)} × ${factor(STORY_READOUT[i][id])}`]));
+  return `${terms.join(' + ') || '0'} = ${fmtCompact(vector.reduce((sum, v, i) => sum + v * STORY_READOUT[i][id], 0))}`;
+};
 ---
-<div class="story story__pair" data-story-last-word-only>
-  {sentences.map(([name, ids]) => {
-    const result = storyLastWordOnly(ids);
-    return <div data-story-sentence={name}>
+{part === 'verdict' && <div class="story" data-story-last-word-only="verdict">
+  <div class="story__pair">
+    {sentences.map(([name, ids]) => <div data-story-sentence={name}>
       <p class="story__sentence">{ids.map(id => words[id]).join(' ')} ___</p>
-      <StoryVector values={result.lastVector} names={STORY_FEATURES[locale]} label={ko ? `보는 것: ${words[ids[ids.length - 1]]}` : `Sees: ${words[ids[ids.length - 1]]}`} name="last-word" />
-      {[STORY_ID.pastVerb, STORY_ID.futureVerb].map(id => <p class="story__eq" data-story-score={id}>{words[id]}: {line(result.lastVector, id)}</p>)}
-      <StoryBars locale={locale} probabilities={result.probabilities} label={ko ? '마지막 단어만 본 확률' : 'Probabilities from the last word alone'} name="last-word" />
-    </div>;
-  })}
-</div>
+      <p class="story__sees">{ko ? '기계가 보는 것' : 'The machine sees'}: <strong>{words[ids[ids.length - 1]]}</strong></p>
+      <StoryBars locale={locale} probabilities={storyLastWordOnly(ids).probabilities} label={ko ? '마지막 단어만 본 확률' : 'Probabilities from the last word alone'} name="last-word" />
+    </div>)}
+  </div>
+  <p class="story__verdict" data-story-verdict>{ko
+    ? `결과가 똑같습니다. 두 문장 모두 ‘${words[verbs[0]]}’와 ‘${words[verbs[1]]}’가 ${fmtPercent(result.probabilities[verbs[0]], 1)}입니다.`
+    : `The results are identical. In both sentences “${words[verbs[0]]}” and “${words[verbs[1]]}” get ${fmtPercent(result.probabilities[verbs[0]], 1)}.`}</p>
+</div>}
+{part === 'scores' && <div class="story" data-story-last-word-only="scores">
+  <StoryVector values={result.lastVector} names={features} label={ko ? `‘${lastWord}’ 벡터` : `“${lastWord}” vector`} name="last-word" />
+  {verbs.map(id => <p class="story__eq" data-story-score={id}>{words[id]}: {line(result.lastVector, id)}</p>)}
+</div>}

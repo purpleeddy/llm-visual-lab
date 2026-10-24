@@ -14,13 +14,13 @@ const probabilities = (page: Page, bars: string) =>
 for (const locale of ['ko', 'en'] as const) {
   const ko = locale === 'ko';
   test.describe(`${locale}: the next-word machine article`, () => {
-    test('nine chapters in four stages, each with a closed check', async ({ page }) => {
+    test('seven chapters in three stages, each with a closed check', async ({ page }) => {
       await page.goto(`${locale}/`);
       await expect(page.locator('main h1')).toHaveText(ko ? '눈으로 이해하는 LLM 원리' : 'LLM Principles, Visually Explained');
       expect(await page.locator('[data-section]').evaluateAll(els => els.map(e => (e as HTMLElement).dataset.section))).toEqual(IDS);
       const groups = page.locator('#doc-nav .toc__group');
       await expect(groups.locator('.toc__group-title')).toHaveText(GROUPS.map(g => g.title[locale]));
-      await expect(groups.locator('.toc__count')).toHaveText(ko ? ['2 단원', '3 단원', '2 단원', '2 단원'] : ['2 units', '3 units', '2 units', '2 units']);
+      await expect(groups.locator('.toc__count')).toHaveText(ko ? ['2 단원', '2 단원', '3 단원'] : ['2 units', '2 units', '3 units']);
       expect(await page.locator('#doc-nav [data-section-link]').evaluateAll(els => els.map(e => (e as HTMLElement).dataset.sectionLink))).toEqual(IDS);
       await expect(page.locator('#doc-nav [data-section-link] .toc__num')).toHaveText(IDS.map((_, i) => String(i + 1)));
       const checks = page.locator('[data-lesson-check]');
@@ -57,6 +57,21 @@ for (const locale of ['ko', 'en'] as const) {
       await expect(game).toHaveAttribute('data-story-ids', '1,2');
     });
 
+    test('results stay in the text, calculations wait in closed folds', async ({ page }) => {
+      await page.goto(`${locale}/`);
+      const folds = page.locator('main details.expand');
+      expect(await folds.evaluateAll(els => els.filter(e => (e as HTMLDetailsElement).open).length)).toBe(0);
+      // The tie is said in words next to its bars; the arithmetic behind it is folded.
+      await expect(page.locator('[data-story-verdict]')).toBeVisible();
+      await expect(page.locator('[data-story-verdict]')).toContainText('31.7%');
+      for (const calculation of ['[data-story-table="readout"]', '[data-story-score]', '[data-story-match]', '[data-story-table="untrained"]', '[data-story-gradient]']) {
+        await expect(page.locator(calculation).first(), calculation).toBeHidden();
+      }
+      for (const result of ['[data-story-bars="last-word"]', '[data-story-attention="flow"]', '[data-story-bars="after-attention"]', '[data-story-bars="after-learning"]']) {
+        await expect(page.locator(result).first(), result).toBeVisible();
+      }
+    });
+
     test('the numbers the prose relies on', async ({ page }) => {
       await page.goto(`${locale}/`);
       // Chapter 3: from the last word alone the two verbs tie, and both are marked.
@@ -77,13 +92,13 @@ for (const locale of ['ko', 'en'] as const) {
       await expect(after.nth(1).locator('li[data-top="true"]')).toHaveAttribute('data-word', '4');
       await expect(after.locator('li[data-top="true"] [data-story-probability]')).toHaveText(['88.1%', '88.1%']);
       await expect(page.locator('[data-story-gain]')).toHaveText([/31\.7%.*88\.1%/, /31\.7%.*88\.1%/]);
-      // Chapter 5: each position reads only itself and earlier words.
+      // Chapter 4, last part: each position reads only itself and earlier words.
       await expect(page.locator('[data-story-mask] [data-mask="hidden"]')).toHaveCount(3);
-      // Chapter 7: greedy, the temperature table and the loop that stops at the end marker.
+      // Chapter 5: greedy, the temperature table and the loop that stops at the end marker.
       await expect(page.locator('[data-story-expected]')).toHaveText([/88/, /5/, /2/]);
       await expect(page.locator('[data-temperature="1"] td')).toHaveText(['88.1%', '4.9%', '2.5%']);
       await expect(page.locator('[data-story-chosen]')).toHaveText(ko ? ['갔다', '끝'] : ['went', 'end']);
-      // Chapter 8: training pairs, then one step on the untrained score table.
+      // Chapter 6: training pairs, then one step on the untrained score table.
       await expect(page.locator('[data-story-pair-probability]')).toHaveText(['1.8%', '88.1%', '97.1%']);
       expect(await probabilities(page, 'before-learning')).toEqual(expect.arrayContaining(['37.9%']));
       await expect(page.locator('[data-story-bars="before-learning"] li[data-top="true"]')).toHaveCount(2);
@@ -108,21 +123,28 @@ for (const locale of ['ko', 'en'] as const) {
     });
 
     test('old anchors forward to the page that now holds them', async ({ page }) => {
-      for (const [id, doc] of [['problem', 'paper'], ['math-sum', 'lab'], ['numbers', 'walkthrough'], ['multi-head', 'walkthrough']]) {
+      for (const [id, doc] of [['problem', 'paper'], ['math-sum', 'lab'], ['numbers', 'walkthrough'], ['multi-head', 'walkthrough'], ['big-picture', 'walkthrough']]) {
         await page.goto(`${locale}/#${id}`);
         await page.waitForURL(new RegExp(`/${locale}/${doc}/#${id}$`));
         await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
       }
-      // Anchors the article still has stay on it.
-      await page.goto(`${locale}/#similarity`);
-      await expect(page).toHaveURL(new RegExp(`/${locale}/#similarity$`));
+      // Anchors the article still has stay on it, including the two former chapters it absorbed.
+      for (const id of ['similarity', 'positions', 'blocks']) {
+        await page.goto(`${locale}/#${id}`);
+        await expect(page).toHaveURL(new RegExp(`/${locale}/#${id}$`));
+        await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+      }
     });
 
     test('no figure is wider than the page, at 390px or at 280px with 200% text', async ({ page }) => {
       for (const [width, scale] of [[390, 1], [280, 2]]) {
         await page.setViewportSize({ width, height: 844 });
         await page.goto(`${locale}/`);
-        await page.evaluate(s => { document.documentElement.style.fontSize = `${s * 100}%`; }, scale);
+        await page.evaluate(s => {
+          document.documentElement.style.fontSize = `${s * 100}%`;
+          // The folded calculations have to fit as well.
+          for (const fold of document.querySelectorAll('main details')) (fold as HTMLDetailsElement).open = true;
+        }, scale);
         const scroll = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
         expect(scroll, `${width}px × ${scale}`).toBeLessThanOrEqual(1);
         // Tables may scroll inside their own region; nothing else may stick out of its figure.

@@ -10,6 +10,8 @@
 .story__pair > [data-story-sentence='past'] { border-inline-start-color: var(--data-q); }
 .story__pair > [data-story-sentence='future'] { border-inline-start-color: var(--data-v); }
 .story__sentence { font-weight: var(--fw-semi); margin-block: 0 0.5rem; }
+.prose .story .story__sees { margin-block: 0 0.25rem; color: var(--ink-2); }
+.prose .story .story__verdict { margin-block: 0.75rem 0; padding: 0.6rem 0.85rem; border-radius: var(--r-md); background: var(--accent-wash); color: var(--ink-strong); font-weight: var(--fw-semi); }
 @media (max-width: 40rem) { .story__pair { grid-template-columns: minmax(0, 1fr); } }
 
 /* A vector: one cell per named slot. */

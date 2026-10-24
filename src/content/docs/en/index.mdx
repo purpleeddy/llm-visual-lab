@@ -33,7 +33,7 @@ Changing only the first word moves the favourite from “went” to “will”. 
 
 Appending the favourite makes the text one word longer, and the machine computes again from the longer text. After “Yesterday I went” the end marker is largest, so it stops there. When an LLM writes a long answer, it is running this loop hundreds or thousands of times.
 
-This article builds that machine from scratch: words become numbers (chapter 2), the last position learns to read earlier words (chapters 3–5), blocks are stacked (chapter 6), probabilities become a sentence (chapter 7), and learning sets the numbers (chapter 8).
+This article builds that machine from scratch: words become numbers (chapter 2), the last position learns to read earlier words (chapters 3–4), probabilities become a sentence (chapter 5), learning sets the numbers (chapter 6), and we compare it with a real LLM (chapter 7). Where you might wonder about the calculation, a closed “Check the numbers” is waiting. The story carries on without opening it.
 
 <Expand id="math-conditional" summary="How is “the next word’s probability” written in symbols?">
 
@@ -53,16 +53,15 @@ There are tens or hundreds of thousands of candidates rather than six, and the u
 
 A machine cannot compute with letters. It can only multiply and add numbers, so the first step is to give every word some numbers.
 
-The simplest way is to number the words (an ID). But a number alone is not enough: “Yesterday” being 0 and “Tomorrow” being 1 says nothing about both being about time.
-So the ID is used to look up <strong>a row holding several numbers</strong> in a table. That row is a <strong>vector</strong>, and each place in it a <strong>slot</strong>. The table of vectors is called the embedding table.
-
-This article’s machine uses four slots, named past, future, person and verb. A word gets a 1 in each slot whose property it has.
+Every word gets a number (an ID) and four values. The four places are named past, future, person and verb, and a word gets a 1 in each place whose property it has. A row of numbers like this is a <strong>vector</strong>, and each place in it a <strong>slot</strong>.
 
 <WordTable locale="en" />
 
-Now words can be compared as numbers. “went” (1, 0, 0, 1) and “will” (0, 1, 0, 1) share the verb slot and differ only in past and future. To tell them apart, the machine has to look at the time slots. That is where the next chapter starts.
+Now words can be compared as numbers. “went” and “will” both have a 1 in the verb slot and differ only in past and future. To tell them apart, the machine has to look at the time slots. That is where the next chapter starts.
 
-<Expand id="math-shape" summary="What is the number of slots called?">
+<Expand id="math-shape" summary="Check the numbers: what are the ID and the number of slots?">
+
+The ID is the word’s number. The machine uses it to find that word’s row in the table, which is called the embedding table. The number alone is not used because “Yesterday” being 0 and “Tomorrow” being 1 says nothing about both being about time.
 
 The number of slots is the dimension. This machine’s vectors are four-dimensional. Stacking the vectors of two words gives a 2 × 4 table: 2 is the number of words, 4 the number of slots.
 
@@ -80,20 +79,28 @@ This article’s slot names and values were designed to be readable. A real mode
 
 Time to build a first machine that chooses the next word. The simplest idea is to <strong>look only at the last word</strong>.
 
-For that, every candidate needs a rule saying which slots make it a good next word. Those rules, written into one table, are the <strong>next-word score table</strong>.
-For example, the “went” column gives +2 to the past slot and −2 to the future slot: after talk of the past “went” fits, after talk of the future it does not. The −3 in the verb slot says another verb rarely follows a verb directly.
+The machine reads the last word’s vector and gives every candidate a score. A 1 in the past slot raises the score of “went”, a 1 in the future slot raises the score of “will”, and so on. The table holding these rules we will call the <strong>next-word score table</strong>. The higher the score, the higher the probability.
 
-<ScoreTable locale="en" />
+Give it the two sentences.
+
+<LastWordOnly locale="en" part="verdict" />
+
+“Yesterday” and “Tomorrow” sit at the start of the sentence, but this machine only sees the last word, “I”. “I” carries no time information, so nothing separates “went” from “will”.
+<strong>The last position needs a way to take information from earlier words</strong>. That is the next chapter’s attention.
 
 <span id="similarity" class="lesson-anchor" aria-hidden="true"></span>
 
-A score comes from <strong>multiplying matching slots and adding everything up</strong>. Only the slots that hold a value in the vector bring the table’s numbers into play. This calculation is the <strong>dot product</strong>.
+<Expand id="math-softmax" summary="Check the numbers: how are the scores and probabilities computed?">
 
-Scores can be negative and add up to anything, so they cannot serve as probabilities directly. <strong>Softmax</strong> converts them: it makes every score positive with the exponential function, then divides by the total. The order of the scores is kept, and the results add up to 1.
+The score table says, for every candidate, how much each slot adds to its score. A positive number raises the score when the slot is present; a negative one lowers it. The “went” column, for example, gives +2 to the past slot and −2 to the future slot.
 
-<Expand id="math-softmax" summary="How does softmax work on these numbers?">
+<ScoreTable locale="en" />
 
-Looking only at “I”, the scores are Yesterday 0, Tomorrow 0, I −2, went 1, will 1, end 0. Since e<sup>1</sup> ≈ 2.718, e<sup>0</sup> = 1 and e<sup>−2</sup> ≈ 0.135, the total is about 8.57 and the probability of “went” is 2.718 ÷ 8.57 ≈ 0.317.
+A score is the vector and the table’s column multiplied slot by slot and added up. This calculation is the <strong>dot product</strong>. The vector of “I” has a 1 only in the person slot, so the person row of the table becomes the scores.
+
+<LastWordOnly locale="en" part="scores" />
+
+<strong>Softmax</strong> turns scores into probabilities. It raises e to each score, which makes every value positive, then divides by the total. Looking only at “I”, the scores are Yesterday 0, Tomorrow 0, I −2, went 1, will 1, end 0. Since e<sup>1</sup> ≈ 2.718, e<sup>0</sup> = 1 and e<sup>−2</sup> ≈ 0.135, the total is about 8.57 and the probability of “went” is 2.718 ÷ 8.57 ≈ 0.317.
 
 $$
 \mathrm{softmax}(s)_i = \frac{e^{s_i}}{\sum_j e^{s_j}}
@@ -101,15 +108,8 @@ $$
 
 </Expand>
 
-Now give this machine the two sentences.
-
-<LastWordOnly locale="en" />
-
-The results are identical. All the machine sees is the last word, “I”, whose time slots are empty, so “went” and “will” get the same score.
-What makes the difference, “Yesterday” or “Tomorrow”, sits in the earlier word. <strong>The last position needs a way to take information from earlier words</strong>.
-
 <Note variant="limit" title="In a real LLM">
-The score table is learned too, not written by a person (chapter 8). Its candidates are the whole vocabulary, so it has thousands of rows and tens of thousands of columns or more.
+The score table is learned too, not written by a person (chapter 6). Its candidates are the whole vocabulary, so it has thousands of rows and tens of thousands of columns or more.
 </Note>
 
 <MoreLinks locale="en" walk="attention" lab={['numbers', 'proportion']} />
@@ -118,119 +118,68 @@ The score table is learned too, not written by a person (chapter 8). Its candida
 
 <Section id="attention" locale="en">
 
-What should the position of “I” take from the earlier word? The next word is a verb, and the verb’s form depends on <strong>time</strong>. So this position has to find time information and bring it in.
+What should the position of “I” take from the earlier word? The next word is a verb such as “went” or “will”, and which one fits depends on <strong>time</strong>. So this position has to find time information in the earlier words and bring it in.
 
 Attention does this the way you might look for a book in a library.
 
-- The current position holds a <strong>question</strong> (Query, Q). At “I”, the question is “I need time information”.
-- Every earlier word carries a <strong>label</strong> (Key, K). The label of “Yesterday” says “I have time information”; the label of “I” says “I have person information”.
-- The position takes more <strong>content</strong> (Value, V) from words whose labels match its question.
+- The current position holds a <strong>question</strong>. At “I”, the question is “I need time information”.
+- Every earlier word carries a <strong>label</strong>. The label of “Yesterday” says “I have time information”; the label of “I” says “I have person information”.
+- The position takes more <strong>content</strong> from words whose labels match its question.
 
 <StoryAttention locale="en" part="flow" />
 
-Let us compute where the 89.3% in the picture comes from, step by step.
-
-### Questions and labels as numbers
-
-Questions and labels are vectors too, with two slots: time and person. They are made by multiplying a word’s vector by coefficients. In this example the coefficients are rules such as “a person word’s position asks for time with strength 3” and “the past and future slots become a time label”.
-
-<StoryAttention locale="en" part="qk" />
-
-### Match scores: multiply matching slots and add
-
-How well a question matches a label is measured the same way as the scores in chapter 3: with the dot product. When the label has a value in the slot the question asks for, the score grows.
-
-<StoryAttention locale="en" part="scores" />
-
-### Shares: scores into proportions that add up to 1
-
-Softmax turns the match scores into shares that add up to 1. First, though, they are divided by the square root of the number of slots (2). The more slots there are, the larger a sum of products tends to be, and the division keeps the shares from swinging too far to one side.
-
-<StoryAttention locale="en" part="shares" />
-
-### Taking: add the content in proportion to the shares
-
-Now multiply each word’s content by its share and add. In this example a word’s content is simply its own vector. The past slot of “Yesterday” comes in at 89.3%.
-
-<StoryAttention locale="en" part="take" />
-
-### Adding to the original values
-
-Keeping only what was taken would shrink the position’s own person information to 0.107. So the taken values are added to the original vector. The new values hold both the person and the past.
-
-<StoryAttention locale="en" part="add" />
-
-### Back to the next-word score table
-
-Put the new values into the score table from chapter 3. This time the time slot is filled, and the result changes.
+It takes 89.3% from “Yesterday”, whose label matches the question, and 10.7% from itself. The past information taken this way is added to the original values, and the result goes back into chapter 3’s score table.
 
 <StoryAttention locale="en" part="result" />
 
-Not a single coefficient changed. The only difference is what the position of “I” took from the earlier word, and that alone puts “went” first after “Yesterday” and “will” first after “Tomorrow”.
-This exchange of information between words of the same text is called <strong>self-attention</strong>.
+The score table did not change at all. The only difference is what the position of “I” took from the earlier word, and that alone puts “went” first after “Yesterday” and “will” first after “Tomorrow”.
+This exchange of information between words of the same text is <strong>attention</strong>. Question, label and content are Query, Key and Value, written Q, K and V.
 
-<Expand id="math-attention" summary="How is this written as one formula?">
+<Expand id="math-attention" summary="Check the numbers: where does 89.3% come from?">
+
+<strong>Questions and labels as numbers.</strong> Questions and labels are vectors too, with two slots: time and person. They are made by multiplying a word’s vector by coefficients. In this example the coefficients are rules such as “a person word’s position asks for time with strength 3” and “the past and future slots become a time label”.
+
+<StoryAttention locale="en" part="qk" />
+
+<strong>Match scores.</strong> How well a question matches a label is measured by multiplying matching slots and adding (the dot product).
+
+<StoryAttention locale="en" part="scores" />
+
+<strong>Shares.</strong> The match scores are divided by the square root of the number of slots (2), then softmax turns them into shares that add up to 1. The division is there because more slots tend to give larger sums, which would push the shares too far to one side.
+
+<StoryAttention locale="en" part="shares" />
+
+<strong>Taking.</strong> Each word’s content is multiplied by its share and added. In this example a word’s content is simply its own vector.
+
+<StoryAttention locale="en" part="take" />
+
+<strong>Adding to the original values.</strong> Keeping only what was taken would shrink the position’s own person information to 0.107, so the taken values are added to the original vector. The new values hold both the person and the past, and they are what goes into the score table.
+
+<StoryAttention locale="en" part="add" />
+
+<strong>As one formula.</strong> With the coefficients that make questions, labels and content written W<sub>Q</sub>, W<sub>K</sub> and W<sub>V</sub>, and the number of slots written d<sub>k</sub>:
 
 $$
 \mathrm{Attention}(Q, K, V) = \mathrm{softmax}\!\left(\frac{QK^\top}{\sqrt{d_k}}\right)V
 $$
 
-At the position of “I”, QKᵀ is (3, 0), d<sub>k</sub> = 2, the shares are (0.893, 0.107) and multiplying by the content V gives (0.893, 0, 0.107, 0). The coefficients that make questions, labels and content are written W<sub>Q</sub>, W<sub>K</sub> and W<sub>V</sub>.
-
 </Expand>
 
-<Note variant="limit" title="In a real LLM">
-The coefficients for questions, labels and content are learned too, and they are not rules a person can read. Shares are computed from the current input and change when it changes; a large share alone does not show that a word caused the prediction.
-</Note>
+<span id="positions" class="lesson-anchor" aria-hidden="true"></span>
 
-<MoreLinks locale="en" walk="attention" lab="attention" paper="attention" />
+### Only earlier words are read
 
-</Section>
-
-<Section id="positions" locale="en">
-
-So far the position of “I” has read the earlier “Yesterday”. Can it also read words that come after it?
-
-While writing, the later words do not exist yet. During learning (chapter 8) a finished sentence goes in all at once, and reading ahead would mean seeing the very answer it has to guess. So every position is masked to read <strong>only itself and earlier words</strong>. This is the <strong>causal mask</strong>.
+The position of “I” does not read words that come after it. While writing, those words do not exist yet, and during learning (chapter 6) reading ahead would mean seeing the very answer it has to guess. So every position is masked to read only itself and earlier words. This is the <strong>causal mask</strong>.
 
 <MaskTable locale="en" />
 
-Masking means turning the match score of that cell into −∞. Since e<sup>−∞</sup> = 0 in softmax, a masked word gets a share of exactly 0, and the remaining shares still add up to 1.
-
-There is one more gap. Attention sets its shares from questions and labels alone, so <strong>it does not know where a word stands</strong>. In “Yesterday at home I” and “At home yesterday I”, the position of “I” would take the same shares.
-Yet word order often changes the meaning, as in “the dog bit the man” and “the man bit the dog”.
-
-So real models add <strong>position information</strong> to the word vectors: different numbers for different places, so that the same word in a different place becomes a different vector. This article’s short example cannot mix up its order, so it leaves position information out.
+Attention also does not know where a word stands. So real models add different numbers for different places to the word vectors, called <strong>position information</strong>, to tell them the order. This article’s short example cannot mix up its order, so it leaves position information out.
 
 <Note variant="limit" title="In a real LLM">
-Models add position information in different ways. The original Transformer paper added values made from sine and cosine; more recent models, among other methods, rotate questions and labels according to their position.
+The coefficients for questions, labels and content are learned too, and they are not rules a person can read. Shares are computed from the current input and change when it changes; a large share alone does not show that a word caused the prediction. Position information is added as sine and cosine values in the original Transformer paper, while recent models rotate questions and labels according to their position, among other methods.
 </Note>
 
-<MoreLinks locale="en" walk="positions" lab="positions" paper="positions" />
-
-</Section>
-
-<Section id="blocks" locale="en">
-
-The machine so far reads the earlier words once, with one question, and immediately picks the next word. That was enough for the short example but not for real text. What is missing?
-
-<strong>There is only one question.</strong> The position of “I” looked only for time. But who went, or where to, may matter as well. Real models keep several sets of questions, labels and content and compute them at the same time. Each set is a <strong>head</strong>, and using several of them is <strong>multi-head attention</strong>. What each head takes is joined side by side and mixed again with one coefficient table.
-
-<strong>Slots are never combined.</strong> Attention brings information over from other words; it never combines the slots within one word. Creating a new property such as “past and also a person” needs a small neural network that works on each word separately: the <strong>FFN</strong> (feed-forward network). It widens the slots, then narrows them again, and in between it sets negative values to zero, which lets it build combinations that “switch on only when both properties are present”.
-
-<strong>The original information has to be kept.</strong> Just as chapter 4 added the taken values to the original vector, every step’s result is added to its input. This is the <strong>residual connection</strong>. The first information survives many steps, and learning stays stable.
-
-<strong>Numbers have to stay in range.</strong> Repeated additions make numbers grow or drift to one side. <strong>Layer normalization</strong> prevents this by evening out the mean and spread of each word’s slot values.
-
-These parts together form a <strong>block</strong>, and real models stack dozens of blocks. A higher block reads values a lower block has already mixed, so it can handle relations that a single look could not reach.
-
-<BlockStack locale="en" />
-
-<Note variant="limit" title="In a real LLM">
-The numbers of blocks, heads and slots differ from model to model. So does whether normalization comes before or after each step; recent models mostly place it before.
-</Note>
-
-<MoreLinks locale="en" walk={['multi-head', 'blocks']} lab={['multi-head', 'blocks']} paper="multi-head" />
+<MoreLinks locale="en" walk={['attention', 'positions']} lab="attention" paper="attention" />
 
 </Section>
 
@@ -242,13 +191,13 @@ The simplest rule is <strong>greedy</strong>: always take the favourite. The res
 
 <GenerationSteps locale="en" part="choose" />
 
-How boldly to draw is set by the <strong>temperature</strong>. Divide the scores by the temperature before softmax: a low temperature concentrates the probability on the favourite, a high one spreads it out.
+How boldly to draw is set by the <strong>temperature</strong>. A low temperature concentrates the probability on the favourite; a high one spreads it out.
 
 <GenerationSteps locale="en" part="temperature" />
 
-<Expand id="math-temperature" summary="Why does dividing by the temperature concentrate or spread the probabilities?">
+<Expand id="math-temperature" summary="Check the numbers: where does the temperature enter the calculation?">
 
-At temperature T a probability is e<sup>s/T</sup> divided by the sum of all such terms. Below 1, T widens the gaps between scores and the favourite grows; above 1 it narrows them and the probabilities even out. At T = 1 they are the original probabilities.
+The scores are divided by the temperature T before softmax, so a probability becomes e<sup>s/T</sup> divided by the sum of all such terms. Below 1, T widens the gaps between scores and the favourite grows; above 1 it narrows them and the probabilities even out. At T = 1 they are the original probabilities.
 
 </Expand>
 
@@ -268,31 +217,34 @@ To avoid recomputing everything each time, the labels and content of earlier wor
 
 So far the score table and the coefficients were written by a person who thought up the rules. A real LLM has billions of coefficients, far too many to write by hand. They are set by <strong>learning</strong>.
 
-The material for learning is plain text. Even the single sentence “Yesterday I went” yields three questions: take the beginning as input and the very next word as the answer. Thanks to the mask from chapter 5, all three are answered in one calculation.
+The material for learning is plain text. Even the single sentence “Yesterday I went” yields three questions: take the beginning as input and the very next word as the answer. Thanks to chapter 4’s mask, all three are answered in one calculation.
 
 <LearningViews locale="en" part="pairs" />
 
-How wrong the machine is gets measured by the <strong>loss</strong>. If p is the probability given to the answer, the loss is −ln p: 0 when the answer gets 100%, larger as p gets smaller.
-On the first question the machine gave “I” after “Yesterday” only 1.8%, so the loss is as large as 4.04. Learning nudges the coefficients to lower losses like this.
+The table’s <strong>loss</strong> says how wrong the machine is: close to 0 when the answer gets a high probability, larger as that probability gets smaller. On the first question the machine gave “I” after “Yesterday” only 1.8%, so the loss is as large as 4.04. Learning nudges the coefficients so that losses like this go down.
 
-Which way should they be nudged? Let us try it on a machine that has not learned yet. Its score table ignores the time slots, so it cannot tell “went” from “will”.
+Let us try it. A machine that has not learned yet ignores the time slots, so after “Yesterday I” it cannot tell “went” from “will”. The answer is “went”, so the (past, went) entry of the score table is changed once to raise its probability.
 
-<LearningViews locale="en" part="before" />
+<LearningViews locale="en" part="compare" />
 
-How much the loss changes when a coefficient changes a little is the <strong>gradient</strong>. The gradient for the (past, went) coefficient is negative, so making that coefficient larger lowers the loss. One step is taken in the direction opposite the gradient.
+One step is enough to raise the probability of “went” from 37.9% to 50.0%. Repeating it over a great many sentences settles rules such as “after the past comes went” into the numbers. The values a person wrote into this article’s score table as rules are what a real model finds by itself this way.
 
-<LearningViews locale="en" part="step" />
+<Expand id="math-gradient" summary="Check the numbers: which way, and by how much?">
 
-One step is enough to raise the probability of “went”. Repeating it over a great many sentences settles rules such as “after the past comes went” into the numbers. The +2 that a person wrote into the score table in chapter 3 is the kind of value a real model finds by itself this way.
+If p is the probability given to the answer, the loss is −ln p. How much the loss changes when a coefficient changes a little is the <strong>gradient</strong>, and one step is taken in the direction opposite the gradient. The gradient for the (past, went) coefficient is negative, so making that coefficient larger lowers the loss.
 
-<Expand id="math-gradient" summary="Where does the gradient formula come from?">
+This is the score table before learning: the past and future slots of the “went” and “will” columns are all 0.
+
+<LearningViews locale="en" part="table" />
+
+<LearningViews locale="en" part="gradient" />
 
 Differentiating the loss −ln p with respect to each candidate’s score gives (that candidate’s probability − 1 if it is the answer, else 0). The score of “went” multiplies each slot of the new values by the “went” column and adds, so the gradient for the (past, went) coefficient is the past slot value × (the probability of “went” − 1).
 
 </Expand>
 
 <Note variant="limit" title="In a real LLM">
-Every coefficient is updated together, not only the score table: questions, labels, content and the FFN as well. Passing the gradient back from the last layer to the first is called backpropagation. This repeats over trillions of tokens.
+Every coefficient is updated together, not only the score table: questions, labels and content as well. Passing the gradient back from the last layer to the first is called backpropagation. This repeats over trillions of tokens.
 </Note>
 
 <MoreLinks locale="en" walk="training" lab="training" paper="training" />
@@ -303,12 +255,23 @@ Every coefficient is updated together, not only the score table: questions, labe
 
 This article’s machine and a real LLM choose the next word on the same principle. They differ in size, and in who set the numbers.
 
+<span id="blocks" class="lesson-anchor" aria-hidden="true"></span>
+
+A real model uses this machine’s parts at a larger size and in many layers. In the picture below, the blue boxes are the parts this article’s machine also has.
+
+<BlockStack locale="en" />
+
+- It keeps <strong>several questions</strong>. The position of “I” only looked for time, but real text also needs who, where and more. One set of question, label and content is called a head.
+- A <strong>per-word computation</strong> (the FFN) combines slots into new properties. Attention brings information over from other words, but it never combines the slots within one word.
+- As in chapter 4, results are <strong>added to the original values</strong>, and the numbers are <strong>kept in range</strong> so that repeated additions do not let them grow out of hand.
+- This bundle is a <strong>block</strong>, and it is <strong>stacked dozens of times</strong>. A higher block reads values a lower block has already mixed, so it can handle more complex relations.
+
 | | This article’s machine | A real LLM |
 | --- | --- | --- |
 | Candidates | 6 words | tens to hundreds of thousands of tokens |
 | Vector slots | 4, named by a person | thousands, learned and rarely nameable |
 | Attention | 1 question | dozens of heads per block |
-| Blocks | 1, without FFN or normalization | dozens |
+| Blocks | 1, without FFN or range keeping | dozens |
 | Coefficients | dozens, written as rules by a person | billions or more, learned |
 | Training data | 1 sentence | trillions of tokens |
 
@@ -318,6 +281,6 @@ One last point to keep in mind. The probabilities an LLM gives are close to <str
 
 This machine’s design comes from the Transformer in the 2017 paper *Attention Is All You Need*. That paper built a translator, so it has a part that reads the source (the encoder) and a part that writes the translation (the decoder). Most of today’s LLMs are greatly enlarged versions of the writing part.
 
-<MoreLinks locale="en" walk="results" paper={['big-picture', 'results']} />
+<MoreLinks locale="en" walk={['blocks', 'results']} lab="blocks" paper={['big-picture', 'results']} />
 
 </Section>
